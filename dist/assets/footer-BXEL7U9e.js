@@ -1,0 +1,1 @@
+import{_ as t,c as a,o as r,a as o,t as s}from"./index-SqYT3ASO.js";const c={data(){return{currentYear:new Date().getFullYear()}}},n={class:"footer"};function _(l,p,f,i,e,d){return r(),a("footer",n,[o("p",null,"© "+s(e.currentYear)+" Samis. All Rights Reserved.",1)])}const m=t(c,[["render",_],["__scopeId","data-v-a81a4aea"]]);export{m as f};
