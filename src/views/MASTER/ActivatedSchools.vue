@@ -5,7 +5,17 @@
       <div class="header-container1">
         <h2>Activated Schools</h2>
       </div>
-      <input v-model="searchQuery" placeholder="Search by name or code" class="search-input" />
+    <div class="search-actions">
+      <input
+        v-model="searchQuery"
+        placeholder="Search by name or code"
+        class="search-input"
+      />
+      <button class="action-btn" @click="exportToExcel">
+        <span class="material-symbols-outlined">download</span>
+        Export to Excel
+      </button>
+    </div>
     </div>
 
     <!-- Students Table -->
@@ -141,41 +151,92 @@ export default {
       },
     };
   },
+  watch: {
+    // Reset pagination when the search changes so results start from page 1
+    searchQuery() {
+      this.currentPage = 1;
+    },
+  },
   computed: {
-  // Calculate the total number of pages
-  totalPages() {
-    return Math.ceil(this.filteredSchools.length / this.schoolsPerPage);
+    // Group activations by school so multiple modules share one row
+    // Calculate the total number of pages
+    totalPages() {
+      return Math.ceil(this.filteredSchools.length / this.schoolsPerPage);
+    },
+
+    // Filter individual activations (no grouping so each module stays separate)
+    filteredSchools() {
+      const query = this.searchQuery.trim().toLowerCase();
+      return this.schools.filter(school => {
+        if (!query) return true;
+        const nameMatch = (school.schoolName || '').toString().toLowerCase().includes(query);
+
+        // For school codes, prefer exact match when the query is numeric to avoid partial matches (e.g., 1234 matching 123456)
+        const normalizedCode = (school.schoolCode || '').toString().replace(/\s+/g, '').toLowerCase();
+        const normalizedQuery = query.replace(/\s+/g, '');
+        const queryIsNumeric = /^\d+$/.test(normalizedQuery);
+
+        const codeMatch = queryIsNumeric
+          ? normalizedCode === normalizedQuery
+          : normalizedCode.includes(normalizedQuery);
+
+        return nameMatch || codeMatch;
+      });
+    },
+
+    // Paginate the filtered schools list
+    paginatedSchools() {
+      const start = (this.currentPage - 1) * this.schoolsPerPage;
+      const end = start + this.schoolsPerPage;
+      return this.filteredSchools.slice(start, end);
+    }
   },
-
-  // Filter the schools based on activation status (activated or expired)
-  filteredSchools() {
-    const currentDate = new Date();
-    return this.schools.filter(school => {
-      const expiryDate = new Date(school.expiryDate);
-
-      // Only include schools that are either not expired or are activated
-      const isNotExpired = expiryDate >= currentDate; // Can also include 'activated' status here
-      return (
-        isNotExpired &&
-        (school.schoolName.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
-        school.schoolCode.toLowerCase().includes(this.searchQuery.toLowerCase()))
-      );
-    });
-  },
-
-  // Paginate the filtered schools list
-  paginatedSchools() {
-    const start = (this.currentPage - 1) * this.schoolsPerPage;
-    const end = start + this.schoolsPerPage;
-    return this.filteredSchools.slice(start, end);
-  }
-},
 
   
   methods: {
     viewSchool(school) {
       this.selectedSchool = school;
       this.show = true;
+    },
+    exportToExcel() {
+      // Export currently filtered rows (ignores pagination) as CSV
+      const headers = [
+        'School Name',
+        'School Code',
+        'Module Name',
+        'Installation Date',
+        'Expiry Date',
+        'Registered By',
+        'Selling Price',
+        'Maintenance Fee',
+      ];
+      const rows = this.filteredSchools.map(school => ([
+        school.schoolName,
+        school.schoolCode,
+        school.moduleName,
+        school.installationDate,
+        school.expiryDate,
+        school.registeredByName,
+        school.sellingPrice,
+        school.maintenanceFee,
+      ]));
+
+      const csvContent = [headers, ...rows]
+        .map(row => row.map(item => {
+          const value = item ?? '';
+          const str = value.toString().replace(/"/g, '""');
+          return `"${str}"`;
+        }).join(','))
+        .join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+      link.download = `activated-schools-${timestamp}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
     },
     openForm() {
       this.show = true;
@@ -205,28 +266,26 @@ export default {
     const response = await axios.post('/api/activations/list', {});
     console.log("API Response:", response.data); // Log the response
 
-    if (Array.isArray(response.data)) {
-      this.schools = response.data.map(school => ({
-        activationID: school.activationID || 'N/A',
-        schoolName: school.schoolName || 'N/A',
-        schoolCode: school.schoolCode || 'N/A',
-        moduleName: school.moduleName || 'N/A',
-        installationDate: school.installationDate || 'N/A',
-        expiryDate: school.expiryDate || 'N/A',
-        registeredByName: school.registeredByName || 'N/A',
-        marketerName: school.marketerName || 'N/A',
-        sellingPrice: school.sellingPrice || 0,
-        maintenanceFee: school.maintenanceFee || 0,
-        lastLogin: school.lastLogin || 'N/A',
-        students: school.students || 'N/A',
-        receipts: school.receipts || 'N/A',
-        vouchers: school.vouchers || 'N/A',
-      }));
-      console.log("Schools Data:", this.schools);  // Log to check if data is populated
-    } else {
-      console.error("Unexpected response format:", response.data);
-      toast.error("Unexpected API response format.");
-    }
+    const payload = Array.isArray(response.data) ? response.data : [response.data];
+
+    this.schools = payload.map(school => ({
+      activationID: school.activationID || 'N/A',
+      schoolName: school.schoolName || 'N/A',
+      schoolCode: (school.schoolCode || 'N/A').toString().trim(),
+      moduleName: school.moduleName || 'N/A',
+      installationDate: school.installationDate || 'N/A',
+      expiryDate: school.expiryDate || 'N/A',
+      registeredByName: school.registeredByName || 'N/A',
+      marketerName: school.marketerName || 'N/A',
+      sellingPrice: school.sellingPrice || 0,
+      maintenanceFee: school.maintenanceFee || 0,
+      lastLogin: school.lastLogin || 'N/A',
+      students: school.students || 'N/A',
+      receipts: school.receipts || 'N/A',
+      vouchers: school.vouchers || 'N/A',
+    }));
+
+    console.log("Schools Data:", this.schools);  // Log to check if data is populated
   } catch (error) {
     console.error("Error fetching schools:", error);
     toast.error("Failed to fetch schools.");
@@ -415,6 +474,12 @@ export default {
     align-items: center;
     margin-bottom: 1rem;
   }
+
+.search-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
   
   .search-input {
     padding: 0.3rem;

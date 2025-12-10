@@ -20,11 +20,26 @@ const router = createRouter({
       component: () => import('../views/MASTER/FinanceModule.vue'),
       meta: { requiresAuth: true }, 
     },
+    {
+      path: '/InvoicesSchool',
+      component: () => import('../views/MASTER/InvoicesSchool.vue'),
+      meta: { requiresAuth: true }, 
+    },
+    {
+      path: '/Employees',
+      component: () => import('../views/MASTER/EmployeesOverview.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/MessagesToSchools',
+      component: () => import('../views/MASTER/MessagesToSchools.vue'),
+      meta: { requiresAuth: true },
+    },
 
     {
       path: '/allSchools',
       component: () => import('../views/MASTER/AllSchools.vue'),
-      meta: { requiresAuth: true }, 
+      meta: { requiresAuth: true },
     },
 
     {

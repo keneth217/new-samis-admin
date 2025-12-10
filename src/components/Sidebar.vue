@@ -62,6 +62,58 @@
 </RouterLink>
 
 
+<RouterLink
+  to="/InvoicesSchool"
+  :class="[
+    'side-btn',
+    {
+      active:
+        isLinkActive('/InvoicesSchool') ||
+        isChildLinkActive(['/InvoicesSchool']),
+    },
+  ]"
+  @click="closeDropdowns"
+>
+  <span class="material-symbols-outlined">receipt_long</span>
+  <span class="link-container">INVOICES & SCHOOL</span>
+  <span class="tooltip">INVOICES & SCHOOL</span>
+</RouterLink>
+
+<RouterLink
+  to="/Employees"
+  :class="[
+    'side-btn',
+    {
+      active:
+        isLinkActive('/Employees') ||
+        isChildLinkActive(['/Employees']),
+    },
+  ]"
+  @click="closeDropdowns"
+>
+  <span class="material-symbols-outlined">groups</span>
+  <span class="link-container">EMPLOYEES</span>
+  <span class="tooltip">EMPLOYEES</span>
+</RouterLink>
+
+<RouterLink
+  to="/MessagesToSchools"
+  :class="[
+    'side-btn',
+    {
+      active:
+        isLinkActive('/MessagesToSchools') ||
+        isChildLinkActive(['/MessagesToSchools']),
+    },
+  ]"
+  @click="closeDropdowns"
+>
+  <span class="material-symbols-outlined">mail</span>
+  <span class="link-container">MESSAGES</span>
+  <span class="tooltip">MESSAGES</span>
+</RouterLink>
+
+
         <RouterLink
           to="/allSchools"
           :class="[
