@@ -4,7 +4,8 @@
     <Navbar :isSidebarOpen="isSidebarOpen" @toggleSidebar="toggleSidebar" />
     <div class="sidebar" :class="{ open: isSidebarOpen, collapsed: !isSidebarOpen }">
       <div class="menu-items">
-        <!-- Master butons -->
+        <!-- Master buttons -->
+        <!-- Overview -->
         <RouterLink
           to="/"
           :class="[
@@ -24,96 +25,43 @@
           <span class="tooltip">DASHBOARD</span>
         </RouterLink>
 
-
-
+        <!-- Configuration Section -->
         <RouterLink
-  to="/RegisterUser"
-  :class="[
-    'side-btn',
-    {
-      active:
-        isLinkActive('/RegisterUser') ||
-        isChildLinkActive(['/RegisterUser']),
-    },
-  ]"
-  @click="closeDropdowns"
->
-  <span class="material-symbols-outlined">person_add</span>
-  <span class="link-container">REGISTER USER</span>
-  <span class="tooltip">REGISTER USER</span>
-</RouterLink>
+          to="/FinanceModule"
+          :class="[
+            'side-btn',
+            {
+              active:
+                isLinkActive('/FinanceModule') ||
+                isChildLinkActive(['/FinanceModule']),
+            },
+          ]"
+          @click="closeDropdowns"
+        >
+          <span class="material-symbols-outlined">account_balance</span>
+          <span class="link-container">MODULE</span>
+          <span class="tooltip">MODULE</span>
+        </RouterLink>
 
-<RouterLink
-  
-  to="/FinanceModule"
-  :class="[
-    'side-btn',
-    {
-      active:
-        isLinkActive('/FinanceModule') ||
-        isChildLinkActive(['/FinanceModule']),
-    },
-  ]"
-  @click="closeDropdowns"
->
-<span class="material-symbols-outlined">account_balance</span>
-<span class="link-container">MODULE</span>
-  <span class="tooltip">MODULE</span>
-</RouterLink>
+        <!-- User Management Section -->
+        <RouterLink
+          to="/RegisterUser"
+          :class="[
+            'side-btn',
+            {
+              active:
+                isLinkActive('/RegisterUser') ||
+                isChildLinkActive(['/RegisterUser']),
+            },
+          ]"
+          @click="closeDropdowns"
+        >
+          <span class="material-symbols-outlined">person_add</span>
+          <span class="link-container">REGISTER USER</span>
+          <span class="tooltip">REGISTER USER</span>
+        </RouterLink>
 
-
-<RouterLink
-  to="/InvoicesSchool"
-  :class="[
-    'side-btn',
-    {
-      active:
-        isLinkActive('/InvoicesSchool') ||
-        isChildLinkActive(['/InvoicesSchool']),
-    },
-  ]"
-  @click="closeDropdowns"
->
-  <span class="material-symbols-outlined">receipt_long</span>
-  <span class="link-container">INVOICES & SCHOOL</span>
-  <span class="tooltip">INVOICES & SCHOOL</span>
-</RouterLink>
-
-<RouterLink
-  to="/Employees"
-  :class="[
-    'side-btn',
-    {
-      active:
-        isLinkActive('/Employees') ||
-        isChildLinkActive(['/Employees']),
-    },
-  ]"
-  @click="closeDropdowns"
->
-  <span class="material-symbols-outlined">groups</span>
-  <span class="link-container">EMPLOYEES</span>
-  <span class="tooltip">EMPLOYEES</span>
-</RouterLink>
-
-<RouterLink
-  to="/MessagesToSchools"
-  :class="[
-    'side-btn',
-    {
-      active:
-        isLinkActive('/MessagesToSchools') ||
-        isChildLinkActive(['/MessagesToSchools']),
-    },
-  ]"
-  @click="closeDropdowns"
->
-  <span class="material-symbols-outlined">mail</span>
-  <span class="link-container">MESSAGES</span>
-  <span class="tooltip">MESSAGES</span>
-</RouterLink>
-
-
+        <!-- Schools Section -->
         <RouterLink
           to="/allSchools"
           :class="[
@@ -132,27 +80,6 @@
           <span class="link-container">ALL SCHOOLS</span>
           <span class="tooltip">ALL SCHOOLS</span>
         </RouterLink>
-
-
-        <!-- <RouterLink
-  
-  to="/ActivationStatus"
-  :class="[
-    'side-btn',
-    {
-      active:
-        isLinkActive('/ActivationStatus') ||
-        isChildLinkActive(['/ActivationStatus']),
-    },
-  ]"
-  @click="closeDropdowns"
->
-<span class="material-symbols-outlined">account_balance</span>
-<span class="link-container"> ACTIVATIONS  STATUS</span>
-  <span class="tooltip">ACTIVATIONS  STATUS</span>
-</RouterLink> -->
-
-        
 
         <RouterLink
           to="/activatedSchools"
@@ -191,6 +118,111 @@
           <span class="link-container">EXPIRED SCHOOLS</span>
           <span class="tooltip">EXPIRED SCHOOLS</span>
         </RouterLink>
+
+        <RouterLink
+          to="/Employees"
+          :class="[
+            'side-btn',
+            {
+              active:
+                isLinkActive('/Employees') ||
+                isChildLinkActive(['/Employees']),
+            },
+          ]"
+          @click="closeDropdowns"
+        >
+          <span class="material-symbols-outlined">groups</span>
+          <span class="link-container">EMPLOYEES</span>
+          <span class="tooltip">EMPLOYEES</span>
+        </RouterLink>
+
+        <!-- Financial Section -->
+        <RouterLink
+          to="/InvoicesSchool"
+          :class="[
+            'side-btn',
+            {
+              active:
+                isLinkActive('/InvoicesSchool') ||
+                isChildLinkActive(['/InvoicesSchool']),
+            },
+          ]"
+          @click="closeDropdowns"
+        >
+          <span class="material-symbols-outlined">receipt_long</span>
+          <span class="link-container">INVOICES & SCHOOL</span>
+          <span class="tooltip">INVOICES & SCHOOL</span>
+        </RouterLink>
+
+        <RouterLink
+          to="/ExpensesTracking"
+          :class="[
+            'side-btn',
+            {
+              active:
+                isLinkActive('/ExpensesTracking') ||
+                isChildLinkActive(['/ExpensesTracking']),
+            },
+          ]"
+          @click="closeDropdowns"
+        >
+          <span class="material-symbols-outlined">payments</span>
+          <span class="link-container">EXPENSES</span>
+          <span class="tooltip">EXPENSES</span>
+        </RouterLink>
+
+        <!-- Communication Section -->
+        <RouterLink
+          to="/MessagesToSchools"
+          :class="[
+            'side-btn',
+            {
+              active:
+                isLinkActive('/MessagesToSchools') ||
+                isChildLinkActive(['/MessagesToSchools']),
+            },
+          ]"
+          @click="closeDropdowns"
+        >
+          <span class="material-symbols-outlined">mail</span>
+          <span class="link-container">MESSAGES</span>
+          <span class="tooltip">MESSAGES</span>
+        </RouterLink>
+
+        <RouterLink
+          to="/CallLog"
+          :class="[
+            'side-btn',
+            {
+              active:
+                isLinkActive('/CallLog') ||
+                isChildLinkActive(['/CallLog']),
+            },
+          ]"
+          @click="closeDropdowns"
+        >
+          <span class="material-symbols-outlined">call</span>
+          <span class="link-container">CALL LOG</span>
+          <span class="tooltip">CALL LOG</span>
+        </RouterLink>
+
+        <!-- Configuration Section -->
+        <!-- <RouterLink
+          to="/FinanceModule"
+          :class="[
+            'side-btn',
+            {
+              active:
+                isLinkActive('/FinanceModule') ||
+                isChildLinkActive(['/FinanceModule']),
+            },
+          ]"
+          @click="closeDropdowns"
+        >
+          <span class="material-symbols-outlined">account_balance</span>
+          <span class="link-container">MODULE</span>
+          <span class="tooltip">MODULE</span>
+        </RouterLink> -->
 
 
       </div>

@@ -35,6 +35,16 @@ const router = createRouter({
       component: () => import('../views/MASTER/MessagesToSchools.vue'),
       meta: { requiresAuth: true },
     },
+    {
+      path: '/CallLog',
+      component: () => import('../views/MASTER/CallLog.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/ExpensesTracking',
+      component: () => import('../views/MASTER/ExpensesTracking.vue'),
+      meta: { requiresAuth: true },
+    },
 
     {
       path: '/allSchools',

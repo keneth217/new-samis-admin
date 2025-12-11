@@ -15,24 +15,15 @@
           <!-- <label class="section-label">Select Schools to Send Message*</label>
            -->
           <div class="schools-selection-container">
-            <!-- Simple Search -->
-            <!-- <div class="search-box-wrapper">
+            <!-- Search Bar -->
+            <div v-if="!Loading && schools.length > 0" class="search-container">
               <input
                 v-model="schoolSearch"
-                class="search-input-simple"
+                class="search-input"
                 type="text"
                 placeholder="Search by school name or code..."
               />
-            </div> -->
-
-            <!-- Quick Actions -->
-            <div class="quick-actions">
-              <button type="button" @click="selectAll" class="quick-btn select-btn">
-                Select All
-              </button>
-              <button type="button" @click="clearSelection" class="quick-btn clear-btn">
-                Clear All
-              </button>
+              <i class="fas fa-search search-icon"></i>
             </div>
 
             <!-- Loading State -->
@@ -46,34 +37,58 @@
             </div>
 
             <div v-else-if="filteredSchools.length === 0" class="status-box empty-box">
-              No schools match your search
+              <strong>No schools match your search: "{{ schoolSearch }}"</strong>
+              <div style="margin-top: 0.5rem; font-size: 0.9rem;">Total schools: {{ schools.length }}</div>
             </div>
 
-            <!-- Schools List - Scrollable -->
-            <div v-else class="schools-list-wrapper">
-              <div class="list-header">
+            <!-- Schools List - Simple Scrollable -->
+            <div v-else class="simple-schools-list">
+              <div class="school-count-header">
+                <div class="header-col-select" style="border-right: 1px solid rgba(255,255,255,0.3); padding-right: 1rem; display: flex; align-items: center; justify-content: center;">
+                  <input 
+                    type="checkbox" 
+                    :checked="selectAllChecked"
+                    @change="toggleSelectAll"
+                    class="select-all-checkbox"
+                  />
+                </div>
+                <div class="header-col-name" style="border-right: 1px solid rgba(255,255,255,0.3); padding-right: 1rem;"><strong>School Name</strong></div>
+                <div class="header-col-code"><strong>School Code</strong></div>
+              </div>
+              <div class="school-count-info">
                 <strong>{{ filteredSchools.length }} Schools Available</strong>
               </div>
               
-              <div class="scrollable-schools-list">
-                <div 
-                  v-for="(school, index) in filteredSchools" 
-                  :key="school.schoolCode || index" 
-                  class="school-list-item"
-                  :class="{ 'item-selected': selectedSchools.includes(school.schoolCode) }"
-                >
-                  <label class="school-label-item">
-                    <input 
-                      type="checkbox" 
-                      :value="school.schoolCode"
-                      v-model="selectedSchools"
-                      class="list-checkbox"
-                    />
-                    <span class="school-display-name">
-                      {{ school.schoolName || 'Unknown School' }}
-                    </span>
-                    <span class="school-display-code">{{ school.schoolCode || 'N/A' }}</span>
-                  </label>
+              <div class="schools-list-inner">
+                <template v-if="filteredSchools.length > 0">
+                  <div 
+                    v-for="(school, index) in filteredSchools" 
+                    :key="school.schoolCode || index" 
+                    class="simple-school-item"
+                    :class="{ 'item-selected': selectedSchools.includes(school.schoolCode) }"
+                  >
+                    <label class="simple-school-label">
+                      <div class="cell-checkbox" style="border-right: 1px solid #cccccc !important; padding-right: 1rem; display: flex; align-items: center; justify-content: center; min-width: 70px;">
+                        <input 
+                          type="checkbox" 
+                          :value="school.schoolCode"
+                          v-model="selectedSchools"
+                          class="simple-checkbox"
+                        />
+                      </div>
+                      <div class="cell-name" style="border-right: 1px solid #cccccc !important; padding-right: 1rem;">
+                        <span class="simple-school-name">
+                          {{ school.schoolName || 'Unknown School' }}
+                        </span>
+                      </div>
+                      <div class="cell-code" style="min-width: 120px; text-align: center;">
+                        <span class="simple-school-code">{{ school.schoolCode || 'N/A' }}</span>
+                      </div>
+                    </label>
+                  </div>
+                </template>
+                <div v-else class="no-schools-message">
+                  No schools to display
                 </div>
               </div>
             </div>
@@ -96,7 +111,9 @@
             class="form-control message-input" 
             v-model="subject" 
             placeholder="Enter message subject..." 
-            required 
+            required
+            autocomplete="off"
+            spellcheck="true"
           />
         </div>
 
@@ -107,8 +124,10 @@
             class="form-control message-textarea"
             v-model="messageBody"
             placeholder="Type your message here..."
-            rows="6"
+            rows="4"
             required
+            autocomplete="off"
+            spellcheck="true"
           ></textarea>
         </div>
 
@@ -185,6 +204,12 @@ export default {
         );
       });
     },
+    selectAllChecked() {
+      if (this.filteredSchools.length === 0) return false;
+      return this.filteredSchools.every(school => 
+        this.selectedSchools.includes(school.schoolCode)
+      );
+    },
   },
   watch: {
     message: {
@@ -241,6 +266,22 @@ export default {
 
     clearSelection() {
       this.selectedSchools = [];
+    },
+
+    toggleSelectAll(event) {
+      if (event.target.checked) {
+        // Add all filtered schools that are not already selected
+        const filteredCodes = this.filteredSchools.map(school => school.schoolCode);
+        filteredCodes.forEach(code => {
+          if (!this.selectedSchools.includes(code)) {
+            this.selectedSchools.push(code);
+          }
+        });
+      } else {
+        // Remove all filtered schools from selection
+        const filteredCodes = this.filteredSchools.map(school => school.schoolCode);
+        this.selectedSchools = this.selectedSchools.filter(code => !filteredCodes.includes(code));
+      }
     },
 
     clearForm() {
@@ -318,7 +359,7 @@ export default {
   top: 0;
   left: 0;
   width: 100%;
-  height: 100%;
+  height:90%;
   background-color: rgba(0, 0, 0, 0.5);
   display: flex;
   justify-content: center;
@@ -329,10 +370,10 @@ export default {
 .form-content {
   background-color: #4368b9;
   border-radius: 5px;
-  padding: 2rem;
+  padding: 1rem;
   width: 90%;
   max-width: 800px;
-  max-height: 90vh;
+  max-height: 75vh;
   overflow-y: auto;
   box-shadow: 0px 0px 5px gold;
   position: relative;
@@ -349,69 +390,82 @@ export default {
 
 .form-title h2 {
   color: gold;
-  margin-bottom: 1rem;
+  margin-bottom: 0.5rem;
   text-align: center;
+  font-size: 1.3rem;
 }
 
 hr {
   border: 1px solid gold;
-  margin: 1rem 0;
+  margin: 0.5rem 0;
 }
 
 .form-inputs {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.5rem;
 }
 
 .form-group {
   position: relative;
   display: flex;
   flex-direction: column;
-  margin-bottom: 1.5rem;
+  margin-bottom: 0.5rem;
 }
 
 .section-label {
   color: gold;
-  font-size: 1rem;
-  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+  margin-bottom: 0.3rem;
   font-weight: 600;
   display: block;
 }
 
 /* Schools Selection Styles */
 .schools-form-group {
-  margin-bottom: 2rem;
+  margin-bottom: 0.5rem;
 }
 
 .schools-selection-container {
   background-color: #ffffff;
   border: 2px solid gold;
   border-radius: 8px;
-  padding: 1.25rem;
+  padding: 0.75rem;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-/* Simple Search Box */
-.search-box-wrapper {
-  margin-bottom: 1rem;
+/* Search Container */
+.search-container {
+  position: relative;
+  margin-bottom: 0.5rem;
+  width: 100%;
 }
 
-.search-input-simple {
+.search-input {
   width: 100%;
-  padding: 0.75rem 1rem;
-  border: 2px solid #ddd;
+  padding: 0.5rem 0.75rem 0.5rem 2.25rem;
+  border: 2px solid gold;
   border-radius: 6px;
   background: #ffffff;
   color: #000000;
-  font-size: 1rem;
-  transition: border-color 0.3s;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
 }
 
-.search-input-simple:focus {
+.search-input:focus {
   outline: none;
   border-color: #4368b9;
   box-shadow: 0 0 0 3px rgba(67, 104, 185, 0.1);
+}
+
+.search-icon {
+  position: absolute;
+  left: 0.875rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #4368b9;
+  font-size: 1rem;
+  pointer-events: none;
 }
 
 /* Quick Action Buttons */
@@ -462,144 +516,217 @@ hr {
   border: 2px solid #ffc107;
 }
 
-/* Schools List Wrapper */
-.schools-list-wrapper {
-  border: 2px solid #4368b9;
-  border-radius: 8px;
-  overflow: hidden;
-  background: #ffffff;
+/* Simple Schools List - Clear Visibility */
+.simple-schools-list {
   margin-bottom: 1rem;
+  background-color: #ffffff;
+  border: 2px solid #4368b9;
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border-collapse: collapse;
 }
 
-.list-header {
+.school-count-header {
+  color: #ffffff !important;
+  padding: 0.6rem 1rem;
+  font-size: 0.95rem;
+  text-align: left;
+  margin-bottom: 0;
+  font-weight: 600;
   background-color: #4368b9;
-  color: white;
-  padding: 0.75rem 1rem;
-  font-size: 1rem;
+  border-bottom: 1px solid rgba(255,255,255,0.2);
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 1rem;
+  align-items: center;
+  border-left: 2px solid #4368b9;
+  border-right: 2px solid #4368b9;
+  border-top: 2px solid #4368b9;
+}
+
+.header-col-select {
+  min-width: 70px;
   text-align: center;
+}
+
+.select-all-checkbox {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  accent-color: #ffffff;
+  border: 2px solid #ffffff;
+}
+
+.header-col-name {
+  flex: 1;
+}
+
+.header-col-code {
+  min-width: 120px;
+  text-align: center;
+}
+
+.school-count-info {
+  color: #ffffff !important;
+  padding: 0.4rem 1rem;
+  font-size: 0.85rem;
+  text-align: center;
+  background-color: #2b4d8a;
   border-bottom: 2px solid #2b4d8a;
+  border-left: 2px solid #4368b9;
+  border-right: 2px solid #4368b9;
 }
 
-/* Scrollable Schools List */
-.scrollable-schools-list {
-  max-height: 350px;
-  overflow-y: auto;
-  overflow-x: hidden;
-  background: #ffffff !important;
-  padding: 0.75rem;
-  min-height: 200px;
-}
-
-/* Custom Scrollbar - More Visible */
-.scrollable-schools-list::-webkit-scrollbar {
-  width: 12px;
-}
-
-.scrollable-schools-list::-webkit-scrollbar-track {
-  background: #f0f0f0;
-  border-radius: 6px;
-}
-
-.scrollable-schools-list::-webkit-scrollbar-thumb {
-  background: #4368b9;
-  border-radius: 6px;
-  border: 2px solid #f0f0f0;
-}
-
-.scrollable-schools-list::-webkit-scrollbar-thumb:hover {
-  background: #2b4d8a;
-}
-
-/* School List Items - Always Visible */
-.school-list-item {
-  padding: 1rem;
-  margin-bottom: 0.75rem;
+.schools-list-inner {
+  max-height: 200px !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
   background-color: #ffffff !important;
-  border: 2px solid #333333 !important;
-  border-radius: 6px;
-  transition: all 0.2s ease;
+  padding: 0 !important;
+  margin: 0 !important;
   display: block !important;
   visibility: visible !important;
+  border-left: 2px solid #4368b9 !important;
+  border-right: 2px solid #4368b9 !important;
+  border-bottom: 2px solid #4368b9 !important;
+  border-top: none;
+}
+
+/* Simple School Item - Clear Visibility with Table Borders */
+.simple-school-item {
+  padding: 0.5rem 0.75rem !important;
+  margin-bottom: 0 !important;
+  margin-top: 0 !important;
+  background-color: #ffffff !important;
+  border-top: 1px solid #cccccc !important;
+  border-bottom: 1px solid #cccccc !important;
+  border-left: 1px solid #cccccc !important;
+  border-right: 1px solid #cccccc !important;
+  border-radius: 0;
+  transition: all 0.2s ease;
+  display: grid !important;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.75rem;
+  width: 100% !important;
+  min-height: 40px !important;
+  visibility: visible !important;
   opacity: 1 !important;
+  position: relative !important;
 }
 
-.school-list-item:hover {
-  background-color: #e3f2fd !important;
-  border-color: #4368b9 !important;
-  box-shadow: 0 2px 6px rgba(67, 104, 185, 0.2);
-  transform: translateX(2px);
+.simple-school-item + .simple-school-item {
+  border-top: 1px solid #cccccc !important;
 }
 
-.school-list-item:last-child {
-  margin-bottom: 0;
+.simple-school-item:hover {
+  background-color: #f0f7ff;
+  border-top: 1px solid #4368b9 !important;
+  border-bottom: 1px solid #4368b9 !important;
+  border-left: 2px solid #4368b9 !important;
+  border-right: 2px solid #4368b9 !important;
 }
 
-/* Selected state - make it more visible */
-.school-list-item.item-selected {
-  background-color: #e3f2fd !important;
-  border-color: #4368b9 !important;
-  border-width: 3px !important;
+/* Selected state */
+.simple-school-item.item-selected {
+  background-color: #e3f2fd;
+  border-top: 1px solid #4368b9 !important;
+  border-bottom: 1px solid #4368b9 !important;
+  border-left: 2px solid #4368b9 !important;
+  border-right: 2px solid #4368b9 !important;
 }
 
-.school-label-item {
-  display: flex !important;
+.simple-school-label {
+  display: grid !important;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 1rem;
   cursor: pointer;
   width: 100%;
+  color: #000000 !important;
   visibility: visible !important;
   opacity: 1 !important;
 }
 
-.list-checkbox {
-  width: 24px !important;
-  height: 24px !important;
-  cursor: pointer;
+.simple-checkbox {
+  width: 22px !important;
+  height: 22px !important;
+  cursor: pointer !important;
   accent-color: #4368b9;
   flex-shrink: 0;
-  display: block !important;
-  visibility: visible !important;
-  opacity: 1 !important;
   border: 2px solid #4368b9 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  pointer-events: auto !important;
+  z-index: 10 !important;
+  position: relative !important;
 }
 
-.school-display-name {
-  flex: 1;
+.simple-school-name {
   color: #000000 !important;
   font-size: 1.1rem !important;
   font-weight: 700 !important;
-  line-height: 1.6;
+  line-height: 1.6 !important;
   display: block !important;
   visibility: visible !important;
   opacity: 1 !important;
+  background-color: transparent !important;
 }
 
-.school-display-code {
-  color: #4368b9 !important;
-  font-size: 1rem !important;
-  font-weight: 700 !important;
-  background-color: #e3f2fd !important;
-  padding: 0.35rem 0.75rem;
-  border-radius: 5px;
-  border: 1px solid #4368b9;
-  display: block !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-}
-
-.school-label-item:hover .school-display-name {
-  color: #4368b9 !important;
-}
-
-.school-label-item:hover .school-display-code {
+.simple-school-code {
   color: #ffffff !important;
+  font-size: 0.9rem !important;
+  font-weight: 700 !important;
   background-color: #4368b9 !important;
-  border-color: #2b4d8a;
+  padding: 0.4rem 0.8rem;
+  border-radius: 5px;
+  white-space: nowrap;
+  display: inline-block !important;
+}
+
+.simple-school-label:hover .simple-school-name {
+  color: #4368b9;
+}
+
+.simple-school-item.item-selected .simple-school-name {
+  color: #4368b9;
+  font-weight: 700;
+}
+
+.simple-school-item.item-selected .simple-school-code {
+  background-color: #2b4d8a;
+}
+
+.no-schools-message {
+  padding: 2rem;
+  text-align: center;
+  color: #666666;
+  font-size: 1rem;
+}
+
+/* Custom Scrollbar */
+.schools-list-inner::-webkit-scrollbar {
+  width: 10px;
+}
+
+.schools-list-inner::-webkit-scrollbar-track {
+  background: #f0f0f0;
+  border-radius: 4px;
+}
+
+.schools-list-inner::-webkit-scrollbar-thumb {
+  background: #4368b9;
+  border-radius: 4px;
+  border: 2px solid #f0f0f0;
+}
+
+.schools-list-inner::-webkit-scrollbar-thumb:hover {
+  background: #2b4d8a;
 }
 
 /* Selection Counter */
 .selection-counter {
-  padding: 1rem;
+  padding: 0.5rem 1rem;
   background-color: #fff3cd;
   border: 2px solid gold;
   border-radius: 6px;
@@ -608,16 +735,17 @@ hr {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  font-size: 1.1rem;
+  font-size: 0.95rem;
 }
 
 .counter-label {
   color: #856404;
   font-weight: 600;
+  font-size: 0.95rem;
 }
 
 .counter-number {
-  font-size: 1.5rem;
+  font-size: 1.2rem;
   font-weight: 700;
   color: #4368b9;
 }
@@ -625,25 +753,49 @@ hr {
 .counter-slash {
   color: #856404;
   font-weight: 600;
+  font-size: 0.95rem;
 }
 
 .counter-total {
   color: #666666;
   font-weight: 600;
+  font-size: 0.95rem;
 }
 
 /* Message Input Styles */
 .message-input,
 .message-textarea {
   width: 100%;
-  padding: 0.75rem;
+  padding: 0.5rem 0.75rem;
   border: 2px solid gold;
   border-radius: 6px;
-  background-color: #ffffff;
-  color: #000000;
-  font-size: 1rem;
+  background-color: #ffffff !important;
+  color: #000000 !important;
+  font-size: 0.9rem;
   font-family: inherit;
   transition: border-color 0.3s;
+  cursor: text !important;
+  pointer-events: auto !important;
+  -webkit-user-select: text !important;
+  user-select: text !important;
+  position: relative !important;
+  z-index: 100 !important;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+.message-input:disabled,
+.message-textarea:disabled {
+  background-color: #f5f5f5;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.message-input[readonly],
+.message-textarea[readonly] {
+  background-color: #f5f5f5;
+  cursor: not-allowed;
 }
 
 .message-input:focus,
@@ -654,9 +806,9 @@ hr {
 }
 
 .message-textarea {
-  min-height: 150px;
+  min-height: 80px;
   resize: vertical;
-  line-height: 1.6;
+  line-height: 1.5;
 }
 
 .total-count {
@@ -665,12 +817,12 @@ hr {
 }
 
 .form-control {
-  padding: 0.6rem;
+  padding: 0.5rem 0.6rem;
   border: 1px solid gold;
   border-radius: 4px;
   background-color: #fff;
   color: #000;
-  font-size: 1rem;
+  font-size: 0.9rem;
   outline: none;
 }
 
@@ -681,7 +833,7 @@ hr {
 
 textarea.form-control {
   resize: vertical;
-  min-height: 150px;
+  min-height: 80px;
   font-family: inherit;
 }
 
@@ -776,17 +928,17 @@ label.filled {
   display: flex;
   justify-content: space-between;
   gap: 1rem;
-  margin-top: 1rem;
+  margin-top: 0.5rem;
 }
 
 .form-actions button {
   flex: 1;
-  padding: 0.6rem 1rem;
+  padding: 0.5rem 0.75rem;
   border: 1px solid gold;
   border-radius: 4px;
   background-color: gold;
   color: #000;
-  font-size: 1rem;
+  font-size: 0.9rem;
   cursor: pointer;
   transition: all 0.3s ease;
   font-weight: 600;

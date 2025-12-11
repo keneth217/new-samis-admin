@@ -2,7 +2,9 @@ import axios from "axios";
 // import { useAuthStore } from "./Stores/useAuthSwtore";
 import { useAuthStore } from "./Stores/useAuthStore";
 
-axios.defaults.baseURL = "https://officeapi.samis.co.ke/";
+// Set baseURL from environment variable
+// Create a .env file with: VITE_BASE_URL=http://DESKTOP-RPLDG13:8083/api
+axios.defaults.baseURL = import.meta.env.VITE_BASE_URL || 'http://DESKTOP-RPLDG13:8083/api';
 // axios.defaults.baseURL = "https://ww.analyticsapi.samis.co.ke";
 
 axios.interceptors.request.use(

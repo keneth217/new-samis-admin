@@ -37,21 +37,21 @@
               </div>
             </div>
           </div>
-        </div>
+    </div>
 
         <!-- Summary Cards Grid -->
-        <div class="cards-container" ref="cardsContainer">
+      <div class="cards-container" ref="cardsContainer">
           <div class="summary-card" v-for="card in cards" :key="card.title">
             <div class="summary-card-icon" :style="{ backgroundColor: card.iconBg }">
-              <span class="material-symbols-outlined">{{ card.icon }}</span>
+            <span class="material-symbols-outlined">{{ card.icon }}</span>
             </div>
             <div class="summary-card-content">
               <p class="summary-card-title">{{ card.title }}</p>
               <p class="summary-card-amount">{{ card.amount }}</p>
               <p class="summary-card-subtitle" v-if="card.subtitle">{{ card.subtitle }}</p>
+              </div>
             </div>
           </div>
-        </div>
       </div>
 
       <!-- Charts Section -->
@@ -66,9 +66,9 @@
           </div>
           <div class="chart-wrapper">
             <canvas id="totalSchoolsChart"></canvas>
-          </div>
-          </div>
-          
+        </div>
+      </div>
+
         <!-- Schools Status Pie Chart -->
         <div class="chart-card">
           <div class="chart-header">
@@ -120,7 +120,8 @@ export default {
       chartsContainerWidth: 'auto',
       chartInstances: {
         totalSchoolsChart: null,
-        schoolStatusPieChart: null
+        schoolStatusPieChart: null,
+        expensesChart: null
       },
       cards: [
         { 

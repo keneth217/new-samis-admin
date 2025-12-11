@@ -45,7 +45,7 @@
         </thead>
         <tbody>
           <tr v-if="displayedInvoices.length === 0">
-            <td colspan="11">No invoices found</td>
+            <td colspan="12">No invoices found</td>
           </tr>
           <tr
             v-for="(invoice, index) in displayedInvoices"
@@ -174,7 +174,7 @@
 
 <script>
 import footerCast from '../../components/footer.vue';
-import axios from 'axios';
+import axios from '../../axios';
 import { useToast } from 'vue-toastification';
 import LoadingSpinner from '../../components/LoadingSpinner.vue';
 import NewInvoiceForm from './NewInvoiceForm.vue';
@@ -292,11 +292,12 @@ export default {
     async fetchReceiptsForInvoice(invoiceID) {
       this.Loading = true;
       try {
-        const response = await axios.post('/api/receipts/list');
+        // Use the receipts list endpoint - baseURL is already set in axios.js
+        const response = await axios.post('/receipts/list');
         if (response.data && Array.isArray(response.data)) {
           // Filter receipts for this invoice
           this.receiptsList = response.data
-            .filter(receipt => (receipt.invoiceID || receipt.invoice_id) === invoiceID)
+            .filter(receipt => !receipt.deleted && (receipt.invoiceID || receipt.invoice_id || receipt.invoiceNo) === invoiceID)
             .map(receipt => ({
               receiptID: receipt.receiptID || receipt.id || receipt.receipt_id,
               receiptNumber: receipt.receiptNumber || receipt.receipt_number || 'N/A',
@@ -307,60 +308,16 @@ export default {
               description: receipt.description || ''
             }));
         } else {
-          // Use dummy data for testing
-          this.receiptsList = this.getDummyReceiptsForInvoice(invoiceID);
+          this.receiptsList = [];
         }
       } catch (error) {
         console.error('Error fetching receipts:', error);
-        // Use dummy data for testing
-        this.receiptsList = this.getDummyReceiptsForInvoice(invoiceID);
+        this.receiptsList = [];
       } finally {
         this.Loading = false;
       }
     },
 
-    getDummyReceiptsForInvoice(invoiceID) {
-      // Return dummy receipts for testing
-      const dummyReceipts = {
-        1: [{
-          receiptID: 1,
-          receiptNumber: 'RCP-2024-001',
-          receiptDate: '2024-01-15',
-          amount: 50000.00,
-          paymentMethod: 'Bank Transfer',
-          referenceNumber: 'TRF-2024-001',
-          description: 'Payment for annual subscription'
-        }],
-        2: [{
-          receiptID: 2,
-          receiptNumber: 'RCP-2024-002',
-          receiptDate: '2024-01-16',
-          amount: 75000.00,
-          paymentMethod: 'Mobile Money',
-          referenceNumber: 'MPESA-2024-002',
-          description: 'Payment for module activation'
-        }],
-        3: [{
-          receiptID: 6,
-          receiptNumber: 'RCP-2024-006',
-          receiptDate: '2024-01-20',
-          amount: 30000.00,
-          paymentMethod: 'Bank Transfer',
-          referenceNumber: 'TRF-2024-006',
-          description: 'Partial payment - first installment'
-        }],
-        5: [{
-          receiptID: 5,
-          receiptNumber: 'RCP-2024-005',
-          receiptDate: '2024-01-18',
-          amount: 60000.00,
-          paymentMethod: 'Cash',
-          referenceNumber: '',
-          description: 'Cash payment received'
-        }]
-      };
-      return dummyReceipts[invoiceID] || [];
-    },
 
     openForm() {
       if (this.showForm && this.selectedInvoice) {
@@ -393,7 +350,8 @@ export default {
 
     async fetchSchools() {
       try {
-        const response = await axios.post('/api/schools/list');
+        // Use the schools list endpoint - baseURL is already set in axios.js
+        const response = await axios.post('/schools/list');
         if (response.data && Array.isArray(response.data)) {
           this.schools = response.data;
         }
@@ -402,138 +360,59 @@ export default {
       }
     },
 
-    loadDummyInvoices() {
-      // Dummy invoices for testing - some paid, some pending
-      this.invoices = [
-        {
-          invoiceID: 1,
-          invoiceNumber: 'INV-2024-001',
-          schoolName: 'St. Mary\'s High School',
-          schoolCode: 'SCH001',
-          invoiceDate: '2024-01-10',
-          dueDate: '2024-02-15',
-          amount: 50000.00,
-          status: 'Paid',
-          description: 'Annual subscription fee',
-          items: [],
-          totalPaid: 50000.00,
-          receiptCount: 1 // Has receipt
-        },
-        {
-          invoiceID: 2,
-          invoiceNumber: 'INV-2024-002',
-          schoolName: 'Nairobi Primary School',
-          schoolCode: 'SCH002',
-          invoiceDate: '2024-01-12',
-          dueDate: '2024-02-17',
-          amount: 75000.00,
-          status: 'Paid',
-          description: 'Module activation and setup',
-          items: [],
-          totalPaid: 75000.00,
-          receiptCount: 1 // Has receipt
-        },
-        {
-          invoiceID: 3,
-          invoiceNumber: 'INV-2024-003',
-          schoolName: 'Kenya Academy',
-          schoolCode: 'SCH003',
-          invoiceDate: '2024-01-14',
-          dueDate: '2024-02-20',
-          amount: 100000.00,
-          status: 'Partially Paid',
-          description: 'Full year license',
-          items: [],
-          totalPaid: 30000.00, // Partial payment received
-          receiptCount: 1 // Has 1 receipt for partial payment
-        },
-        {
-          invoiceID: 4,
-          invoiceNumber: 'INV-2024-004',
-          schoolName: 'Green Valley School',
-          schoolCode: 'SCH004',
-          invoiceDate: '2024-01-08',
-          dueDate: '2024-02-13',
-          amount: 45000.00,
-          status: 'Pending',
-          description: 'Quarterly subscription',
-          items: [],
-          totalPaid: 0,
-          receiptCount: 0 // No receipts yet
-        },
-        {
-          invoiceID: 5,
-          invoiceNumber: 'INV-2024-005',
-          schoolName: 'Hillcrest Preparatory',
-          schoolCode: 'SCH005',
-          invoiceDate: '2024-01-05',
-          dueDate: '2024-02-10',
-          amount: 60000.00,
-          status: 'Paid',
-          description: 'Payment completed',
-          items: [],
-          totalPaid: 60000.00,
-          receiptCount: 1 // Has receipt
-        }
-      ];
-      
-      const toast = useToast();
-      toast.success('Loaded dummy invoices data for testing!');
-    },
 
     async fetchInvoices() {
       this.Loading = true;
       const toast = useToast();
-      this.invoices = [];
-
+      
       try {
-        const response = await axios.post('/api/invoices/list');
+        // Use the invoice list endpoint - baseURL is already set in axios.js
+        const response = await axios.post('/invoices/list');
+        
+        console.log('API Response:', response.data);
 
         if (response.data && Array.isArray(response.data)) {
-          this.invoices = response.data.map(invoice => ({
-            invoiceID: invoice.invoiceID || invoice.id,
-            invoiceNumber: invoice.invoiceNumber || invoice.invoice_number || 'N/A',
-            schoolName: invoice.schoolName || invoice.school_name || 'N/A',
-            schoolCode: invoice.schoolCode || invoice.school_code || 'N/A',
-          invoiceDate: invoice.invoiceDate || invoice.invoice_date || 'N/A',
-          dueDate: invoice.dueDate || invoice.due_date || 'N/A',
-          amount: parseFloat(invoice.amount || 0),
-          status: invoice.status || 'Pending',
-          description: invoice.description || '',
-          items: invoice.items || [],
-          totalPaid: invoice.totalPaid || invoice.total_paid || 0,
-          receiptCount: invoice.receiptCount || invoice.receipt_count || 0
-          }));
+          this.invoices = response.data
+            .filter(invoice => !invoice.deleted) // Filter out soft-deleted invoices
+            .map(invoice => ({
+              invoiceID: invoice.invoiceID || invoice.id || invoice.invoiceNo,
+              invoiceNumber: invoice.invoiceNumber || invoice.invoice_number || invoice.invoiceNo || 'N/A',
+              schoolName: invoice.schoolName || invoice.school_name || 'N/A',
+              schoolCode: invoice.schoolCode || invoice.school_code || 'N/A',
+              invoiceDate: invoice.invoiceDate || invoice.invoice_date || 'N/A',
+              dueDate: invoice.dueDate || invoice.due_date || 'N/A',
+              amount: parseFloat(invoice.amount || 0),
+              status: invoice.status || 'PENDING',
+              description: invoice.description || '',
+              items: invoice.invoiceDetails || invoice.items || [],
+              totalPaid: parseFloat(invoice.paid || 0),
+              balance: parseFloat(invoice.balance || 0),
+              invoiceType: invoice.invoiceType || invoice.invoice_type || '',
+              receiptCount: invoice.receiptCount || invoice.receipt_count || 0
+            }));
 
-          toast.success('Invoices fetched successfully!');
+          if (this.invoices.length > 0) {
+            toast.success(`${this.invoices.length} invoice(s) fetched successfully!`);
+          } else {
+            toast.info('No invoices found.');
+          }
         } else {
-          toast.error('No invoices found in the response.');
-          // Load dummy data if API returns empty
-          this.loadDummyInvoices();
+          this.invoices = [];
+          toast.warning('Invalid response format from API.');
         }
       } catch (error) {
         console.error('Error fetching invoices:', error);
-        console.log('Loading dummy invoices for testing...');
-        // Load dummy data on error
-        this.loadDummyInvoices();
+        this.invoices = [];
+        toast.error('Failed to fetch invoices. Please try again.');
       } finally {
         this.Loading = false;
       }
     },
   },
   mounted() {
-    // Load dummy invoices immediately for testing
-    this.loadDummyInvoices();
-    
-    // Also try to fetch from API (will fallback to dummy if fails)
+    // Fetch invoices and schools from API
     this.fetchInvoices();
     this.fetchSchools();
-    
-    // Calculate payments after loading invoices
-    this.$nextTick(() => {
-      this.calculatePaymentsFromDummy();
-      this.calculateInvoicePayments();
-    });
   }
 };
 </script>

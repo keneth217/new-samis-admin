@@ -311,26 +311,28 @@ export default {
 }
 
 .search-area {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 1rem;
 }
 
 .header-container1 {
-  margin-bottom: 1rem;
+  margin-bottom: 0;
 }
 
 .header-container1 h2 {
   color: #4368b9;
-  font-size: 1.8rem;
+  font-size: 1.5rem;
   font-weight: 600;
 }
 
 .search-input {
-  width: 100%;
-  max-width: 400px;
-  padding: 0.75rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 1rem;
+  padding: 0.3rem;
+  border-radius: 5px;
+  border: 2px solid #2b7ab7;
+  outline: none;
+  margin-left: 1rem;
 }
 
 .header-container {

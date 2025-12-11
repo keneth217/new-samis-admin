@@ -84,6 +84,23 @@
           <label for="dueDate" :class="{ filled: dueDate !== '' }">Due Date*</label>
         </div>
 
+        <!-- Invoice Type -->
+        <div class="form-group">
+          <!-- View Mode: Show as plain text -->
+          <div v-if="viewMode" class="view-mode-text-display">
+            <div class="view-label">Invoice Type:</div>
+            <div class="view-value">{{ invoiceType || invoice?.invoiceType || 'N/A' }}</div>
+          </div>
+          <!-- Edit/Create Mode: Show dropdown -->
+          <select v-else class="form-control" v-model="invoiceType" required>
+            <option value="TUITION">TUITION</option>
+            <option value="FEES">FEES</option>
+            <option value="SUBSCRIPTION">SUBSCRIPTION</option>
+            <option value="OTHER">OTHER</option>
+          </select>
+          <label v-if="!viewMode" for="invoiceType" :class="{ filled: invoiceType !== '' }">Invoice Type*</label>
+        </div>
+
         <!-- Description -->
         <div class="form-group">
           <textarea
@@ -93,7 +110,7 @@
             rows="3"
             :disabled="viewMode"
           ></textarea>
-          <label for="description" :class="{ filled: description !== '' }">Description</label>
+          <label for="description" :class="{ filled: description !== '' }">Description*</label>
         </div>
 
         <!-- Amount -->
@@ -111,6 +128,20 @@
           <label for="amount" :class="{ filled: amount !== '' }">Amount (KSh)*</label>
         </div>
 
+        <!-- Discount -->
+        <div class="form-group">
+          <input 
+            type="number" 
+            class="form-control" 
+            v-model="discount" 
+            placeholder="Discount" 
+            step="0.01"
+            min="0"
+            :disabled="viewMode"
+          />
+          <label for="discount" :class="{ filled: discount !== '' }">Discount (KSh)</label>
+        </div>
+
         <!-- Status -->
         <div class="form-group">
           <!-- View Mode: Show as plain text -->
@@ -122,11 +153,10 @@
           </div>
           <!-- Edit/Create Mode: Show dropdown -->
           <select v-else class="form-control" v-model="status" required>
-            <option value="Pending">Pending</option>
-            <option value="Paid">Paid</option>
-            <option value="Partially Paid">Partially Paid</option>
-            <option value="Overdue">Overdue</option>
-            <option value="Cancelled">Cancelled</option>
+            <option value="PENDING">PENDING</option>
+            <option value="PAID">PAID</option>
+            <option value="PARTIALLY_PAID">PARTIALLY PAID</option>
+            <option value="OVERDUE">OVERDUE</option>
           </select>
           <label v-if="!viewMode" for="status" :class="{ filled: status !== '' }">Status*</label>
         </div>
@@ -142,7 +172,7 @@
 </template>
 
 <script>
-import axios from 'axios';
+import axios from '../../axios';
 import { useToast } from 'vue-toastification';
 import LoadingSpinner from '../../components/LoadingSpinner.vue';
 
@@ -165,9 +195,11 @@ export default {
       invoiceNumber: '',
       invoiceDate: '',
       dueDate: '',
+      invoiceType: 'TUITION',
       description: '',
       amount: '',
-      status: 'Pending',
+      discount: 0,
+      status: 'PENDING',
       schools: [],
       Loading: false,
       editMode: false,
@@ -209,9 +241,11 @@ export default {
           this.invoiceNumber = newInvoice.invoiceNumber || '';
           this.invoiceDate = newInvoice.invoiceDate || '';
           this.dueDate = newInvoice.dueDate || '';
+          this.invoiceType = newInvoice.invoiceType || 'TUITION';
           this.description = newInvoice.description || '';
           this.amount = newInvoice.amount || '';
-          this.status = newInvoice.status || 'Pending';
+          this.discount = newInvoice.discount || 0;
+          this.status = newInvoice.status || 'PENDING';
         } else {
           this.editMode = false;
           this.clearForm();
@@ -225,17 +259,17 @@ export default {
   },
   methods: {
     getStatusClass(status) {
-      const stat = status || this.invoice?.status || '';
-      if (stat === 'Paid') return 'status-paid';
-      if (stat === 'Partially Paid') return 'status-partial';
-      if (stat === 'Overdue') return 'status-overdue';
-      if (stat === 'Pending') return 'status-pending';
+      const stat = (status || this.invoice?.status || '').toUpperCase();
+      if (stat === 'PAID') return 'status-paid';
+      if (stat === 'PARTIALLY_PAID' || stat === 'PARTIALLY PAID') return 'status-partial';
+      if (stat === 'OVERDUE') return 'status-overdue';
+      if (stat === 'PENDING') return 'status-pending';
       return '';
     },
 
     async fetchSchools() {
       try {
-        const response = await axios.post('/api/schools/list');
+        const response = await axios.post('/schools/list');
         if (response.data && Array.isArray(response.data)) {
           this.schools = response.data;
         }
@@ -252,7 +286,7 @@ export default {
 
       try {
         // Fetch existing invoices to determine next number
-        const response = await axios.post('/api/invoices/list');
+        const response = await axios.post('/invoices/list');
         const currentYear = new Date().getFullYear();
         const prefix = `INV-${currentYear}-`;
         
@@ -296,37 +330,61 @@ export default {
       this.invoiceNumber = '';
       this.invoiceDate = '';
       this.dueDate = '';
+      this.invoiceType = 'TUITION';
       this.description = '';
       this.amount = '';
-      this.status = 'Pending';
+      this.discount = 0;
+      this.status = 'PENDING';
     },
 
     async saveInvoice() {
       const toast = useToast();
 
-      if (!this.schoolCode || !this.invoiceNumber || !this.invoiceDate || !this.dueDate || !this.amount) {
+      if (!this.schoolCode || !this.invoiceDate || !this.invoiceType || !this.description || !this.amount) {
         toast.warning('Please fill all required fields!');
         return;
       }
 
+      const amountValue = parseFloat(this.amount) || 0;
+      const discountValue = parseFloat(this.discount) || 0;
+      const balance = amountValue - discountValue;
+
+      // Build InvoiceDAO payload according to API specification
+      // Note: invoiceNumber is NOT in the request body - it's only used in URL for updates
       const payload = {
-        schoolCode: this.schoolCode,
-        invoiceNumber: this.invoiceNumber,
+        invoiceType: this.invoiceType,
         invoiceDate: this.invoiceDate,
-        dueDate: this.dueDate,
-        description: this.description,
-        amount: parseFloat(this.amount),
+        amount: amountValue,
         status: this.status,
+        paid: 0.0,
+        balance: balance,
+        discount: discountValue,
+        deleted: false,
+        schoolCode: this.schoolCode,
+        invoiceDetails: [
+          {
+            detailID: null,
+            description: this.description,
+            amount: amountValue,
+            discount: discountValue,
+            paid: 0.0,
+            balance: balance,
+            status: this.status,
+            deleted: false
+          }
+        ]
       };
 
       this.Loading = true;
 
       try {
         let response;
-        if (this.editMode && this.invoice?.invoiceID) {
-          response = await axios.put(`/api/invoices/update/${this.invoice.invoiceID}`, payload);
+        if (this.editMode && this.invoiceNumber) {
+          // Update: POST /invoices/update/{invoiceNo}
+          response = await axios.post(`/invoices/update/${this.invoiceNumber}`, payload);
         } else {
-          response = await axios.post('/api/invoices/create', payload);
+          // Create: POST /invoices/create
+          response = await axios.post('/invoices/create', payload);
         }
 
         if (response.status === 200 || response.status === 201) {
