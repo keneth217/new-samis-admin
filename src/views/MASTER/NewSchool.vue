@@ -137,7 +137,7 @@
 </template>
 
 <script>
-import axios from 'axios';
+import axios from '../../axios';
 import { useToast } from 'vue-toastification';
 import LoadingSpinner from '../../components/LoadingSpinner.vue';
 
@@ -304,7 +304,7 @@ export default {
       try {
         this.Loading = true;
         
-        const response = await axios.post('/api/schools/create', formData, {
+        const response = await axios.post('/schools/create', formData, {
           // headers: {
           //   'Content-Type': 'application/json',
           //   // Add authorization if needed:
@@ -355,7 +355,7 @@ export default {
           address: this.address,
         };
 
-        let response = await axios.post(`/api/schools/update/${this.schoolCode}`, formData);
+        let response = await axios.post(`/schools/update/${this.schoolCode}`, formData);
 
         if (response.status === 200) {
           toast.success('School updated successfully');

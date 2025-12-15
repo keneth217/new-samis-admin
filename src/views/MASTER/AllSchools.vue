@@ -5,7 +5,17 @@
       <div class="header-container1">
         <h2>All Schools</h2>
       </div>
-      <input v-model="searchQuery" placeholder="Search by name or code" class="search-input" />
+      <div class="search-actions">
+        <input
+          v-model="searchQuery"
+          placeholder="Search by name or code"
+          class="search-input"
+        />
+        <button class="action-btn" @click="exportToExcel">
+          <span class="material-symbols-outlined">download</span>
+          Export to Excel
+        </button>
+      </div>
     </div>
 
     <!-- Action Buttons -->
@@ -134,7 +144,7 @@
 
 <script>
 import footerCast from '../../components/footer.vue';
-import axios from 'axios';
+import axios from '../../axios';
 import { useToast } from 'vue-toastification';
 import LoadingSpinner from '../../components/LoadingSpinner.vue';
 import NewSchool from './NewSchool.vue';
@@ -197,6 +207,60 @@ export default {
       this.selectedSchool = school;
       this.show = true;
     },
+    exportToExcel() {
+      // Export currently filtered rows (ignores pagination) as CSV
+      const headers = [
+        'School Name',
+        'School Code',
+        'Principal Name',
+        'Principal Phone',
+        'Email',
+        'County',
+        'Subcounty',
+        'Registered By',
+        'Registered On',
+        'Students',
+        'Phone',
+        'Address',
+        'Status',
+      ];
+      const rows = this.filteredSchools.map((school) => [
+        school.schoolName,
+        school.schoolCode,
+        school.principalName,
+        school.principalPhoneNo,
+        school.email,
+        school.county,
+        school.subcounty,
+        school.registeredByName,
+        school.registeredOn,
+        school.students,
+        school.phoneNo,
+        school.address,
+        school.deleted ? 'DELETED' : 'ACTIVE',
+      ]);
+
+      const csvContent = [headers, ...rows]
+        .map((row) =>
+          row
+            .map((item) => {
+              const value = item ?? '';
+              const str = value.toString().replace(/"/g, '""');
+              return `"${str}"`;
+            })
+            .join(',')
+        )
+        .join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+      link.download = `all-schools-${timestamp}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+    },
     openForm() {
       this.show = true;
     },
@@ -221,7 +285,7 @@ export default {
       this.Loading = true;
       const toast = useToast();
       try {
-        const response = await axios.post('/api/schools/list', {});
+        const response = await axios.post('/schools/list', {});
         this.schools = response.data.map(school => ({
           schoolCode: school.schoolCode,
           schoolName: school.schoolName,
@@ -246,7 +310,7 @@ export default {
     },
     async fetchModules() {
   try {
-    const response = await axios.post('/api/modules/list');  // Fetch modules from API
+    const response = await axios.post('/modules/list');  // Fetch modules from API
     console.log("Fetched Modules:", response.data);  // Check the response here
 
     // Map over the response to get the module names
@@ -271,7 +335,7 @@ export default {
   
   try {
     const response = await axios.post(
-      'https://officeapi.samis.co.ke/api/schools/delete',
+      '/schools/delete',
       { schoolCode },
       {
         headers: {
@@ -342,31 +406,48 @@ export default {
     };
 
     // Instead of 'payload', use 'this.activationData'
-    const response = await axios.post('/api/activations/activate', this.activationData, config);
+    const response = await axios.post('/activations/activate', this.activationData, config);
 
     if (response.data) {
       toast.success("Module activated successfully!");
 
-      // Add the new school to the list immediately
-      const newSchool = {
-        activationID: response.data.activationID,
-        schoolName: response.data.schoolName,
-        schoolCode: response.data.schoolCode,
-        moduleName: response.data.moduleName,
-        installationDate: response.data.installationDate,
-        expiryDate: response.data.expiryDate,
-        registeredByName: response.data.registeredByName,
-        marketerName: response.data.marketerName,
-        sellingPrice: response.data.sellingPrice,
-        maintenanceFee: response.data.maintenanceFee,
-        lastLogin: response.data.lastLogin,
-        students: response.data.students,
-        receipts: response.data.receipts,
-        vouchers: response.data.vouchers,
-      };
-
-      // Push the new school to the schools array immediately after activation
-      this.schools.push(newSchool);
+      // Update the existing school entry instead of duplicating it
+      const idx = this.schools.findIndex(s => s.schoolCode === response.data.schoolCode);
+      if (idx !== -1) {
+        this.schools[idx] = {
+          ...this.schools[idx],
+          activationID: response.data.activationID,
+          moduleName: response.data.moduleName,
+          installationDate: response.data.installationDate,
+          expiryDate: response.data.expiryDate,
+          registeredByName: response.data.registeredByName,
+          marketerName: response.data.marketerName,
+          sellingPrice: response.data.sellingPrice,
+          maintenanceFee: response.data.maintenanceFee,
+          lastLogin: response.data.lastLogin,
+          students: response.data.students,
+          receipts: response.data.receipts,
+          vouchers: response.data.vouchers,
+        };
+      } else {
+        // Fallback: if not found, append once
+        this.schools.push({
+          activationID: response.data.activationID,
+          schoolName: response.data.schoolName,
+          schoolCode: response.data.schoolCode,
+          moduleName: response.data.moduleName,
+          installationDate: response.data.installationDate,
+          expiryDate: response.data.expiryDate,
+          registeredByName: response.data.registeredByName,
+          marketerName: response.data.marketerName,
+          sellingPrice: response.data.sellingPrice,
+          maintenanceFee: response.data.maintenanceFee,
+          lastLogin: response.data.lastLogin,
+          students: response.data.students,
+          receipts: response.data.receipts,
+          vouchers: response.data.vouchers,
+        });
+      }
 
       this.closeActivationModal(); // Close the modal
     } else {
@@ -614,6 +695,12 @@ export default {
       /* flex-grow: 1; */
       margin-left: 1rem;
     }
+  
+.search-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
     
     .table-container {
       background-color: white;

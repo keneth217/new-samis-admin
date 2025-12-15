@@ -187,7 +187,7 @@
 </template>
 
 <script>
-import axios from 'axios';
+import axios from '../../axios';
 import { useToast } from 'vue-toastification';
 import LoadingSpinner from '../../components/LoadingSpinner.vue';
 

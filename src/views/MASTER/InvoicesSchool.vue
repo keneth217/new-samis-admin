@@ -24,6 +24,23 @@
         <select class="form-control" v-model="invoicesPerPage" @change="updateInvoicesPerPage">
           <option v-for="option in invoicesPerPageOptions" :key="option" :value="option">{{ option }}</option>
         </select>
+
+        <label for="schoolFilter">Filter by school:</label>
+        <select
+          id="schoolFilter"
+          class="form-control"
+          v-model="selectedSchoolCode"
+          @change="onSchoolFilterChange"
+        >
+          <option value="">All Schools</option>
+          <option
+            v-for="school in schools"
+            :key="school.schoolCode || school.school_code"
+            :value="school.schoolCode || school.school_code"
+          >
+            {{ school.schoolName || school.school_name }} ({{ school.schoolCode || school.school_code }})
+          </option>
+        </select>
       </div>
 
       <table class="students-table">
@@ -49,11 +66,11 @@
           </tr>
           <tr
             v-for="(invoice, index) in displayedInvoices"
-            :key="invoice.invoiceID"
+            :key="invoice.invoiceNo || invoice.invoiceID || index"
             :class="{ 'even-row': index % 2 !== 0 }"
           >
             <td>{{ (currentPage - 1) * invoicesPerPage + index + 1 }}</td>
-            <td>{{ invoice.invoiceNumber }}</td>
+            <td>{{ invoice.invoiceNumber || invoice.invoiceNo }}</td>
             <td>{{ invoice.schoolName }}</td>
             <td>{{ invoice.schoolCode }}</td>
             <td>{{ invoice.invoiceDate }}</td>
@@ -79,8 +96,20 @@
               <button @click="recordPayment(invoice)" class="payment-btn" aria-label="Record Payment" v-if="invoice.status !== 'Paid'">
                 <span class="material-symbols-outlined">payment</span> Record Payment
               </button>
-              <button @click="viewReceiptsForInvoice(invoice)" class="receipts-view-btn" v-if="invoice.receiptCount > 0" aria-label="View Receipts">
+              <button
+                @click="viewReceiptsForInvoice(invoice)"
+                class="receipts-view-btn"
+                v-if="invoice.receiptCount > 0"
+                aria-label="View Receipts"
+              >
                 <span class="material-symbols-outlined">receipt</span> View Receipts
+              </button>
+              <button
+                @click="deleteInvoice(invoice)"
+                class="class-list-btn"
+                aria-label="Delete Invoice"
+              >
+                <span class="material-symbols-outlined">delete</span> Delete
               </button>
             </td>
           </tr>
@@ -105,6 +134,7 @@
     <!-- Receipt Form Modal for Recording Payment -->
     <NewReceiptForm
       :invoice="selectedInvoiceForPayment"
+      :receipt="selectedReceipt"
       @closeForm="closePaymentForm" 
       @fetchInvoices="fetchInvoices" 
       v-if="showPaymentForm" 
@@ -114,7 +144,11 @@
     <div class="modal-wrap" v-if="showReceiptsModal" @click.self="closeReceiptsModal">
       <div class="modal-content">
         <div class="modal-header">
-          <h2>Receipts for Invoice: {{ selectedInvoiceForReceipts?.invoiceNumber }}</h2>
+          <h2>
+            Receipts for School:
+            {{ selectedInvoiceForReceipts?.schoolName }}
+            ({{ selectedInvoiceForReceipts?.schoolCode }})
+          </h2>
           <button @click="closeReceiptsModal" class="close-btn">
             <i class="fas fa-times"></i>
           </button>
@@ -131,37 +165,103 @@
                 <th>Amount</th>
                 <th>Payment Method</th>
                 <th>Reference</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="receipt in receiptsList" :key="receipt.receiptID">
+              <tr v-for="receipt in receiptsList" :key="receipt.receiptID || receipt.receiptNo">
                 <td>{{ receipt.receiptNumber }}</td>
                 <td>{{ receipt.receiptDate }}</td>
                 <td>KSh {{ formatNumber(receipt.amount) }}</td>
                 <td>{{ receipt.paymentMethod }}</td>
                 <td>{{ receipt.referenceNumber || '-' }}</td>
+                <td class="receipt-actions">
+                  <button
+                    class="receipt-edit-btn"
+                    @click="editReceipt(receipt)"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    class="receipt-delete-btn"
+                    @click="deleteReceipt(receipt)"
+                  >
+                    Delete
+                  </button>
+                </td>
               </tr>
             </tbody>
             <tfoot>
               <tr>
-                <td colspan="2"><strong>Total Paid:</strong></td>
-                <td><strong>KSh {{ formatNumber(receiptsList.reduce((sum, r) => sum + r.amount, 0)) }}</strong></td>
-                <td colspan="2"></td>
-              </tr>
-              <tr v-if="selectedInvoiceForReceipts">
-                <td colspan="2"><strong>Invoice Amount:</strong></td>
-                <td><strong>KSh {{ formatNumber(selectedInvoiceForReceipts.amount) }}</strong></td>
-                <td colspan="2"></td>
-              </tr>
-              <tr v-if="selectedInvoiceForReceipts">
-                <td colspan="2"><strong>Remaining Balance:</strong></td>
-                <td :class="getRemainingBalanceClass(selectedInvoiceForReceipts, receiptsList)">
-                  <strong>KSh {{ formatNumber(selectedInvoiceForReceipts.amount - receiptsList.reduce((sum, r) => sum + r.amount, 0)) }}</strong>
+                <td colspan="2"><strong>Total Receipts (this school):</strong></td>
+                <td>
+                  <strong>
+                    KSh
+                    {{ formatNumber(receiptsList.reduce((sum, r) => sum + (r.amount || 0), 0)) }}
+                  </strong>
                 </td>
-                <td colspan="2"></td>
+                <td colspan="3"></td>
               </tr>
             </tfoot>
           </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Delete / Reverse Receipt Dialog -->
+    <div v-if="showDeleteDialog" class="delete-modal-overlay" @click.self="cancelDelete">
+      <div class="delete-modal-content">
+        <h3>Reverse Receipt</h3>
+        <p class="delete-modal-text">
+          You are about to <strong>REVERSE</strong> receipt
+          <strong>{{ receiptToDelete?.receiptNumber || receiptToDelete?.receiptNo }}</strong>.
+          This will undo the payment allocation on all related invoices.
+        </p>
+        <p class="delete-modal-text">
+          Please provide a clear reason for this reversal. This reason will be stored for audit purposes.
+        </p>
+        <textarea
+          v-model="deleteReason"
+          class="delete-modal-textarea"
+          placeholder="Type the reversal reason here..."
+          rows="3"
+        ></textarea>
+        <div class="delete-modal-actions">
+          <button class="delete-cancel-btn" @click="cancelDelete">Cancel</button>
+          <button class="delete-confirm-btn" @click="confirmDelete" :disabled="!deleteReason.trim()">
+            Reverse Receipt
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Delete Invoice Dialog -->
+    <div v-if="showInvoiceDeleteDialog" class="delete-modal-overlay" @click.self="cancelInvoiceDelete">
+      <div class="delete-modal-content">
+        <h3>Delete Invoice</h3>
+        <p class="delete-modal-text">
+          You are about to <strong>DELETE</strong> invoice
+          <strong>{{ invoiceToDelete?.invoiceNumber || invoiceToDelete?.invoiceNo }}</strong>.
+          This will soft delete the invoice and all its details, and will update the school status.
+        </p>
+        <p class="delete-modal-text">
+          Please provide a reason for deleting this invoice. This will be stored for audit tracking.
+        </p>
+        <textarea
+          v-model="invoiceDeleteReason"
+          class="delete-modal-textarea"
+          placeholder="Type the delete reason here..."
+          rows="3"
+        ></textarea>
+        <div class="delete-modal-actions">
+          <button class="delete-cancel-btn" @click="cancelInvoiceDelete">Cancel</button>
+          <button
+            class="delete-confirm-btn"
+            @click="confirmInvoiceDelete"
+            :disabled="!invoiceDeleteReason.trim()"
+          >
+            Delete Invoice
+          </button>
         </div>
       </div>
     </div>
@@ -197,6 +297,7 @@ export default {
       selectedInvoice: null,
       selectedInvoiceForPayment: null,
       selectedInvoiceForReceipts: null,
+      selectedReceipt: null,
       showForm: false,
       showPaymentForm: false,
       showReceiptsModal: false,
@@ -209,6 +310,13 @@ export default {
       invoicesPerPage: 15,
       invoicesPerPageOptions: [5, 15, 30, 50, 75, 100],
       isViewMode: false,
+      selectedSchoolCode: '',
+      showDeleteDialog: false,
+      receiptToDelete: null,
+      deleteReason: '',
+      showInvoiceDeleteDialog: false,
+      invoiceToDelete: null,
+      invoiceDeleteReason: '',
     };
   },
   computed: {
@@ -233,6 +341,11 @@ export default {
     },
   },
   methods: {
+    formatStatus(status) {
+      const normalized = (status || '').toString().replace(/_/g, ' ').toLowerCase();
+      return normalized.replace(/\b\w/g, char => char.toUpperCase());
+    },
+
     formatNumber(num) {
       return new Intl.NumberFormat('en-KE', {
         minimumFractionDigits: 2,
@@ -242,14 +355,6 @@ export default {
 
     getBalanceClass(invoice) {
       const balance = (invoice.amount || 0) - (invoice.totalPaid || 0);
-      if (balance === 0) return 'balance-paid';
-      if (balance > 0) return 'balance-remaining';
-      return 'balance-overpaid';
-    },
-
-    getRemainingBalanceClass(invoice, receiptsList) {
-      const totalPaid = receiptsList.reduce((sum, r) => sum + r.amount, 0);
-      const balance = (invoice.amount || 0) - totalPaid;
       if (balance === 0) return 'balance-paid';
       if (balance > 0) return 'balance-remaining';
       return 'balance-overpaid';
@@ -280,7 +385,7 @@ export default {
     async viewReceiptsForInvoice(invoice) {
       this.selectedInvoiceForReceipts = invoice;
       this.showReceiptsModal = true;
-      await this.fetchReceiptsForInvoice(invoice.invoiceID);
+      await this.fetchReceiptsForSchool(invoice.schoolCode);
     },
 
     closeReceiptsModal() {
@@ -289,23 +394,24 @@ export default {
       this.receiptsList = [];
     },
 
-    async fetchReceiptsForInvoice(invoiceID) {
+    async fetchReceiptsForSchool(schoolCode) {
       this.Loading = true;
       try {
-        // Use the receipts list endpoint - baseURL is already set in axios.js
-        const response = await axios.post('/receipts/list');
+        // List receipts for a specific school
+        const response = await axios.post(`/receipts/school/${schoolCode}`);
         if (response.data && Array.isArray(response.data)) {
-          // Filter receipts for this invoice
           this.receiptsList = response.data
-            .filter(receipt => !receipt.deleted && (receipt.invoiceID || receipt.invoice_id || receipt.invoiceNo) === invoiceID)
-            .map(receipt => ({
+            .filter((receipt) => !receipt.deleted)
+            .map((receipt) => ({
               receiptID: receipt.receiptID || receipt.id || receipt.receipt_id,
-              receiptNumber: receipt.receiptNumber || receipt.receipt_number || 'N/A',
+              receiptNo: receipt.receiptNo || receipt.receipt_number || receipt.receiptID,
+              receiptNumber: receipt.receiptNo || receipt.receipt_number || 'N/A',
               receiptDate: receipt.receiptDate || receipt.receipt_date || 'N/A',
               amount: parseFloat(receipt.amount || 0),
-              paymentMethod: receipt.paymentMethod || receipt.payment_method || 'Cash',
-              referenceNumber: receipt.referenceNumber || receipt.reference_number || '',
-              description: receipt.description || ''
+              paymentMethod: receipt.paymentMode || receipt.paymentMethod || receipt.payment_mode || 'Cash',
+              referenceNumber: receipt.paymentModeNo || receipt.referenceNumber || receipt.reference_number || '',
+              description: receipt.description || '',
+              status: receipt.status || 'Paid',
             }));
         } else {
           this.receiptsList = [];
@@ -315,6 +421,66 @@ export default {
         this.receiptsList = [];
       } finally {
         this.Loading = false;
+      }
+    },
+
+    editReceipt(receipt) {
+      // Open the receipt form in edit mode using the selected invoice's school info
+      this.selectedReceipt = {
+        receiptNo: receipt.receiptNo || receipt.receiptNumber,
+        receiptDate: receipt.receiptDate,
+        amount: receipt.amount,
+        paymentMethod: receipt.paymentMethod,
+        referenceNumber: receipt.referenceNumber,
+        description: receipt.description,
+      };
+      this.selectedInvoiceForPayment = this.selectedInvoiceForReceipts;
+      this.showPaymentForm = true;
+    },
+
+    deleteReceipt(receipt) {
+      // Open styled dialog and store the target receipt
+      this.receiptToDelete = receipt;
+      this.deleteReason = '';
+      this.showDeleteDialog = true;
+    },
+
+    cancelDelete() {
+      this.showDeleteDialog = false;
+      this.receiptToDelete = null;
+      this.deleteReason = '';
+    },
+
+    async confirmDelete() {
+      const toast = useToast();
+      const receipt = this.receiptToDelete;
+      if (!receipt) return;
+
+      const receiptNo = receipt.receiptNo || receipt.receiptNumber;
+      if (!receiptNo) {
+        toast.error('Missing receipt number. Please try again.');
+        return;
+      }
+
+      if (!this.deleteReason.trim()) {
+        toast.warning('Reversal reason is required.');
+        return;
+      }
+
+      this.Loading = true;
+      try {
+        await axios.post(`/receipts/delete/${receiptNo}`, { reason: this.deleteReason });
+        this.receiptsList = this.receiptsList.filter(
+          (r) => (r.receiptNo || r.receiptNumber) !== receiptNo
+        );
+        toast.success('Receipt reversed successfully.');
+        await this.fetchInvoices();
+      } catch (error) {
+        console.error('Error deleting receipt:', error);
+        toast.error('Failed to reverse receipt. Please try again.');
+      } finally {
+        this.Loading = false;
+        this.cancelDelete();
       }
     },
 
@@ -359,8 +525,6 @@ export default {
         console.error('Error fetching schools:', error);
       }
     },
-
-
     async fetchInvoices() {
       this.Loading = true;
       const toast = useToast();
@@ -375,14 +539,15 @@ export default {
           this.invoices = response.data
             .filter(invoice => !invoice.deleted) // Filter out soft-deleted invoices
             .map(invoice => ({
+              invoiceNo: invoice.invoiceNo || invoice.invoice_number || invoice.invoiceID || invoice.id,
               invoiceID: invoice.invoiceID || invoice.id || invoice.invoiceNo,
-              invoiceNumber: invoice.invoiceNumber || invoice.invoice_number || invoice.invoiceNo || 'N/A',
+              invoiceNumber: invoice.invoiceNo || invoice.invoiceNumber || invoice.invoice_number || 'N/A',
               schoolName: invoice.schoolName || invoice.school_name || 'N/A',
               schoolCode: invoice.schoolCode || invoice.school_code || 'N/A',
               invoiceDate: invoice.invoiceDate || invoice.invoice_date || 'N/A',
               dueDate: invoice.dueDate || invoice.due_date || 'N/A',
               amount: parseFloat(invoice.amount || 0),
-              status: invoice.status || 'PENDING',
+              status: this.formatStatus(invoice.status || 'PENDING'),
               description: invoice.description || '',
               items: invoice.invoiceDetails || invoice.items || [],
               totalPaid: parseFloat(invoice.paid || 0),
@@ -406,6 +571,107 @@ export default {
         toast.error('Failed to fetch invoices. Please try again.');
       } finally {
         this.Loading = false;
+      }
+    },
+
+    async deleteInvoice(invoice) {
+      // Open styled delete dialog for invoices
+      this.invoiceToDelete = invoice;
+      this.invoiceDeleteReason = '';
+      this.showInvoiceDeleteDialog = true;
+    },
+
+    cancelInvoiceDelete() {
+      this.showInvoiceDeleteDialog = false;
+      this.invoiceToDelete = null;
+      this.invoiceDeleteReason = '';
+    },
+
+    async confirmInvoiceDelete() {
+      const toast = useToast();
+      const target = this.invoiceToDelete;
+      if (!target) return;
+
+      const invoiceNo = target.invoiceNo || target.invoiceID;
+      if (!invoiceNo) {
+        toast.error('Missing invoice number. Please reopen the page and try again.');
+        return;
+      }
+
+      if (!this.invoiceDeleteReason.trim()) {
+        toast.warning('Delete reason is required.');
+        return;
+      }
+
+      this.Loading = true;
+      try {
+        await axios.post(`/invoices/delete/${invoiceNo}`, {
+          reason: this.invoiceDeleteReason,
+        });
+        this.invoices = this.invoices.filter(
+          (inv) => (inv.invoiceNo || inv.invoiceID) !== invoiceNo
+        );
+        toast.success('Invoice deleted successfully.');
+      } catch (error) {
+        console.error('Error deleting invoice:', error);
+        toast.error('Failed to delete invoice. Please try again.');
+      } finally {
+        this.Loading = false;
+        this.cancelInvoiceDelete();
+      }
+    },
+
+    async fetchInvoicesBySchool(schoolCode) {
+      this.Loading = true;
+      const toast = useToast();
+      try {
+        const response = await axios.post(`/invoices/school/${schoolCode}`);
+
+        if (response.data && Array.isArray(response.data)) {
+          this.invoices = response.data
+            .filter(invoice => !invoice.deleted)
+            .map(invoice => ({
+              invoiceNo: invoice.invoiceNo || invoice.invoice_number || invoice.invoiceID || invoice.id,
+              invoiceID: invoice.invoiceID || invoice.id || invoice.invoiceNo,
+              invoiceNumber: invoice.invoiceNo || invoice.invoiceNumber || invoice.invoice_number || 'N/A',
+              schoolName: invoice.schoolName || invoice.school_name || 'N/A',
+              schoolCode: invoice.schoolCode || invoice.school_code || 'N/A',
+              invoiceDate: invoice.invoiceDate || invoice.invoice_date || 'N/A',
+              dueDate: invoice.dueDate || invoice.due_date || 'N/A',
+              amount: parseFloat(invoice.amount || 0),
+              status: this.formatStatus(invoice.status || 'PENDING'),
+              description: invoice.description || '',
+              items: invoice.invoiceDetails || invoice.items || [],
+              totalPaid: parseFloat(invoice.paid || 0),
+              balance: parseFloat(invoice.balance || 0),
+              invoiceType: invoice.invoiceType || invoice.invoice_type || '',
+              receiptCount: invoice.receiptCount || invoice.receipt_count || 0
+            }));
+
+          if (this.invoices.length > 0) {
+            toast.success(`${this.invoices.length} invoice(s) for school ${schoolCode} fetched successfully!`);
+          } else {
+            toast.info(`No invoices found for school ${schoolCode}.`);
+          }
+        } else {
+          this.invoices = [];
+          toast.warning('Invalid response format from API.');
+        }
+      } catch (error) {
+        console.error('Error fetching invoices by school:', error);
+        this.invoices = [];
+        toast.error('Failed to fetch invoices for this school. Please try again.');
+      } finally {
+        this.Loading = false;
+      }
+    },
+
+    onSchoolFilterChange() {
+      this.currentPage = 1;
+      if (!this.selectedSchoolCode) {
+        this.fetchInvoices();
+      } else {
+        this.fetchInvoicesBySchool(this.selectedSchoolCode);
       }
     },
   },
@@ -744,6 +1010,90 @@ export default {
 
 .receipts-table tfoot td {
   border-top: 2px solid #e5e7eb;
+}
+
+/* Delete / Reverse dialog styles */
+.delete-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10002;
+}
+
+.delete-modal-content {
+  background-color: #4368b9;
+  border-radius: 8px;
+  padding: 1.5rem;
+  width: 90%;
+  max-width: 480px;
+  box-shadow: 0px 0px 5px gold;
+  color: #fff;
+}
+
+.delete-modal-content h3 {
+  margin: 0 0 0.75rem 0;
+  color: gold;
+  text-align: center;
+}
+
+.delete-modal-text {
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+}
+
+.delete-modal-textarea {
+  width: 100%;
+  border-radius: 4px;
+  border: 1px solid gold;
+  padding: 0.5rem;
+  font-size: 0.9rem;
+  background-color: #4368b9;
+  color: #fff;
+  resize: vertical;
+}
+
+.delete-modal-textarea::placeholder {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.delete-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.delete-cancel-btn,
+.delete-confirm-btn {
+  padding: 0.4rem 0.9rem;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.delete-cancel-btn {
+  background-color: #e5e7eb;
+  color: #111827;
+  border-color: #d1d5db;
+}
+
+.delete-confirm-btn {
+  background-color: #f97316;
+  border-color: #ea580c;
+  color: #111827;
+  font-weight: 600;
+}
+
+.delete-confirm-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .pagination {

@@ -164,7 +164,7 @@
 </template>
 
 <script>
-import axios from 'axios';
+import axios from '../../axios';
 import { useToast } from 'vue-toastification';
 import LoadingSpinner from '../../components/LoadingSpinner.vue';
 
@@ -232,7 +232,7 @@ export default {
       this.Loading = true;
       const toast = useToast();
       try {
-        const response = await axios.post('/api/schools/list', {});
+        const response = await axios.post('/schools/list', {});
         
         if (response.data && Array.isArray(response.data)) {
           // Map the response data to ensure we have schoolCode and schoolName
@@ -298,25 +298,35 @@ export default {
         return;
       }
 
+      // Build contacts list for /messages/sendbulk
+      const contacts = this.selectedSchools
+        .map(code => this.schools.find(s => s.schoolCode === code))
+        .filter(Boolean)
+        .map(school => ({
+          contactName: school.schoolName || '',
+          designation: school.principalName || '',
+          email: school.email || '',
+          phoneNo: school.principalPhoneNo || school.phoneNo || '',
+          schoolCode: school.schoolCode,
+        }));
+
+      if (contacts.length === 0) {
+        toast.error('No valid contacts found for selected schools.');
+        return;
+      }
+
       const payload = {
-        recipients: this.selectedSchools,
-        subject: this.subject.trim(),
-        messageBody: this.messageBody.trim(),
-        status: 'Pending',
+        message: `${this.subject.trim()}\n\n${this.messageBody.trim()}`,
+        contacts,
       };
 
       this.Loading = true;
 
       try {
-        let response;
-        if (this.editMode && this.message?.messageID) {
-          response = await axios.put(`/api/messages/update/${this.message.messageID}`, payload);
-        } else {
-          response = await axios.post('/api/messages/send', payload);
-        }
+        const response = await axios.post('/messages/sendbulk', payload);
 
         if (response.status === 200 || response.status === 201) {
-          toast.success(`Message ${this.editMode ? 'updated' : 'sent'} successfully to ${this.selectedSchools.length} school(s)!`);
+          toast.success(`Message sent successfully to ${this.selectedSchools.length} school(s)!`);
           this.$emit('fetchMessages');
           this.$emit('closeForm');
           this.clearForm();
@@ -327,14 +337,9 @@ export default {
         if (error.response && error.response.data) {
           toast.error(`ERROR: ${error.response.data.message || 'An unexpected error occurred'}`);
         } else {
-          toast.error(`ERROR ${this.editMode ? 'UPDATING' : 'SENDING'} MESSAGE!`);
+          toast.error('ERROR SENDING MESSAGE!');
         }
         console.error('Error sending message:', error);
-        // Show success anyway for testing with dummy data
-        toast.success(`Message sent successfully to ${this.selectedSchools.length} school(s)! (Demo mode)`);
-        this.$emit('fetchMessages');
-        this.$emit('closeForm');
-        this.clearForm();
       } finally {
         this.Loading = false;
       }

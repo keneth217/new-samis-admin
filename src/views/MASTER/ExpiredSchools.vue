@@ -5,7 +5,18 @@
       <div class="header-container1">
         <h2>Expired Schools</h2>
       </div>
-      <input v-model="searchQuery" placeholder="Search by name or code" class="search-input" @input="fetchSchools" />
+      <div class="search-actions">
+        <input
+          v-model="searchQuery"
+          placeholder="Search by name or code"
+          class="search-input"
+          @input="fetchSchools"
+        />
+        <button class="action-btn" @click="exportToExcel">
+          <span class="material-symbols-outlined">download</span>
+          Export to Excel
+        </button>
+      </div>
     </div>
 
     <!-- Schools Table -->
@@ -118,7 +129,7 @@
 
 <script>
 import footerCast from '../../components/footer.vue';
-import axios from 'axios';
+import axios from '../../axios';
 import { useToast } from 'vue-toastification';
 import LoadingSpinner from '../../components/LoadingSpinner.vue';
 
@@ -166,7 +177,7 @@ export default {
 async fetchActivationStatus(school) {
   try {
     this.Loading = true;
-    const response = await axios.post('/api/activations/status', {
+    const response = await axios.post('/activations/status', {
       schoolCode: school.schoolCode,
       // Pass the actual module associated with the school
       moduleName: school.moduleName || '', // Use the school’s module name or empty string if not available
@@ -200,7 +211,7 @@ async fetchActivationStatus(school) {
       try {
         const payload = { ...this.activationForm };
 
-        const response = await axios.post('/api/activations/activate', payload);
+        const response = await axios.post('/activations/activate', payload);
         if (response.data && response.data.activationID) {
           this.toast.success('School activated successfully!');
           this.fetchSchools(); // Refresh the expired schools list
@@ -231,7 +242,7 @@ async fetchActivationStatus(school) {
    async fetchSchools() {
       this.Loading = true;
       try {
-        const response = await axios.post('/api/activations/expired');
+        const response = await axios.post('/activations/expired');
         this.schools = response.data.filter(school => {
           const expiryDate = new Date(school.expiryDate);
           return expiryDate < new Date(); // Only expired schools
@@ -242,6 +253,50 @@ async fetchActivationStatus(school) {
       } finally {
         this.Loading = false;
       }
+    },
+
+    exportToExcel() {
+      // Export current displayed (filtered) expired schools as CSV
+      const headers = [
+        'School Code',
+        'School Name',
+        'Module Name',
+        'Selling Price',
+        'Maintenance Fee',
+        'Expiry Date',
+        'Installation Date',
+      ];
+
+      const rows = this.displayedSchools.map((school) => [
+        school.schoolCode,
+        school.schoolName,
+        school.moduleName,
+        school.sellingPrice,
+        school.maintenanceFee,
+        school.expiryDate,
+        school.installationDate,
+      ]);
+
+      const csvContent = [headers, ...rows]
+        .map((row) =>
+          row
+            .map((item) => {
+              const value = item ?? '';
+              const str = value.toString().replace(/"/g, '""');
+              return `"${str}"`;
+            })
+            .join(',')
+        )
+        .join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+      link.download = `expired-schools-${timestamp}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
     },
   },
   // Fetch expired schools when the component is mounted
@@ -317,6 +372,12 @@ async fetchActivationStatus(school) {
     /* flex-grow: 1; */
     margin-left: 1rem;
   }
+  
+.search-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
   
   .table-container {
     background-color: white;

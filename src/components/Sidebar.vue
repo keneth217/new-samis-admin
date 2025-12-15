@@ -155,6 +155,23 @@
         </RouterLink>
 
         <RouterLink
+          to="/Receipts"
+          :class="[
+            'side-btn',
+            {
+              active:
+                isLinkActive('/Receipts') ||
+                isChildLinkActive(['/Receipts']),
+            },
+          ]"
+          @click="closeDropdowns"
+        >
+          <span class="material-symbols-outlined">receipt</span>
+          <span class="link-container">RECEIPTS</span>
+          <span class="tooltip">RECEIPTS</span>
+        </RouterLink>
+
+        <RouterLink
           to="/ExpensesTracking"
           :class="[
             'side-btn',
@@ -204,6 +221,23 @@
           <span class="material-symbols-outlined">call</span>
           <span class="link-container">CALL LOG</span>
           <span class="tooltip">CALL LOG</span>
+        </RouterLink>
+
+        <RouterLink
+          to="/Contacts"
+          :class="[
+            'side-btn',
+            {
+              active:
+                isLinkActive('/Contacts') ||
+                isChildLinkActive(['/Contacts']),
+            },
+          ]"
+          @click="closeDropdowns"
+        >
+          <span class="material-symbols-outlined">contacts</span>
+          <span class="link-container">CONTACTS</span>
+          <span class="tooltip">CONTACTS</span>
         </RouterLink>
 
         <!-- Configuration Section -->

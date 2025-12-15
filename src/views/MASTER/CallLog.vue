@@ -166,7 +166,7 @@
 </template>
 
 <script>
-import axios from 'axios';
+import axios from '../../axios';
 import LoadingSpinner from '../../components/LoadingSpinner.vue';
 
 export default {
@@ -189,8 +189,7 @@ export default {
       isSpeakerOn: true,
       client: null,
       loading: false,
-      apiBase: import.meta.env.VITE_API_URL || '',
-      keypadKeys: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'],
+      keypadKeys: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#', '+'],
     };
   },
   computed: {
@@ -240,7 +239,7 @@ export default {
     async fetchContacts() {
       this.loading = true;
       try {
-        const res = await axios.post(`${this.apiBase}/api/contacts/list`);
+        const res = await axios.post('/contacts/list');
         const fromApi = Array.isArray(res.data) ? res.data : res.data?.data || [];
         this.contacts = fromApi;
       } catch (err) {
@@ -273,7 +272,7 @@ export default {
       if (this.client) return this.client;
       const targetNumber = this.dialedNumber;
       if (!targetNumber) throw new Error('No number provided');
-      const tokenResponse = await axios.post(`${this.apiBase}/api/calls/token`, { phoneNumber: targetNumber });
+      const tokenResponse = await axios.post('/calls/token', { phoneNumber: targetNumber });
       const token = tokenResponse.data?.token;
       if (!token) throw new Error('No token returned');
       const params = { sounds: { dialing: '/sounds/dial.mp3', ringing: '/sounds/ring.mp3' } };
@@ -299,11 +298,22 @@ export default {
         return;
       }
       try {
+        // Force a fresh client each call to avoid using a closed WebSocket
+        this.client = null;
         this.tabValue = 'inCall';
         const client = await this.initializeClientWithToken();
         const formatted = this.formatNumber(this.dialedNumber);
         client.call(formatted);
         this.isInCall = true;
+        client.on('error', (e) => console.error('Africastalking error', e));
+        client.on('callfailed', (e) => console.error('Africastalking call failed', e));
+        client.on('callestablished', () => {
+          this.isInCall = true;
+        });
+        client.on('callended', () => {
+          this.isInCall = false;
+          this.tabValue = 'keypad';
+        });
         const newCall = {
           contactName: this.dialedNumber,
           time: new Date().toLocaleTimeString(),
@@ -312,13 +322,6 @@ export default {
         };
         this.recents = [newCall, ...this.recents];
         this.saveRecents();
-        client.on('callestablished', () => {
-          this.isInCall = true;
-        });
-        client.on('callended', () => {
-          this.isInCall = false;
-          this.tabValue = 'keypad';
-        });
       } catch (err) {
         console.error('Call failed', err);
         alert('Failed to place the call.');
@@ -328,13 +331,24 @@ export default {
     },
     handleEndCall() {
       if (this.client) {
-        this.client.hangup();
+        try {
+          this.client.hangup();
+        } catch (err) {
+          console.warn('Hangup after closed WS', err);
+        }
       }
       this.isInCall = false;
       this.tabValue = 'keypad';
       this.dialedNumber = '';
+      this.client = null;
     },
     handleKeypadClick(key) {
+      if (key === '+') {
+        // Only one leading plus; normalize if user taps it
+        if (this.dialedNumber.startsWith('+')) return;
+        this.dialedNumber = `+${this.dialedNumber.replace(/^\+?/, '')}`;
+        return;
+      }
       this.dialedNumber = `${this.dialedNumber}${key}`;
     },
     handleBackspace() {

@@ -26,6 +26,11 @@ const router = createRouter({
       meta: { requiresAuth: true }, 
     },
     {
+      path: '/Receipts',
+      component: () => import('../views/MASTER/Receipts.vue'),
+      meta: { requiresAuth: true }, 
+    },
+    {
       path: '/Employees',
       component: () => import('../views/MASTER/EmployeesOverview.vue'),
       meta: { requiresAuth: true },
@@ -38,6 +43,11 @@ const router = createRouter({
     {
       path: '/CallLog',
       component: () => import('../views/MASTER/CallLog.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/Contacts',
+      component: () => import('../views/MASTER/Contacts.vue'),
       meta: { requiresAuth: true },
     },
     {

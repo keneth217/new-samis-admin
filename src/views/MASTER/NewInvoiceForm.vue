@@ -26,10 +26,11 @@
             :disabled="editMode"
             id="schoolCode"
           >
-            <option value="" disabled>Select School*</option>
+            <option value="" disabled>{{ schools.length > 0 ? 'Select School*' : 'Loading schools...' }}</option>
             <option v-for="school in schools" :key="school.schoolCode" :value="school.schoolCode">
               {{ school.schoolName }} ({{ school.schoolCode }})
             </option>
+            <option v-if="schools.length === 0 && !Loading" value="" disabled>No schools available</option>
           </select>
           <label v-if="!viewMode" for="schoolCode" :class="{ filled: schoolCode !== '' }">School*</label>
         </div>
@@ -42,20 +43,14 @@
           </div>
         </div>
 
-        <!-- Invoice Number -->
+        <!-- Invoice Number (read-only, server generated) -->
         <div class="form-group">
-          <input 
-            type="text" 
-            class="form-control" 
-            v-model="invoiceNumber" 
-            placeholder="Invoice Number" 
-            required 
-            :disabled="viewMode"
-          />
-          <label for="invoiceNumber" :class="{ filled: invoiceNumber !== '' }">Invoice Number*</label>
-          <small class="invoice-number-hint" v-if="!editMode && !viewMode && invoiceNumber">
-            Auto-generated (you can modify if needed)
-          </small>
+          <div class="view-mode-text-display">
+            <div class="view-label">Invoice Number</div>
+            <div class="view-value">
+              {{ invoiceNo || 'Will be generated automatically after saving' }}
+            </div>
+          </div>
         </div>
 
         <!-- Invoice Date -->
@@ -192,6 +187,7 @@ export default {
   data() {
     return {
       schoolCode: '',
+        invoiceNo: '',
       invoiceNumber: '',
       invoiceDate: '',
       dueDate: '',
@@ -236,9 +232,10 @@ export default {
         if (newInvoice) {
           // Only set editMode if not in viewMode
           this.editMode = !this.viewMode && true;
+          this.invoiceNo = newInvoice.invoiceNo || newInvoice.invoiceNumber || '';
           this.schoolCode = newInvoice.schoolCode || '';
           this.schoolName = newInvoice.schoolName || '';
-          this.invoiceNumber = newInvoice.invoiceNumber || '';
+          this.invoiceNumber = newInvoice.invoiceNumber || newInvoice.invoiceNo || '';
           this.invoiceDate = newInvoice.invoiceDate || '';
           this.dueDate = newInvoice.dueDate || '';
           this.invoiceType = newInvoice.invoiceType || 'TUITION';
@@ -249,10 +246,6 @@ export default {
         } else {
           this.editMode = false;
           this.clearForm();
-          // Generate invoice number when form is opened for new invoice
-          if (!this.viewMode) {
-            this.generateInvoiceNumber();
-          }
         }
       },
     },
@@ -268,65 +261,55 @@ export default {
     },
 
     async fetchSchools() {
+      this.Loading = true;
+      const toast = useToast();
       try {
-        const response = await axios.post('/schools/list');
+        const response = await axios.post('/schools/list', {});
+        
+        console.log('Schools API Response:', response.data);
+        
         if (response.data && Array.isArray(response.data)) {
-          this.schools = response.data;
+          // Map the response data to ensure we have schoolCode and schoolName
+          const mappedSchools = response.data.map(school => ({
+            schoolCode: school.schoolCode || school.school_code || '',
+            schoolName: school.schoolName || school.school_name || 'N/A',
+            deleted: school.deleted || false,
+          }));
+          
+          // Filter out deleted schools and invalid entries (only filter if deleted is explicitly true)
+          this.schools = mappedSchools.filter(school => {
+            const isValid = school.schoolCode && school.schoolCode.trim() !== '';
+            const isNotDeleted = school.deleted !== true;
+            return isValid && isNotDeleted;
+          });
+          
+          console.log('Mapped schools:', mappedSchools);
+          console.log('Filtered schools (final):', this.schools);
+          
+          if (this.schools.length > 0) {
+            toast.success(`Loaded ${this.schools.length} school(s)`);
+          } else {
+            toast.warning('No active schools found.');
+          }
+        } else {
+          console.warn('Unexpected response format:', response.data);
+          toast.warning('No schools found in the response.');
+          this.schools = [];
         }
       } catch (error) {
         console.error('Error fetching schools:', error);
-      }
-    },
-
-    async generateInvoiceNumber() {
-      // Only generate for new invoices, not when editing
-      if (this.editMode) {
-        return;
-      }
-
-      try {
-        // Fetch existing invoices to determine next number
-        const response = await axios.post('/invoices/list');
-        const currentYear = new Date().getFullYear();
-        const prefix = `INV-${currentYear}-`;
-        
-        let maxNumber = 0;
-
-        if (response.data && Array.isArray(response.data)) {
-          // Filter invoices for current year and find the highest number
-          const currentYearInvoices = response.data.filter(inv => {
-            const invNumber = inv.invoiceNumber || inv.invoice_number || '';
-            return invNumber.startsWith(prefix);
-          });
-
-          // Extract numbers from invoice numbers
-          currentYearInvoices.forEach(inv => {
-            const invNumber = inv.invoiceNumber || inv.invoice_number || '';
-            if (invNumber.startsWith(prefix)) {
-              const numberPart = invNumber.replace(prefix, '');
-              const num = parseInt(numberPart, 10);
-              if (!isNaN(num) && num > maxNumber) {
-                maxNumber = num;
-              }
-            }
-          });
-        }
-
-        // Generate next invoice number
-        const nextNumber = maxNumber + 1;
-        this.invoiceNumber = `${prefix}${nextNumber.toString().padStart(3, '0')}`;
-      } catch (error) {
-        console.error('Error generating invoice number:', error);
-        // Fallback: Generate based on current date/time if API fails
-        const currentYear = new Date().getFullYear();
-        const timestamp = Date.now().toString().slice(-3);
-        this.invoiceNumber = `INV-${currentYear}-${timestamp.padStart(3, '0')}`;
+        console.error('Error details:', error.response?.data || error.message);
+        toast.error('Failed to fetch schools. Please try again.');
+        this.schools = [];
+      } finally {
+        this.Loading = false;
       }
     },
 
     clearForm() {
       this.schoolCode = '';
       this.schoolName = '';
+      this.invoiceNo = '';
       this.invoiceNumber = '';
       this.invoiceDate = '';
       this.dueDate = '';
@@ -348,6 +331,11 @@ export default {
       const amountValue = parseFloat(this.amount) || 0;
       const discountValue = parseFloat(this.discount) || 0;
       const balance = amountValue - discountValue;
+
+      if (this.editMode && !this.invoiceNo) {
+        toast.warning('Missing invoice number. Please reopen the invoice and try again.');
+        return;
+      }
 
       // Build InvoiceDAO payload according to API specification
       // Note: invoiceNumber is NOT in the request body - it's only used in URL for updates
@@ -379,9 +367,9 @@ export default {
 
       try {
         let response;
-        if (this.editMode && this.invoiceNumber) {
+        if (this.editMode && this.invoiceNo) {
           // Update: POST /invoices/update/{invoiceNo}
-          response = await axios.post(`/invoices/update/${this.invoiceNumber}`, payload);
+          response = await axios.post(`/invoices/update/${this.invoiceNo}`, payload);
         } else {
           // Create: POST /invoices/create
           response = await axios.post('/invoices/create', payload);

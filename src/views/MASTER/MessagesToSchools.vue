@@ -124,7 +124,7 @@
 </template>
 
 <script>
-import axios from 'axios';
+import axios from '../../axios';
 import { useToast } from 'vue-toastification';
 import LoadingSpinner from '../../components/LoadingSpinner.vue';
 import footerCast from '../../components/footer.vue';
@@ -256,41 +256,44 @@ export default {
     async fetchMessages() {
       this.Loading = true;
       const toast = useToast();
-      this.messages = [];
-
       try {
-        const response = await axios.post('/api/messages/list');
+        const response = await axios.post('/messages/list');
 
         if (response.data && Array.isArray(response.data)) {
           this.messages = response.data.map(message => ({
             messageID: message.messageID || message.id,
-            subject: message.subject || 'N/A',
-            messageBody: message.messageBody || message.message_body || '',
-            sentDate: message.sentDate || message.sent_date || 'N/A',
+            subject: message.fullname || `Message to ${message.phoneNo || 'Unknown'}`,
+            messageBody: message.message || '',
+            sentDate: message.sentOn || message.sent_date || 'N/A',
             status: message.status || 'Pending',
-            recipientCount: message.recipientCount || message.recipient_count || 0,
-            recipients: message.recipients || []
+            recipientCount: 1,
+            recipients: [
+              {
+                schoolName: message.fullname || 'Unknown',
+                schoolCode: '',
+              },
+            ],
+            phoneNo: message.phoneNo || '',
           }));
 
-          toast.success('Messages fetched successfully!');
+          if (this.messages.length > 0) {
+            toast.success('Messages fetched successfully!');
+          } else {
+            toast.info('No messages found.');
+          }
         } else {
+          this.messages = [];
           toast.error('No messages found in the response.');
-          this.loadDummyMessages();
         }
       } catch (error) {
         console.error('Error fetching messages:', error);
-        console.log('Loading dummy messages for testing...');
-        this.loadDummyMessages();
+        toast.error('Failed to fetch messages. Please try again.');
       } finally {
         this.Loading = false;
       }
     },
   },
   mounted() {
-    // Load dummy messages immediately for testing
-    this.loadDummyMessages();
-    
-    // Also try to fetch from API (will fallback to dummy if fails)
     this.fetchMessages();
   }
 };

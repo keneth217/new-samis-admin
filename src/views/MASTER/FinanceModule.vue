@@ -95,7 +95,7 @@
   </template>
  <script>
  import footerCast from '../../components/footer.vue';
- import axios from 'axios';
+import axios from '../../axios';
  import { useToast } from 'vue-toastification';
  import LoadingSpinner from '../../components/LoadingSpinner.vue';
 import NewFinanceModule from './NewFinanceModule.vue';
@@ -192,7 +192,7 @@ import NewFinanceModule from './NewFinanceModule.vue';
 
   try {
     
-    const response = await axios.post('/api/modules/list');
+    const response = await axios.post('/modules/list');
 
      // Log the API response to ensure it is what you expect
      console.log('API Response:', response.data);

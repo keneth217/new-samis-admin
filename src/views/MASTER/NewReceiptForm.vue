@@ -42,16 +42,16 @@
           <label :class="{ filled: true }">Invoice Total Amount</label>
         </div>
 
-        <!-- Receipt Number -->
+        <!-- Receipt Number (read-only, server generated) -->
         <div class="form-group">
           <input 
             type="text" 
             class="form-control" 
-            v-model="receiptNumber" 
-            placeholder="Receipt Number" 
-            required 
+            :value="receiptNo || 'Will be generated automatically after saving'" 
+            readonly
+            disabled
           />
-          <label for="receiptNumber" :class="{ filled: receiptNumber !== '' }">Receipt Number*</label>
+          <label :class="{ filled: !!receiptNo }">Receipt Number</label>
         </div>
 
         <!-- Receipt Date -->
@@ -132,7 +132,7 @@
 </template>
 
 <script>
-import axios from 'axios';
+import axios from '../../axios';
 import { useToast } from 'vue-toastification';
 import LoadingSpinner from '../../components/LoadingSpinner.vue';
 
@@ -151,7 +151,7 @@ export default {
   },
   data() {
     return {
-      receiptNumber: '',
+      receiptNo: '',
       receiptDate: '',
       amount: '',
       paymentMethod: '',
@@ -186,8 +186,7 @@ export default {
       handler(newReceipt) {
         if (newReceipt) {
           this.editMode = true;
-          this.invoiceID = newReceipt.invoiceID || '';
-          this.receiptNumber = newReceipt.receiptNumber || '';
+          this.receiptNo = newReceipt.receiptNo || newReceipt.receiptNumber || '';
           this.receiptDate = newReceipt.receiptDate || '';
           this.amount = newReceipt.amount || '';
           this.paymentMethod = newReceipt.paymentMethod || '';
@@ -210,7 +209,7 @@ export default {
 
 
     clearForm() {
-      this.receiptNumber = '';
+      this.receiptNo = '';
       this.receiptDate = '';
       this.amount = '';
       this.paymentMethod = '';
@@ -221,13 +220,24 @@ export default {
     async saveReceipt() {
       const toast = useToast();
 
-      if (!this.invoice || !this.invoice.invoiceID) {
-        toast.error('Invoice information is missing!');
+      if (!this.invoice || !this.invoice.schoolCode) {
+        toast.error('Invoice / school information is missing!');
         return;
       }
 
-      if (!this.receiptNumber || !this.receiptDate || !this.amount || !this.paymentMethod) {
-        toast.warning('Please fill all required fields!');
+      const missingFields = [];
+      if (!String(this.receiptDate || '').trim()) {
+        missingFields.push('Receipt Date');
+      }
+      if (this.amount === '' || this.amount === null) {
+        missingFields.push('Amount');
+      }
+      if (!this.paymentMethod) {
+        missingFields.push('Payment Method');
+      }
+
+      if (missingFields.length > 0) {
+        toast.warning(`Please fill: ${missingFields.join(', ')}`);
         return;
       }
 
@@ -247,51 +257,46 @@ export default {
         return;
       }
 
+      // Map UI payment method to API paymentMode values
+      let apiPaymentMode = this.paymentMethod;
+      switch (this.paymentMethod) {
+        case 'Mobile Money':
+          apiPaymentMode = 'M-PESA';
+          break;
+        case 'Bank Transfer':
+          apiPaymentMode = 'BANK';
+          break;
+        case 'Cash':
+          apiPaymentMode = 'CASH';
+          break;
+        default:
+          // leave as-is for other types like CHEQUE, Credit Card, Other
+          break;
+      }
+
       const payload = {
-        invoiceID: this.invoice.invoiceID,
-        receiptNumber: this.receiptNumber,
-        receiptDate: this.receiptDate,
-        amount: parseFloat(this.amount),
-        paymentMethod: this.paymentMethod,
-        referenceNumber: this.referenceNumber,
-        description: this.description,
+        amount: paymentAmount,
+        paymentMode: apiPaymentMode,
+        paymentModeNo: this.referenceNumber || '',
+        receiptDate: this.invoice?.receiptDate || this.receiptDate,
+        schoolCode: this.invoice.schoolCode,
+        status: 'Paid',
       };
 
       this.Loading = true;
 
       try {
         let response;
-        if (this.editMode && this.receipt?.receiptID) {
-          response = await axios.put(`/api/receipts/update/${this.receipt.receiptID}`, payload);
+        if (this.editMode && this.receiptNo) {
+          // Update existing receipt
+          response = await axios.post(`/receipts/update/${this.receiptNo}`, payload);
         } else {
-          response = await axios.post('/api/receipts/create', payload);
-          
-          // After creating receipt, update invoice status based on payment
-          if (response.status === 200 || response.status === 201) {
-            try {
-              const newTotalPaid = alreadyPaid + paymentAmount;
-              let newStatus = 'Pending';
-              
-              if (newTotalPaid >= invoiceAmount) {
-                newStatus = 'Paid';
-              } else if (newTotalPaid > 0) {
-                newStatus = 'Partially Paid';
-              }
-
-              await axios.put(`/api/invoices/update/${this.invoice.invoiceID}`, {
-                status: newStatus,
-                totalPaid: newTotalPaid
-              });
-            } catch (invoiceError) {
-              console.error('Error updating invoice status:', invoiceError);
-              // Don't fail the receipt creation if invoice update fails
-            }
-          }
+          // Create new receipt - backend auto-generates receipt details and updates invoices
+          response = await axios.post('/receipts/create', payload);
         }
 
         if (response.status === 200 || response.status === 201) {
           toast.success(`Receipt ${this.editMode ? 'updated' : 'created'} successfully! Payment recorded.`);
-          this.$emit('fetchReceipts');
           this.$emit('fetchInvoices');
           this.$emit('closeForm');
           this.clearForm();

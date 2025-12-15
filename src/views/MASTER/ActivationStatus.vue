@@ -26,7 +26,7 @@
   
   <script>
   import { defineComponent, ref, onMounted } from "vue";
-  import axios from "axios";
+  import axios from "../../axios";
   import { useToast } from "vue-toastification";
   
   export default defineComponent({
@@ -52,7 +52,7 @@
       const checkActivationStatus = async () => {
         try {
           console.log("🔍 Checking activation status for:", props.schoolCode, props.moduleName);
-          const response = await axios.post("/api/activations/status", {
+          const response = await axios.post("/activations/status", {
             schoolCode: props.schoolCode,
             moduleName: props.moduleName,
           });

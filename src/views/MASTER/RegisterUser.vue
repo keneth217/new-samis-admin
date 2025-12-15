@@ -109,7 +109,7 @@
 
 <script>
 import footerCast from '../../components/footer.vue';
-import axios from 'axios';
+import axios from '../../axios';
 import { useToast } from 'vue-toastification';
 import LoadingSpinner from '../../components/LoadingSpinner.vue';
 import NewUser from './NewUser.vue';
@@ -192,7 +192,7 @@ export default {
 
       this.users = [];
       try {
-        const response = await axios.post('/api/auth/list_users');
+        const response = await axios.post('/auth/list_users');
         this.users = response.data.map(user => ({
           phoneNo: user.phoneNo,
           username: user.username,

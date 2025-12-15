@@ -92,7 +92,7 @@
 import { useToast } from 'vue-toastification';
 import { Chart, registerables } from 'chart.js'; 
 import LoadingSpinner from '../../components/LoadingSpinner.vue';
-import axios from 'axios';
+import axios from '../../axios';
 
 Chart.register(...registerables);
 

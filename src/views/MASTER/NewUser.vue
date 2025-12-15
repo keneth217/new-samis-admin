@@ -61,7 +61,7 @@
 </template>
 
 <script>
-import axios from 'axios';
+import axios from '../../axios';
 import { useToast } from 'vue-toastification';
 import LoadingSpinner from '../../components/LoadingSpinner.vue';
 
@@ -140,10 +140,14 @@ export default {
           station: this.station,
           role: this.role,
         };
+        // Send password only when provided; backend can auto-generate otherwise
+        if (this.password) {
+          formData.password = this.password;
+        }
 
         this.Loading = true;
 
-        let response = await axios.post('/api/auth/signup', formData);
+        let response = await axios.post('/auth/signup', formData);
 
         if (response.status === 200 || response.status === 201) {
           toast.success('User registered successfully!');

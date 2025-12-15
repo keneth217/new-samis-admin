@@ -66,7 +66,7 @@ import { useAuthStore } from '../../Stores/useAuthStore';
 import LoadingSpinner from '../LoadingSpinner.vue'
 import { useToast } from 'vue-toastification';
 import { useRouter } from 'vue-router';
-import axios from 'axios';
+import axios from '../../axios';
 
 export default {
   components: { LoadingSpinner },

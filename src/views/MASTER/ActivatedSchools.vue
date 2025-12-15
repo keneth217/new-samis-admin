@@ -51,7 +51,7 @@
       <td>{{ (currentPage - 1) * schoolsPerPage + index + 1 }}</td>
       <td>{{ school.schoolName }}</td>
       <td>{{ school.schoolCode }}</td>
-      <td>{{ school.moduleName }}</td>
+      <td>{{ school.moduleNameJoined || school.moduleName }}</td>
       <td>{{ school.installationDate }}</td>
       <td>{{ school.expiryDate }}</td>
       <td>{{ school.registeredByName }}</td>
@@ -114,7 +114,7 @@
 </template>
 <script>
 import footerCast from '../../components/footer.vue';
-import axios from 'axios';
+import axios from '../../axios';
 import { useToast } from 'vue-toastification';
 import LoadingSpinner from '../../components/LoadingSpinner.vue';
 import NewSchool from './NewSchool.vue';
@@ -159,6 +159,27 @@ export default {
   },
   computed: {
     // Group activations by school so multiple modules share one row
+    groupedSchools() {
+      const map = new Map();
+      this.schools.forEach(s => {
+        const code = (s.schoolCode || '').toString().trim();
+        if (!map.has(code)) {
+          map.set(code, {
+            ...s,
+            modules: [],
+          });
+        }
+        const entry = map.get(code);
+        if (s.moduleName && !entry.modules.includes(s.moduleName)) {
+          entry.modules.push(s.moduleName);
+        }
+      });
+      return Array.from(map.values()).map(s => ({
+        ...s,
+        moduleNameJoined: s.modules.join(', '),
+      }));
+    },
+
     // Calculate the total number of pages
     totalPages() {
       return Math.ceil(this.filteredSchools.length / this.schoolsPerPage);
@@ -167,7 +188,7 @@ export default {
     // Filter individual activations (no grouping so each module stays separate)
     filteredSchools() {
       const query = this.searchQuery.trim().toLowerCase();
-      return this.schools.filter(school => {
+      return this.groupedSchools.filter(school => {
         if (!query) return true;
         const nameMatch = (school.schoolName || '').toString().toLowerCase().includes(query);
 
@@ -263,7 +284,7 @@ export default {
   this.Loading = true;
   const toast = useToast();
   try {
-    const response = await axios.post('/api/activations/list', {});
+    const response = await axios.post('/activations/list', {});
     console.log("API Response:", response.data); // Log the response
 
     const payload = Array.isArray(response.data) ? response.data : [response.data];
@@ -331,7 +352,7 @@ export default {
     };
 
     // Instead of 'payload', use 'this.activationData'
-    const response = await axios.post('/api/activations/activate', this.activationData, config);
+    const response = await axios.post('/activations/activate', this.activationData, config);
 
     if (response.data) {
       toast.success("Module activated successfully!");

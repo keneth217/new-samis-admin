@@ -1,28 +1,31 @@
 <template>
   <div class="the-page">
     <div class="search-area">
-      <!-- Header -->
       <div class="header-container1">
-        <h2>Employees</h2>
+        <h2>Contacts</h2>
       </div>
-      <input v-model="searchQuery" placeholder="Search by name, employee ID, department, or phone" class="search-input" />
+      <input
+        v-model="searchQuery"
+        placeholder="Search by name, phone or school code"
+        class="search-input"
+      />
     </div>
 
-    <!-- Action Buttons -->
     <div class="header-container">
       <div class="header-object1">
-        <button @click="openForm" class="action-btn" aria-label="Add Employee">
-          <span class="material-symbols-outlined">add_circle</span> Add Employee
+        <button @click="openForm" class="action-btn" aria-label="Add Contact">
+          <span class="material-symbols-outlined">add_circle</span> Add Contact
         </button>
       </div>
     </div>
 
-    <!-- Employees Table -->
     <div class="table-container">
       <div class="students-controls">
-        <label for="employeesPerPage">Employees per page:</label>
-        <select class="form-control" v-model="employeesPerPage" @change="updateEmployeesPerPage">
-          <option v-for="option in employeesPerPageOptions" :key="option" :value="option">{{ option }}</option>
+        <label for="contactsPerPage">Contacts per page:</label>
+        <select class="form-control" v-model="contactsPerPage" @change="updateContactsPerPage">
+          <option v-for="option in contactsPerPageOptions" :key="option" :value="option">
+            {{ option }}
+          </option>
         </select>
       </div>
 
@@ -30,44 +33,45 @@
         <thead>
           <tr>
             <th>#</th>
-            <th>Employee ID</th>
-            <th>Full Name</th>
-            <th>Department</th>
-            <th>Phone Number</th>
+            <th>Name</th>
+            <th>Designation</th>
             <th>Email</th>
-            <th>Status</th>
+            <th>Phone</th>
+            <th>School Code</th>
             <th class="actions-header">Actions</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-if="displayedEmployees.length === 0">
-            <td colspan="8">No employees found</td>
+          <tr v-if="displayedContacts.length === 0">
+            <td colspan="7">No contacts found</td>
           </tr>
           <tr
-            v-for="(employee, index) in displayedEmployees"
-            :key="employee.employeeID"
+            v-for="(contact, index) in displayedContacts"
+            :key="contact.contactID || index"
             :class="{ 'even-row': index % 2 !== 0 }"
           >
-            <td>{{ (currentPage - 1) * employeesPerPage + index + 1 }}</td>
-            <td>{{ employee.employeeID }}</td>
-            <td>{{ employee.fullName }}</td>
-            <td>{{ employee.department }}</td>
-            <td>{{ employee.phoneNumber }}</td>
-            <td>{{ employee.email }}</td>
-            <td :class="{ 'text-success': employee.status === 'Active', 'text-danger': employee.status === 'Inactive' }">
-              {{ employee.status }}
-            </td>
+            <td>{{ (currentPage - 1) * contactsPerPage + index + 1 }}</td>
+            <td>{{ contact.contactName }}</td>
+            <td>{{ contact.designation }}</td>
+            <td>{{ contact.email || '-' }}</td>
+            <td>{{ contact.phoneNo }}</td>
+            <td>{{ contact.schoolCode }}</td>
             <td class="actions">
-              <button @click="viewEmployee(employee)" class="manage-btn" aria-label="View Employee">
-                <span class="material-symbols-outlined">visibility</span> View
-              </button>
-              <button @click="editEmployee(employee)" class="class-list-btn" aria-label="Edit Employee">
+              <button @click="editContact(contact)" class="manage-btn" aria-label="Edit Contact">
                 <span class="material-symbols-outlined">edit</span> Edit
+              </button>
+              <button
+                @click="deleteContact(contact)"
+                class="class-list-btn"
+                aria-label="Delete Contact"
+              >
+                <span class="material-symbols-outlined">delete</span> Delete
               </button>
             </td>
           </tr>
         </tbody>
       </table>
+
       <div class="pagination">
         <button @click="prevPage" :disabled="currentPage === 1">Previous</button>
         <span>{{ currentPage }} / {{ totalPages }}</span>
@@ -75,16 +79,14 @@
       </div>
     </div>
 
-    <!-- Employee Form Modal -->
-    <NewEmployeeForm
-      :employee="selectedEmployee"
-      @closeForm="openForm" 
-      @fetchEmployees="fetchEmployees" 
-      v-if="showForm" 
+    <NewContact
+      :contact="selectedContact"
+      @closeForm="closeForm"
+      @fetchContacts="fetchContacts"
+      v-if="showForm"
     />
 
     <LoadingSpinner :isLoading="Loading" />
-    <!-- Footer -->
     <footerCast />
   </div>
 </template>
@@ -94,14 +96,14 @@ import footerCast from '../../components/footer.vue';
 import axios from '../../axios';
 import { useToast } from 'vue-toastification';
 import LoadingSpinner from '../../components/LoadingSpinner.vue';
-import NewEmployeeForm from './NewEmployeeForm.vue';
+import NewContact from './NewContact.vue';
 
 export default {
-  name: 'Employees',
+  name: 'Contacts',
   components: {
     footerCast,
     LoadingSpinner,
-    NewEmployeeForm,
+    NewContact,
   },
   setup() {
     const toast = useToast();
@@ -109,115 +111,112 @@ export default {
   },
   data() {
     return {
-      selectedEmployee: null,
+      contacts: [],
+      selectedContact: null,
       showForm: false,
       searchQuery: '',
-      employees: [],
       Loading: false,
       currentPage: 1,
-      employeesPerPage: 15,
-      employeesPerPageOptions: [5, 15, 30, 50, 75, 100],
+      contactsPerPage: 15,
+      contactsPerPageOptions: [5, 15, 30, 50, 75, 100],
     };
   },
   computed: {
     totalPages() {
-      return Math.ceil(this.filteredEmployees.length / this.employeesPerPage);
+      return Math.ceil(this.filteredContacts.length / this.contactsPerPage) || 1;
     },
-    displayedEmployees() {
-      const startIndex = (this.currentPage - 1) * this.employeesPerPage;
-      const endIndex = Math.min(startIndex + this.employeesPerPage, this.filteredEmployees.length);
-      return this.filteredEmployees.slice(startIndex, endIndex);
+    displayedContacts() {
+      const startIndex = (this.currentPage - 1) * this.contactsPerPage;
+      const endIndex = Math.min(startIndex + this.contactsPerPage, this.filteredContacts.length);
+      return this.filteredContacts.slice(startIndex, endIndex);
     },
-    filteredEmployees() {
-      if (!this.searchQuery.trim()) return this.employees;
+    filteredContacts() {
+      if (!this.searchQuery.trim()) return this.contacts;
       const query = this.searchQuery.toLowerCase();
-      return this.employees.filter(employee => {
+      return this.contacts.filter((c) => {
         return (
-          (employee.employeeID && employee.employeeID.toString().toLowerCase().includes(query)) ||
-          (employee.fullName && employee.fullName.toLowerCase().includes(query)) ||
-          (employee.department && employee.department.toLowerCase().includes(query)) ||
-          (employee.phoneNumber && employee.phoneNumber.toString().toLowerCase().includes(query)) ||
-          (employee.email && employee.email.toLowerCase().includes(query))
+          (c.contactName || '').toLowerCase().includes(query) ||
+          (c.phoneNo || '').toLowerCase().includes(query) ||
+          (c.schoolCode || '').toLowerCase().includes(query)
         );
       });
     },
   },
   methods: {
-    viewEmployee(employee) {
-      this.selectedEmployee = employee;
-      this.showForm = true;
-    },
-
-    editEmployee(employee) {
-      this.selectedEmployee = employee;
-      this.showForm = true;
-    },
-
     openForm() {
-      if (this.showForm && this.selectedEmployee) {
-        this.selectedEmployee = null;
-      }
-      this.showForm = !this.showForm;
+      this.selectedContact = null;
+      this.showForm = true;
     },
-
     closeForm() {
       this.showForm = false;
-      this.selectedEmployee = null;
+      this.selectedContact = null;
     },
-
+    editContact(contact) {
+      this.selectedContact = contact;
+      this.showForm = true;
+    },
+    updateContactsPerPage() {
+      this.currentPage = 1;
+    },
     nextPage() {
       if (this.currentPage < this.totalPages) {
         this.currentPage++;
       }
     },
-
     prevPage() {
       if (this.currentPage > 1) {
         this.currentPage--;
       }
     },
-
-    updateEmployeesPerPage() {
-      this.currentPage = 1;
-    },
-
-    async fetchEmployees() {
+    async fetchContacts() {
       this.Loading = true;
       const toast = useToast();
-      this.employees = [];
-
       try {
-        const response = await axios.post('/api/employees/list');
-
-        if (response.data && Array.isArray(response.data)) {
-          this.employees = response.data.map(employee => ({
-            employeeID: employee.employeeID || employee.id || employee.employee_id || 'N/A',
-            fullName: employee.fullName || employee.full_name || employee.name || 'N/A',
-            department: employee.department || employee.dept || 'N/A',
-            phoneNumber: employee.phoneNumber || employee.phone_number || employee.phone || 'N/A',
-            email: employee.email || 'N/A',
-            status: employee.status || 'Active',
-            category: employee.category || employee.type || 'N/A', // office, marketers, installers
-            dateHired: employee.dateHired || employee.date_hired || employee.hiredDate || '',
-            address: employee.address || '',
-            position: employee.position || employee.jobTitle || ''
+        const response = await axios.post('/contacts/list');
+        const data = Array.isArray(response.data) ? response.data : [];
+        this.contacts = data
+          .filter((c) => !c.deleted)
+          .map((c) => ({
+            contactID: c.contactID || c.contactId,
+            contactName: c.contactName,
+            designation: c.designation,
+            email: c.email,
+            phoneNo: c.phoneNo,
+            schoolCode: c.schoolCode,
           }));
-
-          toast.success('Employees fetched successfully!');
-        } else {
-          toast.error('No employees found in the response.');
-        }
       } catch (error) {
-        console.error('Error fetching employees:', error);
-        toast.error('Failed to fetch employees. Please try again.');
+        console.error('Error fetching contacts:', error);
+        toast.error('Failed to fetch contacts. Please try again.');
+      } finally {
+        this.Loading = false;
+      }
+    },
+    async deleteContact(contact) {
+      const toast = useToast();
+      if (!contact.contactID && !contact.contactId) {
+        toast.error('Missing contact ID.');
+        return;
+      }
+      if (!confirm(`Are you sure you want to delete contact ${contact.contactName}?`)) {
+        return;
+      }
+      this.Loading = true;
+      const id = contact.contactID || contact.contactId;
+      try {
+        await axios.post(`/contacts/delete/${id}`);
+        this.contacts = this.contacts.filter((c) => (c.contactID || c.contactId) !== id);
+        toast.success('Contact deleted successfully!');
+      } catch (error) {
+        console.error('Error deleting contact:', error);
+        toast.error('Failed to delete contact. Please try again.');
       } finally {
         this.Loading = false;
       }
     },
   },
   mounted() {
-    this.fetchEmployees();
-  }
+    this.fetchContacts();
+  },
 };
 </script>
 
@@ -261,7 +260,6 @@ export default {
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 0.3rem;
 }
 
 .action-btn:hover {
@@ -298,7 +296,6 @@ export default {
   margin-bottom: 0.5rem;
   display: flex;
   gap: 0.3rem;
-  align-items: center;
 }
 
 .students-controls label {
@@ -340,18 +337,6 @@ export default {
   background-color: #f7f9fc;
 }
 
-.text-success {
-  color: #2b7ab7 !important;
-  font-weight: bold;
-  font-style: italic;
-}
-
-.text-danger {
-  color: red !important;
-  font-weight: bold;
-  font-style: italic;
-}
-
 .actions-header {
   text-align: left;
   padding-left: 1rem;
@@ -387,10 +372,6 @@ export default {
   background-color: #d4d7ff;
 }
 
-.actions .material-symbols-outlined {
-  font-size: 1rem;
-}
-
 .pagination {
   margin-top: 10px;
   text-align: center;
@@ -403,7 +384,6 @@ export default {
   border: 2px solid #2b7ab7;
   color: #2b7ab7;
   border-radius: 5px;
-  background: white;
 }
 
 .pagination button:hover:not(:disabled) {
@@ -418,10 +398,8 @@ export default {
 
 .pagination span {
   font-weight: bold;
-  margin: 0 10px;
 }
 
-/* Responsive Design */
 @media only screen and (max-width: 767px) {
   .the-page {
     padding: 0.5rem;
@@ -434,22 +412,6 @@ export default {
     flex-direction: column;
     gap: 0.4rem;
     align-items: flex-start;
-  }
-
-  .header-object1 {
-    gap: 0.2rem;
-  }
-
-  .action-btn {
-    width: 100%;
-    justify-content: center;
-    padding: 0.5rem;
-    font-size: 0.9rem;
-  }
-
-  .header-container1 h2 {
-    font-size: 1.2rem;
-    text-align: center;
   }
 
   .search-area {
@@ -471,7 +433,7 @@ export default {
   }
 
   .students-table {
-    min-width: 800px;
+    min-width: 700px;
   }
 
   .students-table th,
@@ -495,10 +457,7 @@ export default {
     padding: 0.3rem 0.5rem;
     font-size: 0.8rem;
   }
-
-  .pagination button {
-    padding: 2.5px 10px;
-  }
 }
 </style>
+
 

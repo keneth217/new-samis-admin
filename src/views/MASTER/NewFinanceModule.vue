@@ -41,7 +41,7 @@
     </div>
   </template>
 <script>
-import axios from 'axios';
+import axios from '../../axios';
 import { useToast } from 'vue-toastification';
 import LoadingSpinner from '../../components/LoadingSpinner.vue';
 
@@ -109,7 +109,7 @@ export default {
       this.Loading = true;
 
       try {
-        const response = await axios.post('/api/modules/add', payload);
+        const response = await axios.post('/modules/add', payload);
 
         if (response.status === 200 || response.status === 201) {
           toast.success('Finance Module created successfully!');
