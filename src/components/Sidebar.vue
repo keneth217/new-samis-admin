@@ -81,6 +81,26 @@
           <span class="tooltip">ALL SCHOOLS</span>
         </RouterLink>
 
+
+
+
+        <RouterLink
+          to="/Contacts"
+          :class="[
+            'side-btn',
+            {
+              active:
+                isLinkActive('/Contacts') ||
+                isChildLinkActive(['/Contacts']),
+            },
+          ]"
+          @click="closeDropdowns"
+        >
+          <span class="material-symbols-outlined">contacts</span>
+          <span class="link-container">CONTACTS</span>
+          <span class="tooltip">CONTACTS</span>
+        </RouterLink>
+
         <RouterLink
           to="/activatedSchools"
           :class="[
@@ -119,7 +139,7 @@
           <span class="tooltip">EXPIRED SCHOOLS</span>
         </RouterLink>
 
-        <RouterLink
+        <!-- <RouterLink
           to="/Employees"
           :class="[
             'side-btn',
@@ -134,7 +154,7 @@
           <span class="material-symbols-outlined">groups</span>
           <span class="link-container">EMPLOYEES</span>
           <span class="tooltip">EMPLOYEES</span>
-        </RouterLink>
+        </RouterLink> -->
 
         <!-- Financial Section -->
         <RouterLink
@@ -171,7 +191,7 @@
           <span class="tooltip">RECEIPTS</span>
         </RouterLink>
 
-        <RouterLink
+        <!-- <RouterLink
           to="/ExpensesTracking"
           :class="[
             'side-btn',
@@ -186,7 +206,7 @@
           <span class="material-symbols-outlined">payments</span>
           <span class="link-container">EXPENSES</span>
           <span class="tooltip">EXPENSES</span>
-        </RouterLink>
+        </RouterLink> -->
 
         <!-- Communication Section -->
         <RouterLink
@@ -223,22 +243,7 @@
           <span class="tooltip">CALL LOG</span>
         </RouterLink>
 
-        <RouterLink
-          to="/Contacts"
-          :class="[
-            'side-btn',
-            {
-              active:
-                isLinkActive('/Contacts') ||
-                isChildLinkActive(['/Contacts']),
-            },
-          ]"
-          @click="closeDropdowns"
-        >
-          <span class="material-symbols-outlined">contacts</span>
-          <span class="link-container">CONTACTS</span>
-          <span class="tooltip">CONTACTS</span>
-        </RouterLink>
+       
 
         <!-- Configuration Section -->
         <!-- <RouterLink

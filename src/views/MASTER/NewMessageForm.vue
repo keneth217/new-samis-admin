@@ -315,10 +315,24 @@ export default {
         return;
       }
 
+      // Validate that at least some contacts have phone numbers
+      const contactsWithPhone = contacts.filter(c => c.phoneNo && c.phoneNo.trim() !== '');
+      if (contactsWithPhone.length === 0) {
+        toast.error('None of the selected schools have valid phone numbers. Please select schools with phone numbers.');
+        return;
+      }
+
       const payload = {
         message: `${this.subject.trim()}\n\n${this.messageBody.trim()}`,
-        contacts,
+        contacts: contactsWithPhone, // Only send contacts with phone numbers
       };
+
+      // Log payload for debugging (remove in production if needed)
+      console.log('Sending bulk message payload:', {
+        messageLength: payload.message.length,
+        contactsCount: payload.contacts.length,
+        contacts: payload.contacts.map(c => ({ name: c.contactName, phone: c.phoneNo, code: c.schoolCode }))
+      });
 
       this.Loading = true;
 
@@ -326,7 +340,7 @@ export default {
         const response = await axios.post('/messages/sendbulk', payload);
 
         if (response.status === 200 || response.status === 201) {
-          toast.success(`Message sent successfully to ${this.selectedSchools.length} school(s)!`);
+          toast.success(`Message sent successfully to ${contactsWithPhone.length} school(s)!`);
           this.$emit('fetchMessages');
           this.$emit('closeForm');
           this.clearForm();
@@ -334,12 +348,49 @@ export default {
           toast.error(`Unexpected response status: ${response.status}`);
         }
       } catch (error) {
-        if (error.response && error.response.data) {
-          toast.error(`ERROR: ${error.response.data.message || 'An unexpected error occurred'}`);
+        console.error('Error sending message - Full error:', error);
+        console.error('Error response:', error.response);
+        
+        // Handle different error types
+        if (error.response) {
+          // Server responded with error status
+          const status = error.response.status;
+          const errorData = error.response.data;
+          
+          let errorMessage = 'Failed to send message. ';
+          
+          if (status === 500) {
+            errorMessage += 'Server error occurred. ';
+            if (errorData && errorData.message) {
+              errorMessage += errorData.message;
+            } else if (errorData && typeof errorData === 'string') {
+              errorMessage += errorData;
+            } else {
+              errorMessage += 'Please check server logs or contact support.';
+            }
+          } else if (status === 400) {
+            errorMessage += 'Invalid request. ';
+            if (errorData && errorData.message) {
+              errorMessage += errorData.message;
+            } else {
+              errorMessage += 'Please check your message content and try again.';
+            }
+          } else if (status === 401) {
+            errorMessage += 'Authentication failed. Please log in again.';
+          } else if (status === 403) {
+            errorMessage += 'You do not have permission to send messages.';
+          } else {
+            errorMessage += errorData?.message || `Server returned status ${status}`;
+          }
+          
+          toast.error(errorMessage);
+        } else if (error.request) {
+          // Request was made but no response received
+          toast.error('Network error: Unable to reach the server. Please check your internet connection.');
         } else {
-          toast.error('ERROR SENDING MESSAGE!');
+          // Something else happened
+          toast.error(`Error: ${error.message || 'An unexpected error occurred'}`);
         }
-        console.error('Error sending message:', error);
       } finally {
         this.Loading = false;
       }

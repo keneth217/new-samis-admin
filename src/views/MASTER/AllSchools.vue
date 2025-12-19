@@ -120,12 +120,12 @@
         </div>
         <div class="form-group">
           <label for="maintenanceFee">Maintenance Fee:</label>
-          <input v-model="activationData.maintenanceFee" type="number" id="maintenanceFee" required />
+          <input v-model="activationData.maintenanceFee" type="number" id="maintenanceFee" />
         </div>
         
 <div class="form-group">
           <label for="sellingPrice">Selling Price:</label>
-          <input v-model="activationData.sellingPrice" type="number" id="sellingPrice" required />
+          <input v-model="activationData.sellingPrice" type="number" id="sellingPrice" />
         </div>
         <div class="form-actions">
           <button type="submit" class="submit-btn">Activate</button>
@@ -388,10 +388,9 @@ export default {
   const toast = useToast();
   this.Loading = true;
 
-  // Ensure all fields are filled before proceeding
-  if (!this.activationData.moduleName || !this.activationData.expiryDate || 
-      !this.activationData.maintenanceFee || !this.activationData.sellingPrice) {
-    toast.error("All fields are required.");
+  // Ensure the key fields are filled before proceeding
+  if (!this.activationData.moduleName || !this.activationData.expiryDate) {
+    toast.error("Please select a module and expiry date.");
     this.Loading = false;
     return;
   }

@@ -2,56 +2,18 @@
   <main id="dashboard">
     <!-- Main Content Area -->
     <div class="page-wrapper">
-      <!-- Employees Overview and Summary Cards -->
-      <div class="main-cards-container">
-        <!-- Employees Overview Card (Large) -->
-        <div class="employees-overview-card">
-          <h3 class="card-title">Employees Overview</h3>
-          <div class="employees-overview-content">
-            <div class="employees-section">
-              <h4 class="section-title">Office</h4>
-              <div class="employees-row">
-                <span class="employees-label">Total:</span>
-                <span class="employees-value">{{ employees.office }}</span>
-              </div>
-            </div>
-            <div class="employees-section">
-              <h4 class="section-title">Marketers</h4>
-              <div class="employees-row">
-                <span class="employees-label">Total:</span>
-                <span class="employees-value">{{ employees.marketers }}</span>
-              </div>
-            </div>
-            <div class="employees-section">
-              <h4 class="section-title">Installers</h4>
-              <div class="employees-row">
-                <span class="employees-label">Total:</span>
-                <span class="employees-value">{{ employees.installers }}</span>
-              </div>
-            </div>
-            <div class="employees-section employees-total">
-              <h4 class="section-title">Total Employees</h4>
-              <div class="employees-row">
-                <span class="employees-label">Total:</span>
-                <span class="employees-value">{{ employees.total }}</span>
-              </div>
-            </div>
-          </div>
-    </div>
-
-        <!-- Summary Cards Grid -->
+      <!-- Summary Cards Grid -->
       <div class="cards-container" ref="cardsContainer">
-          <div class="summary-card" v-for="card in cards" :key="card.title">
-            <div class="summary-card-icon" :style="{ backgroundColor: card.iconBg }">
+        <div class="summary-card" v-for="card in cards" :key="card.title">
+          <div class="summary-card-icon" :style="{ backgroundColor: card.iconBg }">
             <span class="material-symbols-outlined">{{ card.icon }}</span>
-            </div>
-            <div class="summary-card-content">
-              <p class="summary-card-title">{{ card.title }}</p>
-              <p class="summary-card-amount">{{ card.amount }}</p>
-              <p class="summary-card-subtitle" v-if="card.subtitle">{{ card.subtitle }}</p>
-              </div>
-            </div>
           </div>
+          <div class="summary-card-content">
+            <p class="summary-card-title">{{ card.title }}</p>
+            <p class="summary-card-amount">{{ card.amount }}</p>
+            <p class="summary-card-subtitle" v-if="card.subtitle">{{ card.subtitle }}</p>
+          </div>
+        </div>
       </div>
 
       <!-- Charts Section -->
@@ -60,25 +22,51 @@
         <div class="chart-card">
           <div class="chart-header">
             <div>
-              <h3 class="chart-title">Schools Overview</h3>
-              <p class="chart-subtitle">Total, Activated, and Expired Schools</p>
+              <h3 class="chart-title">Schools & Activations Overview</h3>
+              <p class="chart-subtitle">Total schools and activation status</p>
             </div>
           </div>
           <div class="chart-wrapper">
             <canvas id="totalSchoolsChart"></canvas>
+          </div>
         </div>
-      </div>
 
-        <!-- Schools Status Pie Chart -->
+        <!-- Activations Status Pie Chart -->
         <div class="chart-card">
           <div class="chart-header">
             <div>
-              <h3 class="chart-title">Schools Status Distribution</h3>
-              <p class="chart-subtitle">Activated vs Expired Schools</p>
+              <h3 class="chart-title">Activations Status Distribution</h3>
+              <p class="chart-subtitle">Active vs expired activations</p>
             </div>
           </div>
           <div class="chart-wrapper">
             <canvas id="schoolStatusPieChart"></canvas>
+          </div>
+        </div>
+
+        <!-- County Schools Overview -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <div>
+              <h3 class="chart-title">Schools by County</h3>
+              <p class="chart-subtitle">Number of schools in each county</p>
+            </div>
+          </div>
+          <div class="chart-wrapper">
+            <canvas id="countySchoolsChart"></canvas>
+          </div>
+        </div>
+
+        <!-- County Revenue Overview -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <div>
+              <h3 class="chart-title">Revenue by County</h3>
+              <p class="chart-subtitle">Invoiced vs received amounts per county</p>
+            </div>
+          </div>
+          <div class="chart-wrapper">
+            <canvas id="countyRevenueChart"></canvas>
           </div>
         </div>
       </div>
@@ -100,28 +88,32 @@ export default {
   components: { LoadingSpinner },
   data() {
     return {
-      schools: null,
-      modules: null,
-      active: null,
-      expired: null,
-      invoices: 0,
-      receipts: 0,
-      expenses: 0,
-      employees: {
-        office: 0,
-        marketers: 0,
-        installers: 0,
-        total: 0
+      // Core stats
+      schools: 0,
+      modules: 0,
+      activations: 0,
+      activeActivations: 0,
+      expiredActivations: 0,
+
+      // County-level stats
+      countyStats: [],
+
+      // Account stats (all-time by default)
+      accountStats: {
+        invoices: 0,
+        receipts: 0,
+        invoicedAmount: 0,
+        receivedAmount: 0,
+        totalExpenses: 0
       },
-      calls: 0,
-      messages: 0,
 
       Loading: false,
       chartsContainerWidth: 'auto',
       chartInstances: {
         totalSchoolsChart: null,
         schoolStatusPieChart: null,
-        expensesChart: null
+        countySchoolsChart: null,
+        countyRevenueChart: null,
       },
       cards: [
         { 
@@ -139,11 +131,11 @@ export default {
           subtitle: 'Active schools'
         },
         { 
-          title: "Expired Schools", 
+          title: "Expired Activations", 
           amount: 0, 
           icon: "cancel", 
           iconBg: '#ffebee',
-          subtitle: 'Expired schools'
+          subtitle: 'Expired activations'
         },
         { 
           title: "Total Modules", 
@@ -153,7 +145,7 @@ export default {
           subtitle: 'Available modules'
         },
         { 
-          title: "Invoices & School", 
+          title: "Invoices", 
           amount: 0, 
           icon: "receipt_long", 
           iconBg: '#fff3e0',
@@ -167,25 +159,25 @@ export default {
           subtitle: 'Total receipts'
         },
         { 
-          title: "Expenses", 
+          title: "Invoiced Amount", 
+          amount: 0, 
+          icon: "payments", 
+          iconBg: '#f3e5f5',
+          subtitle: 'All-time invoiced amount'
+        },
+        { 
+          title: "Received Amount", 
+          amount: 0, 
+          icon: "payments", 
+          iconBg: '#e0f2f1',
+          subtitle: 'All-time received amount'
+        },
+        { 
+          title: "Total Expenses", 
           amount: 0, 
           icon: "payments", 
           iconBg: '#ffebee',
-          subtitle: 'Total expenses'
-        },
-        { 
-          title: "Calls", 
-          amount: 0, 
-          icon: "call", 
-          iconBg: '#f3e5f5',
-          subtitle: 'Total calls'
-        },
-        { 
-          title: "Messages", 
-          amount: 0, 
-          icon: "message", 
-          iconBg: '#e0f2f1',
-          subtitle: 'Total messages'
+          subtitle: 'All-time expenses'
         },
         // { 
         //   title: "Tasks Due", 
@@ -228,54 +220,120 @@ export default {
       // Wait for DOM to be ready
       this.$nextTick(() => {
         const totalSchools = this.schools || 0;
-        const activatedSchools = this.active || 0;
-        const expiredSchools = this.expired || 0;
+        const activeActivations = this.activeActivations || 0;
+        const expiredActivations = this.expiredActivations || 0;
 
-      // Bar Chart
-      this.createChart('totalSchoolsChart', 'bar', {
-        labels: ['Total Schools', 'Activated Schools', 'Expired Schools'],
-        datasets: [{
-          label: 'Number of Schools',
-          data: [totalSchools, activatedSchools, expiredSchools],
-          backgroundColor: ['#2b7ab7', '#4368b9', '#f87171'], // Colors for each bar
-        }]
-      }, {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          x: {
-            beginAtZero: true,  // Ensure bars start at 0
+        // Bar Chart - overall schools and activations
+        this.createChart('totalSchoolsChart', 'bar', {
+          labels: ['Total Schools', 'Active Activations', 'Expired Activations'],
+          datasets: [{
+            label: 'Counts',
+            data: [totalSchools, activeActivations, expiredActivations],
+            backgroundColor: ['#2b7ab7', '#4368b9', '#f87171'], // Colors for each bar
+          }]
+        }, {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: {
+              beginAtZero: true,  // Ensure bars start at 0
+            },
+            y: {
+              beginAtZero: true,  // Ensure bars start at 0
+            },
           },
-          y: {
-            beginAtZero: true,  // Ensure bars start at 0
-          },
-        },
-      });
+        });
 
-      // Pie Chart - showing activated vs expired schools
-      this.createChart('schoolStatusPieChart', 'pie', {
-        labels: ['Activated Schools', 'Expired Schools'],
-        datasets: [{
-          data: [activatedSchools, expiredSchools],
-          backgroundColor: ['#4368b9', '#f87171'],  // Colors for pie slices
-          hoverOffset: 4,  // Slight hover effect
-        }]
-      }, {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            display: true,
-            position: 'top',
-          },
-          tooltip: {
-            enabled: true,
+        // Pie Chart - active vs expired activations
+        this.createChart('schoolStatusPieChart', 'pie', {
+          labels: ['Active Activations', 'Expired Activations'],
+          datasets: [{
+            data: [activeActivations, expiredActivations],
+            backgroundColor: ['#4368b9', '#f87171'],  // Colors for pie slices
+            hoverOffset: 4,  // Slight hover effect
+          }]
+        }, {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: true,
+              position: 'top',
+            },
+            tooltip: {
+              enabled: true,
+            }
           }
-        }
-      });
+        });
 
-      // Set loading to false after charts are initialized
-      this.Loading = false;
+        // County-level charts (only if we have data)
+        if (this.countyStats && this.countyStats.length > 0) {
+          const countyLabels = this.countyStats.map(c => c.county || 'Unknown');
+          const countySchools = this.countyStats.map(c => c.schools || 0);
+          const countyInvoiced = this.countyStats.map(c => (c.accountStats?.invoicedAmount) || 0);
+          const countyReceived = this.countyStats.map(c => (c.accountStats?.receivedAmount) || 0);
+
+          // County schools bar chart
+          this.createChart('countySchoolsChart', 'bar', {
+            labels: countyLabels,
+            datasets: [{
+              label: 'Schools',
+              data: countySchools,
+              backgroundColor: '#2b7ab7',
+            }]
+          }, {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              x: {
+                beginAtZero: true,
+              },
+              y: {
+                beginAtZero: true,
+              },
+            },
+          });
+
+          // County revenue grouped bar chart
+          this.createChart('countyRevenueChart', 'bar', {
+            labels: countyLabels,
+            datasets: [
+              {
+                label: 'Invoiced Amount',
+                data: countyInvoiced,
+                backgroundColor: '#4f46e5',
+              },
+              {
+                label: 'Received Amount',
+                data: countyReceived,
+                backgroundColor: '#22c55e',
+              },
+            ]
+          }, {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              x: {
+                stacked: false,
+              },
+              y: {
+                beginAtZero: true,
+              },
+            },
+            plugins: {
+              tooltip: {
+                enabled: true,
+              },
+              legend: {
+                display: true,
+                position: 'top',
+              },
+            },
+          });
+        }
+
+        // Set loading to false after charts are initialized
+        this.Loading = false;
       });
     },
 
@@ -286,101 +344,97 @@ export default {
       const toast = useToast();
       
       try {
-        const response = await axios.post(`/api/stats/count`);
+        // Use the new StatsController count endpoint
+        // NOTE: baseURL in axios.js already includes `/api`
+        const response = await axios.post(`/stats/count`);
 
-        this.schools = response.data.schools;
-        this.modules = response.data.modules;
-        this.active = response.data.active;
-        this.expired = response.data.expired;
+        const data = response.data || {};
 
-        // Fetch additional dashboard data
-        try {
-          const additionalData = await axios.post(`/api/stats/dashboard`);
-          
-          if (additionalData.data) {
-            this.invoices = additionalData.data.invoices || 0;
-            this.receipts = additionalData.data.receipts || 0;
-            this.expenses = additionalData.data.expenses || 0;
-            this.employees = {
-              office: additionalData.data.employees?.office || 0,
-              marketers: additionalData.data.employees?.marketers || 0,
-              installers: additionalData.data.employees?.installers || 0,
-              total: (additionalData.data.employees?.office || 0) + 
-                     (additionalData.data.employees?.marketers || 0) + 
-                     (additionalData.data.employees?.installers || 0)
-            };
-            this.calls = additionalData.data.calls || 0;
-            this.messages = additionalData.data.messages || 0;
-          }
-        } catch (err) {
-          console.log('Additional data API not available, using defaults:', err);
-          // Use default values
-          this.employees.total = this.employees.office + this.employees.marketers + this.employees.installers;
-        }
+        // Core stats
+        this.schools = data.schools || 0;
+        this.modules = data.modules || 0;
+        this.activations = data.activations || 0;
+        this.activeActivations = data.activeActivations || 0;
+        this.expiredActivations = data.expiredActivations || 0;
+
+        // County stats
+        this.countyStats = data.countyStats || [];
+
+        // Account stats
+        this.accountStats = {
+          invoices: data.accountStats?.invoices || 0,
+          receipts: data.accountStats?.receipts || 0,
+          invoicedAmount: data.accountStats?.invoicedAmount || 0,
+          receivedAmount: data.accountStats?.receivedAmount || 0,
+          totalExpenses: data.accountStats?.totalExpenses || 0,
+        };
+
+        // Keep legacy fields in sync for any existing UI that relies on them
+        // (No extra fields now; everything comes directly from `accountStats`)
 
         this.cards = [
           { 
             title: "Total Schools", 
-            amount: response.data.schools, 
+            amount: this.schools, 
             icon: "school", 
             iconBg: '#e3f2fd',
             subtitle: 'All registered schools'
           },
           { 
-            title: "Activated Schools", 
-            amount: response.data.active, 
-            icon: "check_circle", 
-            iconBg: '#e8f5e9',
-            subtitle: 'Active schools'
-          },
-          { 
-            title: "Expired Schools", 
-            amount: response.data.expired, 
-            icon: "cancel", 
-            iconBg: '#ffebee',
-            subtitle: 'Expired schools'
-          },
-          { 
             title: "Total Modules", 
-            amount: response.data.modules, 
+            amount: this.modules, 
             icon: "widgets", 
             iconBg: '#f3e5f5',
-            subtitle: 'Available modules'
+            subtitle: 'Available modules / activations'
           },
           { 
-            title: "Invoices & School", 
-            amount: this.invoices, 
+            title: "Active Activations", 
+            amount: this.activeActivations, 
+            icon: "check_circle", 
+            iconBg: '#e8f5e9',
+            subtitle: 'Currently active activations'
+          },
+          { 
+            title: "Expired Activations", 
+            amount: this.expiredActivations, 
+            icon: "cancel", 
+            iconBg: '#ffebee',
+            subtitle: 'Expired activations'
+          },
+          { 
+            title: "Invoices", 
+            amount: this.accountStats.invoices, 
             icon: "receipt_long", 
             iconBg: '#fff3e0',
             subtitle: 'Total invoices'
           },
           { 
             title: "Receipts", 
-            amount: this.receipts, 
+            amount: this.accountStats.receipts, 
             icon: "description", 
             iconBg: '#e8f5e9',
             subtitle: 'Total receipts'
           },
           { 
-            title: "Expenses", 
-            amount: this.expenses, 
+            title: "Invoiced Amount", 
+            amount: this.accountStats.invoicedAmount, 
             icon: "payments", 
-            iconBg: '#ffebee',
-            subtitle: 'Total expenses'
-          },
-          { 
-            title: "Calls", 
-            amount: this.calls, 
-            icon: "call", 
             iconBg: '#f3e5f5',
-            subtitle: 'Total calls'
+            subtitle: 'All-time invoiced amount'
           },
           { 
-            title: "Messages", 
-            amount: this.messages, 
-            icon: "message", 
+            title: "Received Amount", 
+            amount: this.accountStats.receivedAmount, 
+            icon: "payments", 
             iconBg: '#e0f2f1',
-            subtitle: 'Total messages'
+            subtitle: 'All-time received amount'
+          },
+          { 
+            title: "Total Expenses", 
+            amount: this.accountStats.totalExpenses, 
+            icon: "payments", 
+            iconBg: '#e0f2f1',
+            subtitle: 'All-time expenses'
           },
         ];
         
@@ -426,6 +480,12 @@ export default {
     if (this.chartInstances.schoolStatusPieChart) {
       this.chartInstances.schoolStatusPieChart.destroy();
     }
+        if (this.chartInstances.countySchoolsChart) {
+          this.chartInstances.countySchoolsChart.destroy();
+        }
+        if (this.chartInstances.countyRevenueChart) {
+          this.chartInstances.countyRevenueChart.destroy();
+        }
   },
 };
 </script>
@@ -585,6 +645,7 @@ export default {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 1.5rem;
+  margin-top: 2.5rem;
 }
 
 .chart-card {
@@ -706,4 +767,3 @@ canvas {
   }
 }
 </style>
-

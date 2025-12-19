@@ -55,6 +55,7 @@ export const useAuthStore = defineStore("auth", () => {
     return new Promise((resolve) => {
       setTimeout(() => {
         localStorage.removeItem("token");
+        localStorage.removeItem("authToken"); // Also remove authToken
         // localStorage.removeItem("phoneNo1");
         localStorage.removeItem("accountNo");
         localStorage.removeItem("username");
@@ -85,7 +86,7 @@ export const useAuthStore = defineStore("auth", () => {
       // };
   
       const response = await axios.post(
-        "/api/auth/signin",
+        "/auth/signin",
         { phoneNo, password },
         // { headers }
       );
@@ -100,11 +101,13 @@ export const useAuthStore = defineStore("auth", () => {
   
 
 
-      localStorage.setItem('token', token);
-      localStorage.setItem('username', username);
+      // Store the received values (not the ref variables)
+      localStorage.setItem('token', receivedToken);
+      localStorage.setItem('authToken', receivedToken); // Also store as authToken for axios interceptor
+      localStorage.setItem('username', receivedUsername);
       // localStorage.setItem('phoneNo1', phoneNo1);
-      localStorage.setItem('accountNo', accountNo);
-      localStorage.setItem('roles', JSON.stringify(roles));
+      localStorage.setItem('accountNo', receivedAccountNo);
+      localStorage.setItem('roles', JSON.stringify(receivedRoles));
 
       // localStorage.setItem("token", receivedToken);
       // localStorage.setItem("userId", receivedUserId);
@@ -163,12 +166,17 @@ export const useAuthStore = defineStore("auth", () => {
       console.error("Login failed:", error);
       setSuccessMessage("");
     
+      // Handle network errors
+      if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
+        throw new Error("Network Error: Unable to connect to the server. Please check your internet connection and ensure the API server is running.");
+      }
+    
       // Extract the error message directly from the response data
       const errorMessage = error.response && error.response.data 
         ? (typeof error.response.data === 'object' && error.response.data.message 
             ? error.response.data.message // Use the specific message field if it exists
             : error.response.data) // Fallback to the entire response data
-        : "AN ERROR OCCURRED!!";
+        : error.message || "AN ERROR OCCURRED!!";
     
       // Throw the specific error message
       throw new Error(errorMessage);
@@ -185,7 +193,7 @@ export const useAuthStore = defineStore("auth", () => {
 
   async function loginOutlet({ passcode, outletID: id }) {
     try {
-      const response = await axios.post("/api/auth/signin/bycode", { passcode });
+      const response = await axios.post("/auth/signin/bycode", { passcode });
 
       const receivedToken = response.data.token;
       const receivedoutletUserID = response.data.id;

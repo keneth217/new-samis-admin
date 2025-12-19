@@ -10,7 +10,7 @@ const apiClient = axios.create({
   baseURL:
     (import.meta.env.MODE === "development"
       ? import.meta.env.VITE_BASE_URL
-      : import.meta.env.VITE_BASE_URL) || "http://DESKTOP-RPLDG13:8086/api",
+      : import.meta.env.VITE_BASE_URL) ||"https://officeapi.samis.co.ke/api" ,
   headers: {
     "Content-Type": "application/json",
   },

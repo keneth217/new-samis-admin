@@ -335,11 +335,7 @@ export default {
     async updateSchool() {
       const toast = useToast();
 
-      if (!this.schoolName || !this.phoneNo || !this.email || !this.address || !this.principalName || !this.subcounty || !this.county) {
-        toast.warning('ALL REQUIRED FIELDS MUST BE FILLED!');
-        return;
-      }
-
+      // No front-end required-field validation for updates – always attempt update
       try {
         this.Loading = true;
         const formData = {
