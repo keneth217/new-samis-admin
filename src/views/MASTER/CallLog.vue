@@ -156,7 +156,7 @@
             </button>
             <button 
               class="keypad-btn" 
-              @click="isInCall ? null : handleBackspace"
+              @click="handleBackspace"
               :disabled="isInCall"
             >
               ⌫
@@ -799,7 +799,10 @@ export default {
       this.dialedNumber = `${this.dialedNumber}${key}`;
     },
     handleBackspace() {
-      this.dialedNumber = this.dialedNumber.slice(0, -1);
+      if (this.isInCall) return; // Don't allow backspace during call
+      if (this.dialedNumber && this.dialedNumber.length > 0) {
+        this.dialedNumber = this.dialedNumber.slice(0, -1);
+      }
     },
     async handleMuteClick() {
       if (!this.client || !this.isInCall) return;

@@ -2,269 +2,428 @@
   <div v-if="authStore.isAuthenticated">
   
     <Navbar :isSidebarOpen="isSidebarOpen" @toggleSidebar="toggleSidebar" />
-    <div class="sidebar" :class="{ open: isSidebarOpen, collapsed: !isSidebarOpen }">
+    <div class="sidebar" :class="{ open: isSidebarOpen, collapsed: !isSidebarOpen, 'mobile-bottom': isMobile, 'show-more': showMoreItems && isMobile }">
       <div class="menu-items">
-        <!-- Master buttons -->
-        <!-- Overview -->
-        <RouterLink
-          to="/"
-          :class="[
-            'side-btn',
-            {
-              active:
-                isLinkActive('/') ||
-                isChildLinkActive([
-                  '/DairyMembers',
-                ]),
-            },
-          ]"
-          @click="closeDropdowns"
-        >
-          <span class="material-symbols-outlined">dashboard</span>
-          <span class="link-container">DASHBOARD</span>
-          <span class="tooltip">DASHBOARD</span>
-        </RouterLink>
+        <!-- Expanded items container (hidden by default, shows above bottom nav when expanded) -->
+        <div class="expanded-items" v-if="isMobile">
+          <RouterLink
+            to="/Contacts"
+            :class="[
+              'side-btn',
+              {
+                active:
+                  isLinkActive('/Contacts') ||
+                  isChildLinkActive(['/Contacts']),
+              },
+            ]"
+            @click="closeExpandedSection"
+          >
+            <span class="material-symbols-outlined">contacts</span>
+            <span class="link-container">CONTACTS</span>
+            <span class="tooltip">CONTACTS</span>
+          </RouterLink>
 
-        <!-- Configuration Section -->
-        <RouterLink
-          to="/FinanceModule"
-          :class="[
-            'side-btn',
-            {
-              active:
-                isLinkActive('/FinanceModule') ||
-                isChildLinkActive(['/FinanceModule']),
-            },
-          ]"
-          @click="closeDropdowns"
-        >
-          <span class="material-symbols-outlined">account_balance</span>
-          <span class="link-container">MODULE</span>
-          <span class="tooltip">MODULE</span>
-        </RouterLink>
+          <RouterLink
+            to="/activatedSchools"
+            :class="[
+              'side-btn',
+              {
+                active:
+                  isLinkActive('/activatedSchools') ||
+                  isChildLinkActive([
+                    '/activatedSchools',
+                  ]),
+              },
+            ]"
+            @click="closeExpandedSection"
+          >
+            <span class="material-symbols-outlined">check_circle</span>
+            <span class="link-container">ACTIVE SCHOOLS</span>
+            <span class="tooltip">ACTIVE SCHOOLS</span>
+          </RouterLink>
 
-        <!-- User Management Section -->
-        <RouterLink
-          to="/RegisterUser"
-          :class="[
-            'side-btn',
-            {
-              active:
-                isLinkActive('/RegisterUser') ||
-                isChildLinkActive(['/RegisterUser']),
-            },
-          ]"
-          @click="closeDropdowns"
-        >
-          <span class="material-symbols-outlined">person_add</span>
-          <span class="link-container">REGISTER USER</span>
-          <span class="tooltip">REGISTER USER</span>
-        </RouterLink>
+          <RouterLink
+            to="/expiredSchools"
+            :class="[
+              'side-btn',
+              {
+                active:
+                  isLinkActive('/expiredSchools') ||
+                  isChildLinkActive([
+                    '/expiredSchools',
+                  ]),
+              },
+            ]"
+            @click="closeExpandedSection"
+          >
+            <span class="material-symbols-outlined">cancel</span>
+            <span class="link-container">EXPIRED SCHOOLS</span>
+            <span class="tooltip">EXPIRED SCHOOLS</span>
+          </RouterLink>
 
-        <!-- Schools Section -->
-        <RouterLink
-          to="/allSchools"
-          :class="[
-            'side-btn',
-            {
-              active:
-                isLinkActive('/allSchools') ||
-                isChildLinkActive([
-                  '/allSchools',
-                ]),
-            },
-          ]"
-          @click="closeDropdowns"
-        >
-          <span class="material-symbols-outlined">groups_3</span>
-          <span class="link-container">ALL SCHOOLS</span>
-          <span class="tooltip">ALL SCHOOLS</span>
-        </RouterLink>
+          <!-- Financial Section -->
+          <RouterLink
+            to="/InvoicesSchool"
+            :class="[
+              'side-btn',
+              {
+                active:
+                  isLinkActive('/InvoicesSchool') ||
+                  isChildLinkActive(['/InvoicesSchool']),
+              },
+            ]"
+            @click="closeExpandedSection"
+          >
+            <span class="material-symbols-outlined">receipt_long</span>
+            <span class="link-container">INVOICES & SCHOOL</span>
+            <span class="tooltip">INVOICES & SCHOOL</span>
+          </RouterLink>
 
+          <RouterLink
+            to="/Receipts"
+            :class="[
+              'side-btn',
+              {
+                active:
+                  isLinkActive('/Receipts') ||
+                  isChildLinkActive(['/Receipts']),
+              },
+            ]"
+            @click="closeExpandedSection"
+          >
+            <span class="material-symbols-outlined">receipt</span>
+            <span class="link-container">RECEIPTS</span>
+            <span class="tooltip">RECEIPTS</span>
+          </RouterLink>
 
+          <!-- Communication Section -->
+          <RouterLink
+            to="/MessagesToSchools"
+            :class="[
+              'side-btn',
+              {
+                active:
+                  isLinkActive('/MessagesToSchools') ||
+                  isChildLinkActive(['/MessagesToSchools']),
+              },
+            ]"
+            @click="closeExpandedSection"
+          >
+            <span class="material-symbols-outlined">mail</span>
+            <span class="link-container">MESSAGES</span>
+            <span class="tooltip">MESSAGES</span>
+          </RouterLink>
 
+          <RouterLink
+            to="/CallLog"
+            :class="[
+              'side-btn',
+              {
+                active:
+                  isLinkActive('/CallLog') ||
+                  isChildLinkActive(['/CallLog']),
+              },
+            ]"
+            @click="closeExpandedSection"
+          >
+            <span class="material-symbols-outlined">call</span>
+            <span class="link-container">CALL LOG</span>
+            <span class="tooltip">CALL LOG</span>
+          </RouterLink>
+        </div>
 
-        <RouterLink
-          to="/Contacts"
-          :class="[
-            'side-btn',
-            {
-              active:
-                isLinkActive('/Contacts') ||
-                isChildLinkActive(['/Contacts']),
-            },
-          ]"
-          @click="closeDropdowns"
-        >
-          <span class="material-symbols-outlined">contacts</span>
-          <span class="link-container">CONTACTS</span>
-          <span class="tooltip">CONTACTS</span>
-        </RouterLink>
+        <!-- Desktop/Tablet view - all items in single column -->
+        <template v-if="!isMobile">
+          <!-- Overview -->
+          <RouterLink
+            to="/"
+            :class="[
+              'side-btn',
+              {
+                active:
+                  isLinkActive('/') ||
+                  isChildLinkActive([
+                    '/DairyMembers',
+                  ]),
+              },
+            ]"
+            @click="closeDropdowns"
+          >
+            <span class="material-symbols-outlined">dashboard</span>
+            <span class="link-container">DASHBOARD</span>
+            <span class="tooltip">DASHBOARD</span>
+          </RouterLink>
 
-        <RouterLink
-          to="/activatedSchools"
-          :class="[
-            'side-btn',
-            {
-              active:
-                isLinkActive('/activatedSchools') ||
-                isChildLinkActive([
-                  '/activatedSchools',
-                ]),
-            },
-          ]"
-          @click="closeDropdowns"
-        >
-          <span class="material-symbols-outlined">check_circle</span>
-          <span class="link-container">ACTIVE SCHOOLS</span>
-          <span class="tooltip">ACTIVE SCHOOLS</span>
-        </RouterLink>
+          <!-- Configuration Section -->
+          <RouterLink
+            to="/FinanceModule"
+            :class="[
+              'side-btn',
+              {
+                active:
+                  isLinkActive('/FinanceModule') ||
+                  isChildLinkActive(['/FinanceModule']),
+              },
+            ]"
+            @click="closeDropdowns"
+          >
+            <span class="material-symbols-outlined">account_balance</span>
+            <span class="link-container">MODULE</span>
+            <span class="tooltip">MODULE</span>
+          </RouterLink>
 
-        <RouterLink
-          to="/expiredSchools"
-          :class="[
-            'side-btn',
-            {
-              active:
-                isLinkActive('/expiredSchools') ||
-                isChildLinkActive([
-                  '/expiredSchools',
-                ]),
-            },
-          ]"
-          @click="closeDropdowns"
-        >
-          <span class="material-symbols-outlined">cancel</span>
-          <span class="link-container">EXPIRED SCHOOLS</span>
-          <span class="tooltip">EXPIRED SCHOOLS</span>
-        </RouterLink>
+          <!-- User Management Section -->
+          <RouterLink
+            to="/RegisterUser"
+            :class="[
+              'side-btn',
+              {
+                active:
+                  isLinkActive('/RegisterUser') ||
+                  isChildLinkActive(['/RegisterUser']),
+              },
+            ]"
+            @click="closeDropdowns"
+          >
+            <span class="material-symbols-outlined">person_add</span>
+            <span class="link-container">REGISTER USER</span>
+            <span class="tooltip">REGISTER USER</span>
+          </RouterLink>
 
-        <!-- <RouterLink
-          to="/Employees"
-          :class="[
-            'side-btn',
-            {
-              active:
-                isLinkActive('/Employees') ||
-                isChildLinkActive(['/Employees']),
-            },
-          ]"
-          @click="closeDropdowns"
-        >
-          <span class="material-symbols-outlined">groups</span>
-          <span class="link-container">EMPLOYEES</span>
-          <span class="tooltip">EMPLOYEES</span>
-        </RouterLink> -->
+          <!-- Schools Section -->
+          <RouterLink
+            to="/allSchools"
+            :class="[
+              'side-btn',
+              {
+                active:
+                  isLinkActive('/allSchools') ||
+                  isChildLinkActive([
+                    '/allSchools',
+                  ]),
+              },
+            ]"
+            @click="closeDropdowns"
+          >
+            <span class="material-symbols-outlined">groups_3</span>
+            <span class="link-container">ALL SCHOOLS</span>
+            <span class="tooltip">ALL SCHOOLS</span>
+          </RouterLink>
 
-        <!-- Financial Section -->
-        <RouterLink
-          to="/InvoicesSchool"
-          :class="[
-            'side-btn',
-            {
-              active:
-                isLinkActive('/InvoicesSchool') ||
-                isChildLinkActive(['/InvoicesSchool']),
-            },
-          ]"
-          @click="closeDropdowns"
-        >
-          <span class="material-symbols-outlined">receipt_long</span>
-          <span class="link-container">INVOICES & SCHOOL</span>
-          <span class="tooltip">INVOICES & SCHOOL</span>
-        </RouterLink>
+          <RouterLink
+            to="/Contacts"
+            :class="[
+              'side-btn',
+              {
+                active:
+                  isLinkActive('/Contacts') ||
+                  isChildLinkActive(['/Contacts']),
+              },
+            ]"
+            @click="closeDropdowns"
+          >
+            <span class="material-symbols-outlined">contacts</span>
+            <span class="link-container">CONTACTS</span>
+            <span class="tooltip">CONTACTS</span>
+          </RouterLink>
 
-        <RouterLink
-          to="/Receipts"
-          :class="[
-            'side-btn',
-            {
-              active:
-                isLinkActive('/Receipts') ||
-                isChildLinkActive(['/Receipts']),
-            },
-          ]"
-          @click="closeDropdowns"
-        >
-          <span class="material-symbols-outlined">receipt</span>
-          <span class="link-container">RECEIPTS</span>
-          <span class="tooltip">RECEIPTS</span>
-        </RouterLink>
+          <RouterLink
+            to="/activatedSchools"
+            :class="[
+              'side-btn',
+              {
+                active:
+                  isLinkActive('/activatedSchools') ||
+                  isChildLinkActive([
+                    '/activatedSchools',
+                  ]),
+              },
+            ]"
+            @click="closeDropdowns"
+          >
+            <span class="material-symbols-outlined">check_circle</span>
+            <span class="link-container">ACTIVE SCHOOLS</span>
+            <span class="tooltip">ACTIVE SCHOOLS</span>
+          </RouterLink>
 
-        <!-- <RouterLink
-          to="/ExpensesTracking"
-          :class="[
-            'side-btn',
-            {
-              active:
-                isLinkActive('/ExpensesTracking') ||
-                isChildLinkActive(['/ExpensesTracking']),
-            },
-          ]"
-          @click="closeDropdowns"
-        >
-          <span class="material-symbols-outlined">payments</span>
-          <span class="link-container">EXPENSES</span>
-          <span class="tooltip">EXPENSES</span>
-        </RouterLink> -->
+          <RouterLink
+            to="/expiredSchools"
+            :class="[
+              'side-btn',
+              {
+                active:
+                  isLinkActive('/expiredSchools') ||
+                  isChildLinkActive([
+                    '/expiredSchools',
+                  ]),
+              },
+            ]"
+            @click="closeDropdowns"
+          >
+            <span class="material-symbols-outlined">cancel</span>
+            <span class="link-container">EXPIRED SCHOOLS</span>
+            <span class="tooltip">EXPIRED SCHOOLS</span>
+          </RouterLink>
 
-        <!-- Communication Section -->
-        <RouterLink
-          to="/MessagesToSchools"
-          :class="[
-            'side-btn',
-            {
-              active:
-                isLinkActive('/MessagesToSchools') ||
-                isChildLinkActive(['/MessagesToSchools']),
-            },
-          ]"
-          @click="closeDropdowns"
-        >
-          <span class="material-symbols-outlined">mail</span>
-          <span class="link-container">MESSAGES</span>
-          <span class="tooltip">MESSAGES</span>
-        </RouterLink>
+          <!-- Financial Section -->
+          <RouterLink
+            to="/InvoicesSchool"
+            :class="[
+              'side-btn',
+              {
+                active:
+                  isLinkActive('/InvoicesSchool') ||
+                  isChildLinkActive(['/InvoicesSchool']),
+              },
+            ]"
+            @click="closeDropdowns"
+          >
+            <span class="material-symbols-outlined">receipt_long</span>
+            <span class="link-container">INVOICES & SCHOOL</span>
+            <span class="tooltip">INVOICES & SCHOOL</span>
+          </RouterLink>
 
-        <RouterLink
-          to="/CallLog"
-          :class="[
-            'side-btn',
-            {
-              active:
-                isLinkActive('/CallLog') ||
-                isChildLinkActive(['/CallLog']),
-            },
-          ]"
-          @click="closeDropdowns"
-        >
-          <span class="material-symbols-outlined">call</span>
-          <span class="link-container">CALL LOG</span>
-          <span class="tooltip">CALL LOG</span>
-        </RouterLink>
+          <RouterLink
+            to="/Receipts"
+            :class="[
+              'side-btn',
+              {
+                active:
+                  isLinkActive('/Receipts') ||
+                  isChildLinkActive(['/Receipts']),
+              },
+            ]"
+            @click="closeDropdowns"
+          >
+            <span class="material-symbols-outlined">receipt</span>
+            <span class="link-container">RECEIPTS</span>
+            <span class="tooltip">RECEIPTS</span>
+          </RouterLink>
 
-       
+          <!-- Communication Section -->
+          <RouterLink
+            to="/MessagesToSchools"
+            :class="[
+              'side-btn',
+              {
+                active:
+                  isLinkActive('/MessagesToSchools') ||
+                  isChildLinkActive(['/MessagesToSchools']),
+              },
+            ]"
+            @click="closeDropdowns"
+          >
+            <span class="material-symbols-outlined">mail</span>
+            <span class="link-container">MESSAGES</span>
+            <span class="tooltip">MESSAGES</span>
+          </RouterLink>
 
-        <!-- Configuration Section -->
-        <!-- <RouterLink
-          to="/FinanceModule"
-          :class="[
-            'side-btn',
-            {
-              active:
-                isLinkActive('/FinanceModule') ||
-                isChildLinkActive(['/FinanceModule']),
-            },
-          ]"
-          @click="closeDropdowns"
-        >
-          <span class="material-symbols-outlined">account_balance</span>
-          <span class="link-container">MODULE</span>
-          <span class="tooltip">MODULE</span>
-        </RouterLink> -->
-
-
+          <RouterLink
+            to="/CallLog"
+            :class="[
+              'side-btn',
+              {
+                active:
+                  isLinkActive('/CallLog') ||
+                  isChildLinkActive(['/CallLog']),
+              },
+            ]"
+            @click="closeDropdowns"
+          >
+            <span class="material-symbols-outlined">call</span>
+            <span class="link-container">CALL LOG</span>
+            <span class="tooltip">CALL LOG</span>
+          </RouterLink>
+        </template>
       </div>
+
+        <!-- Bottom row - Always visible default items -->
+        <div class="bottom-nav-row" v-if="isMobile">
+          <!-- Overview -->
+          <RouterLink
+            to="/"
+            :class="[
+              'side-btn',
+              {
+                active:
+                  isLinkActive('/') ||
+                  isChildLinkActive([
+                    '/DairyMembers',
+                  ]),
+              },
+            ]"
+            @click="closeDropdowns"
+          >
+            <span class="material-symbols-outlined">dashboard</span>
+            <span class="link-container">DASHBOARD</span>
+            <span class="tooltip">DASHBOARD</span>
+          </RouterLink>
+
+          <!-- Configuration Section -->
+          <RouterLink
+            to="/FinanceModule"
+            :class="[
+              'side-btn',
+              {
+                active:
+                  isLinkActive('/FinanceModule') ||
+                  isChildLinkActive(['/FinanceModule']),
+              },
+            ]"
+            @click="closeDropdowns"
+          >
+            <span class="material-symbols-outlined">account_balance</span>
+            <span class="link-container">MODULE</span>
+            <span class="tooltip">MODULE</span>
+          </RouterLink>
+
+          <!-- User Management Section -->
+          <RouterLink
+            to="/RegisterUser"
+            :class="[
+              'side-btn',
+              {
+                active:
+                  isLinkActive('/RegisterUser') ||
+                  isChildLinkActive(['/RegisterUser']),
+              },
+            ]"
+            @click="closeDropdowns"
+          >
+            <span class="material-symbols-outlined">person_add</span>
+            <span class="link-container">REGISTER USER</span>
+            <span class="tooltip">REGISTER USER</span>
+          </RouterLink>
+
+          <!-- Schools Section -->
+          <RouterLink
+            to="/allSchools"
+            :class="[
+              'side-btn',
+              {
+                active:
+                  isLinkActive('/allSchools') ||
+                  isChildLinkActive([
+                    '/allSchools',
+                  ]),
+              },
+            ]"
+            @click="closeDropdowns"
+          >
+            <span class="material-symbols-outlined">groups_3</span>
+            <span class="link-container">ALL SCHOOLS</span>
+            <span class="tooltip">ALL SCHOOLS</span>
+          </RouterLink>
+
+          <!-- Show More/Less Button for Mobile -->
+          <button 
+            @click="showMoreItems = !showMoreItems"
+            class="side-btn mobile-more-btn"
+          >
+            <span class="material-symbols-outlined">{{ showMoreItems ? 'expand_less' : 'expand_more' }}</span>
+            <span class="link-container">{{ showMoreItems ? 'LESS' : 'MORE' }}</span>
+          </button>
+        </div>
       <div class="logout-link">
         <!-- <RouterLink to="#" :class="['side-btn', { active: isLinkActive('#') }]" @click="closeDropdowns">
           <span class="material-symbols-outlined">door_open</span>
@@ -305,6 +464,8 @@ export default {
       isClassesDropdownOpen: false,
       isExamsDropdownOpen: false,
       Loading: false,
+      showMoreItems: false, // For mobile bottom nav
+      isMobile: false, // Track mobile state
     };
   }, 
 
@@ -321,6 +482,13 @@ export default {
     if (examsDropdownState !== null) {
       this.isExamsDropdownOpen = JSON.parse(examsDropdownState);
     }
+
+    // Handle window resize for mobile detection
+    this.checkMobile();
+    window.addEventListener('resize', this.handleResize);
+  },
+  beforeUnmount() {
+    window.removeEventListener('resize', this.handleResize);
   },
   computed: {
     isClassesSectionActive() {
@@ -406,9 +574,24 @@ export default {
       this.closeClassesDropdown();
       this.closeExamsDropdown();
     },
+    closeExpandedSection() {
+      // Close the expanded section on mobile when an item is clicked
+      if (this.isMobile) {
+        this.showMoreItems = false;
+      }
+      // Also close any dropdowns
+      this.closeDropdowns();
+    },
 
     isChildLinkActive(paths) {
       return paths.some((path) => this.$route.path.startsWith(path));
+    },
+
+    checkMobile() {
+      this.isMobile = window.innerWidth <= 767;
+    },
+    handleResize() {
+      this.checkMobile();
     },
   },
 };
@@ -483,6 +666,77 @@ export default {
   z-index: 500;
   display: flex;
   flex-direction: column;
+}
+
+/* Ensure desktop behavior is maintained */
+@media (min-width: 768px) {
+  .sidebar.mobile-bottom {
+    position: fixed;
+    width: 250px;
+    height: 100%;
+    margin-top: 3.5rem;
+    left: 0;
+    top: 0;
+    bottom: auto;
+    right: auto;
+    transform: none;
+  }
+  
+  .sidebar.mobile-bottom .menu-items {
+    flex-direction: column;
+    flex-wrap: nowrap;
+  }
+
+  .sidebar.mobile-bottom .menu-items > * {
+    flex: none;
+    margin-top: 15px;
+  }
+
+  .sidebar.mobile-bottom .side-btn {
+    flex-direction: row;
+    padding: 10px;
+    justify-content: flex-start;
+    border-top: none;
+    border-bottom: none;
+    border-left: 4px solid transparent;
+    min-height: auto;
+  }
+
+  .sidebar.mobile-bottom .side-btn.active {
+    border-top: none;
+    border-bottom: none;
+    border-left: 4px solid gold;
+    border-right: 4px solid gold;
+  }
+
+  .sidebar.mobile-bottom .side-btn:hover {
+    border-left: 4px solid gold;
+  }
+
+  .sidebar.mobile-bottom .side-btn .material-symbols-outlined {
+    margin-right: 10px;
+    margin-bottom: 0;
+    font-size: 2rem;
+  }
+
+  .sidebar.mobile-bottom .side-btn .link-container {
+    display: block;
+    font-size: 1rem;
+    text-align: left;
+  }
+
+  .sidebar.mobile-bottom .mobile-hidden-item {
+    display: flex !important;
+  }
+
+  .sidebar.mobile-bottom .mobile-more-btn {
+    display: none;
+  }
+
+  .sidebar.mobile-bottom .logout-link {
+    display: block;
+    margin-bottom: 80px;
+  }
 }
 
 .sidebar.collapsed {
@@ -610,69 +864,195 @@ export default {
   }
 }
 
-/* Styles for smaller screens */
+/* Styles for smaller screens - Android Bottom Navigation */
 @media only screen and (max-width: 767px) {
-  .sidebar {
-    width: 60px; /* Collapse sidebar further on small screens */
-    z-index: 1000; /* Ensure sidebar is above other content */
+  .sidebar.mobile-bottom {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    height: auto;
+    margin-top: 0;
+    top: auto;
+    transform: none;
+    background-color: #4368b9;
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.2);
+    border-top: 2px solid gold;
+    z-index: 1000;
   }
 
-  .sidebar.open {
-    width: 230px; /* Expand sidebar to full width when open */
+  .sidebar.mobile-bottom .menu-items {
+    display: flex;
+    flex-direction: column;
+    margin-top: 0;
+    padding: 0;
+    justify-content: flex-end;
+    align-items: stretch;
+    max-height: none;
+    overflow: visible;
   }
 
-  /* .sidebar.collapsed .side-btn .material-symbols-outlined {
-    margin-left: 0; 
-  } */
-
-  .sidebar.collapsed .side-btn:hover .tooltip {
-    left: 44px; /* Adjust tooltip position for collapsed sidebar */
+  /* Container for default always-visible items */
+  .sidebar.mobile-bottom .bottom-nav-row {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    justify-content: space-around;
+    align-items: center;
+    padding: 8px 4px;
+    background-color: #4368b9;
+    border-top: 2px solid gold;
   }
 
-  .menu-items {
-    margin-top: 10px; /* Reduce margin for better spacing */
+  /* Hidden items container - shows above default items when expanded */
+  .sidebar.mobile-bottom .expanded-items {
+    display: none;
+    flex-direction: column;
+    width: 100%;
+    background-color: #4368b9;
+    max-height: calc(70vh - 70px);
+    overflow-y: auto;
+    padding-bottom: 8px;
   }
 
-  .side-btn, .side-btn1 {
-    padding: 8px; /* Reduce padding for smaller screens */
+  .sidebar.mobile-bottom.show-more .expanded-items {
+    display: flex;
+    animation: slideUp 0.3s ease;
   }
 
-  .side-btn .material-symbols-outlined {
-    font-size: 1.5rem; /* Reduce icon size for smaller screens */
-    margin-right: 5px; /* Adjust spacing */
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 
-  .dropdown-menu {
-    margin-left: 0; /* Align dropdown menu with sidebar */
+  /* Default visible items in bottom row - 5 items (4 nav + More button) = 20% each */
+  .sidebar.mobile-bottom .bottom-nav-row > * {
+    flex: 0 0 20%;
+    min-width: 0;
   }
 
-  .dropdown-btn {
-    padding-left: 20px; /* Adjust padding for dropdown items */
+  /* Items in expanded section */
+  .sidebar.mobile-bottom .expanded-items .side-btn {
+    width: 100%;
+    flex-direction: row;
+    justify-content: flex-start;
+    align-items: center;
+    padding: 12px 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    min-height: 50px;
   }
 
-  .link-container p {
-    margin-left: 2rem; /* Adjust text alignment in dropdown */
+  .sidebar.mobile-bottom .expanded-items .side-btn .material-symbols-outlined {
+    margin-right: 12px;
+    margin-bottom: 0;
+    font-size: 1.5rem;
+    flex-shrink: 0;
   }
 
-  .logout-link .side-btn {
-    width: 100%; /* Ensure the logout button takes full width */
-    
+  .sidebar.mobile-bottom .expanded-items .side-btn .link-container {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    font-size: 0.95rem;
+    text-align: left;
+    color: white;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: visible;
+    text-overflow: unset;
+    width: auto;
+    flex: 1;
   }
 
-  .tooltip {
-    font-size: small; /* Reduce tooltip font size */
-    padding: 8px; /* Adjust tooltip padding */
-    width: 140px; /* Reduce tooltip width */
+  .sidebar.mobile-bottom .expanded-items .side-btn.active {
+    border-left: 4px solid gold;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
   }
 
-  /* Hide dropdown icons when sidebar is collapsed */
-  .sidebar.collapsed .dropdown-icon {
+  /* Bottom nav row buttons */
+  .sidebar.mobile-bottom .bottom-nav-row .side-btn {
+    flex-direction: column;
+    padding: 8px 4px;
+    width: 100%;
+    justify-content: center;
+    align-items: center;
+    border-left: none;
+    border-right: none;
+    border-top: 2px solid transparent;
+    border-bottom: 2px solid transparent;
+    min-height: 60px;
+  }
+
+  .sidebar.mobile-bottom .bottom-nav-row .side-btn.active {
+    border-top: 2px solid gold;
+    border-bottom: 2px solid gold;
+    border-left: none;
+    border-right: none;
+    background-color: rgba(255, 255, 255, 0.15);
+  }
+
+  .sidebar.mobile-bottom .bottom-nav-row .side-btn:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-left: none;
+  }
+
+  .sidebar.mobile-bottom .bottom-nav-row .side-btn .material-symbols-outlined {
+    font-size: 1.5rem;
+    margin-right: 0;
+    margin-bottom: 4px;
+  }
+
+  .sidebar.mobile-bottom .bottom-nav-row .side-btn .link-container {
+    display: block;
+    font-size: 0.65rem;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+    line-height: 1.2;
+  }
+
+  .sidebar.mobile-bottom .side-btn .tooltip {
     display: none;
   }
 
-  /* Ensure dropdown icons are visible when sidebar is open */
-  .sidebar.open .dropdown-icon {
-    display: inline-block;
+  /* Adjust sidebar when expanded - grows upward */
+  .sidebar.mobile-bottom.show-more {
+    border-top-left-radius: 20px;
+    border-top-right-radius: 20px;
+  }
+
+  .sidebar.mobile-bottom.show-more .menu-items {
+    justify-content: flex-start;
+  }
+
+  /* Ensure bottom nav row always stays at bottom */
+  .sidebar.mobile-bottom .bottom-nav-row {
+    order: 999;
+    position: relative;
+    z-index: 10;
+    margin-top: auto; /* Push to bottom */
+  }
+
+  /* Logout link positioning for mobile */
+  .sidebar.mobile-bottom .logout-link {
+    display: none; /* Hide logout from bottom nav, keep it accessible from menu if needed */
+  }
+
+  /* Adjust body padding to account for bottom nav */
+  body {
+    padding-bottom: 60px;
   }
 }
 </style>

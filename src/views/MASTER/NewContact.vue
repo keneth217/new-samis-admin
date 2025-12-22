@@ -321,16 +321,71 @@ hr {
   margin: 20px 0;
 }
 
-@media only screen and (max-width: 767px) {
+@media only screen and (max-width: 1024px) {
+  .form-content {
+    width: 85%;
+    max-width: 550px;
+  }
+}
+
+@media only screen and (max-width: 768px) {
   .form-content {
     width: 95%;
     max-width: 100%;
     padding: 15px;
+    max-height: 95vh;
   }
 
   .form-inputs {
     grid-template-columns: 1fr;
     gap: 0.9rem;
+  }
+
+  .form-title h2 {
+    font-size: 1.1rem;
+  }
+}
+
+@media only screen and (max-width: 480px) {
+  .form-wrap {
+    padding: 0.5rem;
+  }
+
+  .form-content {
+    width: 100%;
+    padding: 12px;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+
+  .form-title h2 {
+    font-size: 1rem;
+  }
+
+  .form-inputs {
+    gap: 0.75rem;
+    padding-top: 5px;
+  }
+
+  .form-control {
+    padding: 0.4rem;
+    font-size: 0.9rem;
+  }
+
+  .form-actions {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .form-actions button {
+    width: 100%;
+    padding: 0.5rem;
+  }
+
+  .cancel {
+    top: 5px;
+    right: 5px;
+    font-size: 1.2rem;
   }
 }
 </style>

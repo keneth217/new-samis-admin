@@ -229,30 +229,80 @@ export default {
   },
 
   watch: {
-    school(newSchool) {
-      if (newSchool) {
-        this.editMode = true;
-        Object.assign(this, newSchool);
-        // Ensure county and subcounty are set properly when editing
-        this.county = newSchool.county || '';
-        this.subcounty = newSchool.subcounty || '';
-        this.updateSubcounties(); // Update subcounties based on selected county
-      } else {
-        this.clearForm();
-      }
+    school: {
+      immediate: true,
+      deep: true,
+      handler(newSchool) {
+        console.log('NewSchool watcher - received school prop:', newSchool);
+        console.log('NewSchool watcher - newSchool type:', typeof newSchool);
+        console.log('NewSchool watcher - newSchool keys:', newSchool ? Object.keys(newSchool) : 'null/undefined');
+        
+        if (newSchool && typeof newSchool === 'object' && Object.keys(newSchool).length > 0) {
+          this.editMode = true;
+          
+          // Map all fields explicitly to ensure proper assignment
+          this.schoolName = String(newSchool.schoolName || newSchool.school_name || '').trim();
+          this.schoolCode = String(newSchool.schoolCode || newSchool.school_code || '').trim();
+          this.email = String(newSchool.email || '').trim();
+          this.phoneNo = String(newSchool.phoneNo || newSchool.phone_no || newSchool.phone || '').trim();
+          // Try multiple variations for principal name
+          this.principalName = String(
+            newSchool.principalName || 
+            newSchool.principal_name || 
+            newSchool.principalName1 || 
+            newSchool.principal || 
+            ''
+          ).trim();
+          // Try multiple variations for principal phone
+          this.principalPhoneNo = String(
+            newSchool.principalPhoneNo || 
+            newSchool.principal_phone_no || 
+            newSchool.principalPhone || 
+            newSchool.principalPhoneNumber || 
+            newSchool.principal_phone || 
+            ''
+          ).trim();
+          this.address = String(newSchool.address || '').trim();
+          this.schoolLevel = String(newSchool.schoolLevel || newSchool.school_level || '').trim();
+          this.county = String(newSchool.county || '').trim();
+          this.subcounty = String(newSchool.subcounty || newSchool.sub_county || '').trim();
+          
+          console.log('Principal fields after mapping:', {
+            principalName: this.principalName,
+            principalPhoneNo: this.principalPhoneNo,
+            'newSchool.principalName': newSchool.principalName,
+            'newSchool.principal_phone_no': newSchool.principal_phone_no,
+          });
+          
+          console.log('✅ Mapped fields in NewSchool:', {
+            schoolName: this.schoolName,
+            schoolCode: this.schoolCode,
+            email: this.email,
+            phoneNo: this.phoneNo,
+            principalName: this.principalName,
+            principalPhoneNo: this.principalPhoneNo,
+            address: this.address,
+            county: this.county,
+            subcounty: this.subcounty,
+            schoolLevel: this.schoolLevel,
+          });
+          
+          // Update subcounties based on selected county - use nextTick to ensure DOM is ready
+          this.$nextTick(() => {
+            if (this.county) {
+              this.updateSubcounties();
+            }
+          });
+        } else {
+          console.log('❌ No school data - clearing form');
+          this.editMode = false;
+          this.clearForm();
+        }
+      },
     },
   },
 
   methods: {
-
-    methods: {
-  selectSchoolToEdit(school) {
-    this.editMode = true;  // Set editMode to true when selecting a school to edit
-    this.$emit('editSchool', school);  // Emit the school data to the parent or update the prop directly
-  }
-},
-
-
     // Update subcounties based on selected county
     updateSubcounties() {
       if (this.county) {
@@ -573,16 +623,72 @@ hr {
   margin: 20px 0;
 }
 
-@media only screen and (max-width: 767px) {
+@media only screen and (max-width: 1024px) {
+  .form-content {
+    width: 85%;
+    max-width: 600px;
+  }
+}
+
+@media only screen and (max-width: 768px) {
   .form-content {
     width: 95%;
     max-width: 100%;
     padding: 15px;
+    max-height: 95vh;
   }
 
   .form-inputs {
     grid-template-columns: 1fr;
     gap: 0.9rem;
+  }
+
+  .form-title h2 {
+    font-size: 1.1rem;
+  }
+}
+
+@media only screen and (max-width: 480px) {
+  .form-wrap {
+    padding: 0.5rem;
+  }
+
+  .form-content {
+    width: 100%;
+    padding: 12px;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+
+  .form-title h2 {
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .form-inputs {
+    gap: 0.75rem;
+    padding-top: 5px;
+  }
+
+  .form-control {
+    padding: 0.4rem;
+    font-size: 0.9rem;
+  }
+
+  .form-actions {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .form-actions button {
+    width: 100%;
+    padding: 0.5rem;
+  }
+
+  .cancel {
+    top: 5px;
+    right: 5px;
+    font-size: 1.2rem;
   }
 }
 </style>

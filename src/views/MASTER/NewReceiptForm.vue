@@ -339,27 +339,27 @@ export default {
 }
 
 .form-wrap {
+  background-color: rgba(17, 167, 167, 0.5);
+  width: 100%;
+  height: 100%;
   position: fixed;
   top: 0;
   left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 1001;
   display: flex;
-  justify-content: center;
   align-items: center;
-  z-index: 10000;
+  justify-content: center;
 }
 
 .form-content {
   background-color: #4368b9;
   border-radius: 5px;
-  padding: 2rem;
-  width: 90%;
-  max-width: 600px;
-  max-height: 90vh;
-  overflow-y: auto;
+  padding: 20px;
   box-shadow: 0px 0px 5px gold;
+  width: 90%;
+  max-width: 500px;
+  max-height: 90%;
+  overflow-y: auto;
   position: relative;
 }
 
@@ -369,92 +369,96 @@ export default {
   right: 10px;
   cursor: pointer;
   color: gold;
-  font-size: 1.5rem;
+  font-size: 1.3rem;
 }
 
-.form-title h2 {
+.form-title {
   color: gold;
-  margin-bottom: 1rem;
   text-align: center;
 }
 
-hr {
-  border: 1px solid gold;
-  margin: 1rem 0;
-}
-
 .form-inputs {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
   gap: 1rem;
+  padding-top: 10px;
 }
 
 .form-group {
   position: relative;
-  display: flex;
-  flex-direction: column;
 }
 
 .form-control {
-  padding: 0.6rem;
   border: 1px solid gold;
-  border-radius: 4px;
-  background-color: #fff;
-  color: #000;
-  font-size: 1rem;
   outline: none;
+  padding: 0.3rem;
+  border-radius: 4px;
+  font-size: 1rem;
+  width: 100%;
+  box-sizing: border-box;
+  background-color: #4368b9;
+  color: white;
 }
 
-.form-control:focus {
-  border-color: #fff;
-  box-shadow: 0 0 5px rgba(255, 215, 0, 0.5);
+.form-control::placeholder {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.9rem;
 }
 
 .form-control:disabled {
-  background-color: #e0e0e0;
+  opacity: 0.6;
   cursor: not-allowed;
 }
 
 textarea.form-control {
   resize: vertical;
-  min-height: 60px;
+  min-height: 80px;
 }
 
 label {
   position: absolute;
-  left: 0.6rem;
-  top: 0.6rem;
-  color: #666;
-  font-size: 0.9rem;
-  pointer-events: none;
+  top: 50%;
+  left: 4px;
+  background: #4368b9;
+  padding: 0 5px;
+  transform: translateY(-50%);
   transition: all 0.3s ease;
-  background-color: #fff;
-  padding: 0 0.3rem;
+  color: gold;
 }
 
 label.filled {
-  top: -0.6rem;
-  left: 0.3rem;
-  font-size: 0.75rem;
+  top: -1px;
+  left: 5px;
   color: gold;
-  background-color: #4368b9;
+  font-size: 0.95rem;
+  font-weight: 600;
 }
 
-.payment-hint {
-  display: block;
-  margin-top: 0.25rem;
-  font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.9);
-  font-style: italic;
+.form-group input:focus + label,
+.form-group input:not(:placeholder-shown) + label {
+  top: -1px;
+  left: 5px;
+  color: gold;
+  font-size: 0.95rem;
+  font-weight: 600;
 }
 
-.form-control:focus + label,
-.form-control:not(:placeholder-shown) + label {
-  top: -0.6rem;
-  left: 0.3rem;
-  font-size: 0.75rem;
+.form-group select:focus + label,
+.form-group select:not([value=""]) + label {
+  top: -1px;
+  left: 5px;
   color: gold;
-  background-color: #4368b9;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.form-group textarea:focus + label,
+.form-group textarea:not(:placeholder-shown) + label {
+  top: -1px;
+  left: 5px;
+  color: gold;
+  font-size: 0.95rem;
+  font-weight: 600;
 }
 
 .payment-hint {
@@ -471,49 +475,109 @@ label.filled {
 .form-actions {
   display: flex;
   justify-content: space-between;
-  gap: 1rem;
-  margin-top: 1rem;
 }
 
 .form-actions button {
-  flex: 1;
-  padding: 0.6rem 1rem;
-  border: 1px solid gold;
-  border-radius: 4px;
-  background-color: gold;
-  color: #000;
-  font-size: 1rem;
+  padding: 0.3rem 1rem;
+  border: none;
   cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.form-actions button:hover {
-  background-color: #4368b9;
-  color: gold;
-  border-color: gold;
+  border-radius: 4px;
 }
 
 .form-actions button:first-child {
-  background-color: rgba(245, 56, 56, 1);
-  border-color: rgba(245, 56, 56, 1);
-  color: white;
+  font-size: medium;
+  background: rgba(245, 56, 56, 1);
+  border: 1px solid rgba(245, 56, 56, 1);
+  color: black;
 }
 
 .form-actions button:first-child:hover {
   background-color: #4368b9;
-  color: gold;
-  border-color: gold;
+  color: white;
 }
 
-/* Responsive Design */
-@media only screen and (max-width: 767px) {
+.form-actions button:last-child {
+  font-size: medium;
+  background: gold;
+  border: 1px solid gold;
+  color: black;
+}
+
+.form-actions button:last-child:hover {
+  background-color: #4368b9;
+  color: white;
+}
+
+hr {
+  border: 1px solid gold;
+  margin: 20px 0;
+}
+
+@media only screen and (max-width: 1024px) {
+  .form-content {
+    width: 85%;
+    max-width: 600px;
+  }
+}
+
+@media only screen and (max-width: 768px) {
   .form-content {
     width: 95%;
-    padding: 1.5rem;
+    max-width: 100%;
+    padding: 15px;
     max-height: 95vh;
   }
 
+  .form-inputs {
+    grid-template-columns: 1fr;
+    gap: 0.9rem;
+  }
+
   .form-title h2 {
+    font-size: 1.1rem;
+  }
+}
+
+@media only screen and (max-width: 480px) {
+  .form-wrap {
+    padding: 0.5rem;
+  }
+
+  .form-content {
+    width: 100%;
+    padding: 12px;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+
+  .form-title h2 {
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .form-inputs {
+    gap: 0.75rem;
+    padding-top: 5px;
+  }
+
+  .form-control {
+    padding: 0.4rem;
+    font-size: 0.9rem;
+  }
+
+  .form-actions {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .form-actions button {
+    width: 100%;
+    padding: 0.5rem;
+  }
+
+  .cancel {
+    top: 5px;
+    right: 5px;
     font-size: 1.2rem;
   }
 }
