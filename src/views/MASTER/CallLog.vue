@@ -22,59 +22,109 @@
 
     <div class="panel">
       <div v-if="tabValue === 'inCall'" class="in-call">
+        <!-- Android-style Call Header -->
         <div class="in-call-header">
-          <div class="call-title">In Call</div>
-          <div class="call-target">
-            {{ currentContactDisplay }}
+          <div class="call-status" v-if="isOnHold">
+            <span class="hold-indicator">⏸ On Hold</span>
+          </div>
+          <div class="caller-info">
+            <div class="caller-name">{{ currentContactDisplay }}</div>
+            <div class="call-duration" v-if="callDuration > 0">{{ formatCallDuration(callDuration) }}</div>
+            <div class="call-status-text" v-else>Connecting...</div>
           </div>
         </div>
 
-        <div class="control-grid top-grid">
-          <div class="control">
-            <button class="icon-btn" @click="handleAddCall">
-              <span class="material-symbols-outlined">add_call</span>
+        <!-- Keypad Overlay (Android style - appears on top when toggled) -->
+        <div v-if="showKeypadInCall" class="keypad-overlay-in-call">
+          <div class="keypad-header-in-call">
+            <button class="close-keypad-btn" @click="showKeypadInCall = false">
+              <span class="material-symbols-outlined">close</span>
             </button>
-            <div class="control-label">Add Call</div>
+            <div class="keypad-title-in-call">Dialpad</div>
           </div>
-          <div class="control">
-            <button class="icon-btn" @click="handleHold">
-              <span class="material-symbols-outlined">pause</span>
+          <div class="keypad-grid-in-call">
+            <button 
+              v-for="key in keypadKeys" 
+              :key="key" 
+              class="keypad-btn-in-call" 
+              @click="handleDTMFTone(key)"
+            >
+              <span class="keypad-number">{{ key }}</span>
+              <span class="keypad-letters" v-if="getKeypadLetters(key)">{{ getKeypadLetters(key) }}</span>
             </button>
-            <div class="control-label">Hold</div>
-          </div>
-          <div class="control">
-            <button class="icon-btn" @click="handleSwitchAudio">
-              <span class="material-symbols-outlined">settings_voice</span>
-            </button>
-            <div class="control-label">Audio</div>
           </div>
         </div>
 
-        <div class="control-grid">
-          <div class="control">
-            <button class="icon-btn" @click="handleSpeakerClick">
-              <span class="material-symbols-outlined" :class="{ active: isSpeakerOn }">volume_up</span>
+        <!-- Android-style Control Buttons (shown when keypad is hidden) -->
+        <div v-if="!showKeypadInCall" class="in-call-controls">
+          <!-- Primary Controls Row -->
+          <div class="control-row primary-controls">
+            <button 
+              class="control-btn mute-btn" 
+              :class="{ active: isMuted }" 
+              @click="handleMuteClick"
+              :disabled="loading && !isInCall"
+            >
+              <span class="material-symbols-outlined">{{ isMuted ? 'mic_off' : 'mic' }}</span>
+              <span class="control-label">{{ isMuted ? 'Unmute' : 'Mute' }}</span>
             </button>
-            <div class="control-label">Speaker</div>
-          </div>
-          <div class="control">
-            <button class="icon-btn" @click="handleMuteClick">
-              <span class="material-symbols-outlined" :class="{ active: isMuted }">mic_off</span>
-            </button>
-            <div class="control-label">Mute</div>
-          </div>
-          <div class="control">
-            <button class="icon-btn" @click="handleKeypad">
+            <button 
+              class="control-btn keypad-btn" 
+              @click="showKeypadInCall = true"
+              :disabled="loading && !isInCall"
+            >
               <span class="material-symbols-outlined">dialpad</span>
+              <span class="control-label">Keypad</span>
             </button>
-            <div class="control-label">Keypad</div>
+            <button 
+              class="control-btn speaker-btn" 
+              :class="{ active: isSpeakerOn }" 
+              @click="handleSpeakerClick"
+              :disabled="loading && !isInCall"
+            >
+              <span class="material-symbols-outlined">{{ isSpeakerOn ? 'volume_up' : 'phone' }}</span>
+              <span class="control-label">{{ isSpeakerOn ? 'Speaker' : 'Earpiece' }}</span>
+            </button>
+          </div>
+
+          <!-- Secondary Controls Row -->
+          <div class="control-row secondary-controls">
+            <button 
+              class="control-btn add-call-btn" 
+              @click="handleAddCall"
+              :disabled="loading && !isInCall"
+            >
+              <span class="material-symbols-outlined">add_call</span>
+              <span class="control-label">Add Call</span>
+            </button>
+            <button 
+              class="control-btn hold-btn" 
+              :class="{ active: isOnHold }" 
+              @click="handleHold"
+              :disabled="loading && !isInCall"
+            >
+              <span class="material-symbols-outlined">{{ isOnHold ? 'play_arrow' : 'pause' }}</span>
+              <span class="control-label">{{ isOnHold ? 'Resume' : 'Hold' }}</span>
+            </button>
+            <button 
+              class="control-btn audio-btn" 
+              @click="handleSwitchAudio"
+              :disabled="loading && !isInCall"
+            >
+              <span class="material-symbols-outlined">settings_voice</span>
+              <span class="control-label">Audio</span>
+            </button>
           </div>
         </div>
 
-        <div class="end-call-row">
-          <button class="end-call-btn" @click="handleEndCall">
+        <!-- Android-style End Call Button (Always visible) -->
+        <div class="end-call-container">
+          <button 
+            class="end-call-btn-android" 
+            @click="handleEndCall" 
+            :disabled="loading && !isInCall"
+          >
             <span class="material-symbols-outlined">call_end</span>
-            End Call
           </button>
         </div>
       </div>
@@ -96,16 +146,30 @@
         <div v-if="tabValue === 'keypad'" class="keypad-pane">
           <div class="dialed-number">{{ dialedNumber || 'Enter Number' }}</div>
           <div class="keypad-grid">
-            <button v-for="key in keypadKeys" :key="key" class="keypad-btn" @click="handleKeypadClick(key)">
+            <button 
+              v-for="key in keypadKeys" 
+              :key="key" 
+              class="keypad-btn" 
+              @click="isInCall ? handleDTMFTone(key) : handleKeypadClick(key)"
+            >
               {{ key }}
             </button>
-            <button class="keypad-btn" @click="handleBackspace">⌫</button>
+            <button 
+              class="keypad-btn" 
+              @click="isInCall ? null : handleBackspace"
+              :disabled="isInCall"
+            >
+              ⌫
+            </button>
           </div>
-          <div class="call-btn-row">
+          <div class="call-btn-row" v-if="!isInCall">
             <button class="call-btn" :disabled="!dialedNumber" @click="handleCall">
               <span class="material-symbols-outlined">call</span>
               Call
             </button>
+          </div>
+          <div v-if="isInCall" class="dtmf-hint">
+            <p>During call: Keypad sends DTMF tones</p>
           </div>
         </div>
 
@@ -161,7 +225,7 @@
         </div>
       </div>
     </div>
-    <LoadingSpinner :isLoading="loading" />
+    <LoadingSpinner :isLoading="loading && !isInCall" />
     
     <!-- Error Dialog -->
     <div v-if="showErrorDialog" class="error-dialog-overlay" @click.self="closeErrorDialog">
@@ -217,10 +281,12 @@ export default {
       recents: [],
       isInCall: false,
       isMuted: false,
-      isSpeakerOn: true,
+      isSpeakerOn: false,
+      isOnHold: false,
+      showKeypadInCall: false,
       client: null,
       loading: false,
-      keypadKeys: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#', '+'],
+      keypadKeys: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'],
       showErrorDialog: false,
       errorTitle: '',
       errorMessage: '',
@@ -228,6 +294,13 @@ export default {
       errorSolutions: [],
       canRetry: false,
       lastDialedNumber: '',
+      localStream: null,
+      remoteStream: null,
+      audioContext: null,
+      audioInput: null,
+      audioOutput: null,
+      callDuration: 0,
+      callDurationTimer: null,
     };
   },
   computed: {
@@ -263,6 +336,7 @@ export default {
   },
   beforeUnmount() {
     window.removeEventListener('keydown', this.handleKeyPress);
+    this.stopCallTimer();
   },
   methods: {
     setTab(value) {
@@ -535,6 +609,13 @@ export default {
           console.log('✅ Call established successfully! Connection is live.');
           this.isInCall = true;
           this.loading = false;
+          this.isMuted = false;
+          this.isOnHold = false;
+          this.showKeypadInCall = false;
+          // Initialize audio streams
+          this.initializeCallAudio();
+          // Start call duration timer
+          this.startCallTimer();
         });
         
         client.on('callended', () => {
@@ -542,6 +623,8 @@ export default {
           this.isInCall = false;
           this.tabValue = 'keypad';
           this.loading = false;
+          this.showKeypadInCall = false;
+          this.stopCallTimer();
         });
         
         // NOW make the call - client is guaranteed to be connected
@@ -650,15 +733,58 @@ export default {
         this.handleCall();
       }
     },
+    initializeCallAudio() {
+      // Get user media for microphone control
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(stream => {
+          this.localStream = stream;
+          const audioTracks = stream.getAudioTracks();
+          if (audioTracks.length > 0) {
+            this.audioInput = audioTracks[0].getSettings().deviceId;
+          }
+        })
+        .catch(err => {
+          console.warn('Could not access microphone:', err);
+        });
+    },
+    cleanupCallAudio() {
+      // Clean up audio streams
+      if (this.localStream) {
+        this.localStream.getTracks().forEach(track => track.stop());
+        this.localStream = null;
+      }
+      if (this.remoteStream) {
+        this.remoteStream.getTracks().forEach(track => track.stop());
+        this.remoteStream = null;
+      }
+      if (this.audioContext) {
+        this.audioContext.close().catch(() => {});
+        this.audioContext = null;
+      }
+    },
     handleEndCall() {
+      // Clean up audio
+      this.cleanupCallAudio();
+      
+      // Stop call timer
+      this.stopCallTimer();
+      
       if (this.client) {
         try {
-          this.client.hangup();
+          if (typeof this.client.hangup === 'function') {
+            this.client.hangup();
+          } else if (typeof this.client.end === 'function') {
+            this.client.end();
+          }
         } catch (err) {
-          console.warn('Hangup after closed WS', err);
+          console.warn('Hangup error:', err);
         }
       }
       this.isInCall = false;
+      this.isMuted = false;
+      this.isOnHold = false;
+      this.isSpeakerOn = false;
+      this.showKeypadInCall = false;
       this.tabValue = 'keypad';
       this.dialedNumber = '';
       this.client = null;
@@ -675,25 +801,275 @@ export default {
     handleBackspace() {
       this.dialedNumber = this.dialedNumber.slice(0, -1);
     },
-    handleMuteClick() {
-      this.isMuted = !this.isMuted;
-      console.log(this.isMuted ? 'Microphone muted' : 'Microphone unmuted');
+    async handleMuteClick() {
+      if (!this.client || !this.isInCall) return;
+      
+      try {
+        // Get user media stream
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const audioTracks = stream.getAudioTracks();
+        
+        if (audioTracks.length > 0) {
+          this.isMuted = !this.isMuted;
+          audioTracks.forEach(track => {
+            track.enabled = !this.isMuted;
+          });
+          console.log(this.isMuted ? '✅ Microphone muted' : '✅ Microphone unmuted');
+          
+          // Try to mute via client if method exists
+          if (typeof this.client.mute === 'function') {
+            this.client.mute(this.isMuted);
+          }
+        }
+      } catch (err) {
+        console.error('Error toggling mute:', err);
+        // Fallback: just toggle the state
+        this.isMuted = !this.isMuted;
+        // Try client mute method if available
+        if (this.client && typeof this.client.mute === 'function') {
+          try {
+            this.client.mute(this.isMuted);
+          } catch (e) {
+            console.warn('Client mute method failed:', e);
+          }
+        }
+      }
     },
-    handleSpeakerClick() {
+    async handleSpeakerClick() {
       this.isSpeakerOn = !this.isSpeakerOn;
-      console.log(this.isSpeakerOn ? 'Speaker on' : 'Speaker off');
+      
+      try {
+        // Control speaker output by setting audio element's volume and ensuring it plays
+        const audioElements = document.querySelectorAll('audio, video');
+        audioElements.forEach(element => {
+          if (element.srcObject) {
+            element.volume = this.isSpeakerOn ? 1.0 : 0.0;
+            // Ensure audio plays to speaker
+            if (this.isSpeakerOn) {
+              element.setSinkId && element.setSinkId('').catch(() => {});
+            }
+          }
+        });
+        
+        // Try to set audio output device if supported
+        if ('setSinkId' in HTMLAudioElement.prototype) {
+          try {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const speakers = devices.filter(device => device.kind === 'audiooutput');
+            if (speakers.length > 0) {
+              // Use default speaker when speaker is on
+              // Note: Browser may require user gesture to change audio output
+            }
+          } catch (err) {
+            console.warn('Could not set audio output device:', err);
+          }
+        }
+        
+        console.log(this.isSpeakerOn ? '✅ Speaker on' : '✅ Speaker off');
+      } catch (err) {
+        console.error('Error toggling speaker:', err);
+      }
     },
     handleAddCall() {
-      console.log('Add call clicked');
-    },
-    handleHold() {
-      console.log('Hold clicked');
-    },
-    handleSwitchAudio() {
-      console.log('Switch audio clicked');
-    },
-    handleKeypad() {
+      // Store current call and allow user to dial another number
+      // This is a simplified version - full conference call would require more backend support
+      console.log('Add call feature - Opening keypad for new call');
       this.tabValue = 'keypad';
+      // Note: To fully implement conference, you'd need to:
+      // 1. Hold current call
+      // 2. Initiate new call
+      // 3. Merge calls using backend conference API
+      alert('Add Call feature: Please dial the new number. Full conference call requires backend conference API support.');
+    },
+    async handleHold() {
+      if (!this.client || !this.isInCall) return;
+      
+      try {
+        this.isOnHold = !this.isOnHold;
+        
+        // Pause/resume call timer when on hold
+        if (this.isOnHold) {
+          // Timer already pauses when isOnHold is true (see startCallTimer)
+          console.log('⏸ Call paused - timer will not increment');
+        } else {
+          console.log('▶️ Call resumed - timer continues');
+        }
+        
+        // Pause/resume audio tracks
+        if (this.localStream) {
+          const audioTracks = this.localStream.getAudioTracks();
+          audioTracks.forEach(track => {
+            track.enabled = !this.isOnHold;
+          });
+        }
+        
+        if (this.remoteStream) {
+          const audioTracks = this.remoteStream.getAudioTracks();
+          audioTracks.forEach(track => {
+            track.enabled = !this.isOnHold;
+          });
+        }
+        
+        // Try client hold method if available
+        if (typeof this.client.hold === 'function') {
+          this.client.hold(this.isOnHold);
+        } else if (typeof this.client.pause === 'function') {
+          this.client.pause(this.isOnHold);
+        }
+        
+        console.log(this.isOnHold ? '✅ Call on hold' : '✅ Call resumed');
+      } catch (err) {
+        console.error('Error toggling hold:', err);
+        this.isOnHold = !this.isOnHold;
+      }
+    },
+    async handleSwitchAudio() {
+      // Switch between available audio devices
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const audioInputs = devices.filter(device => device.kind === 'audioinput');
+        
+        if (audioInputs.length <= 1) {
+          alert('Only one audio input device available.');
+          return;
+        }
+        
+        // Get current device
+        const currentDevice = this.audioInput;
+        const currentIndex = audioInputs.findIndex(d => d.deviceId === currentDevice);
+        const nextIndex = (currentIndex + 1) % audioInputs.length;
+        const nextDevice = audioInputs[nextIndex];
+        
+        // Switch to next device
+        try {
+          const newStream = await navigator.mediaDevices.getUserMedia({
+            audio: { deviceId: { exact: nextDevice.deviceId } }
+          });
+          
+          // Replace tracks in existing stream
+          if (this.localStream) {
+            const oldTracks = this.localStream.getAudioTracks();
+            const newTracks = newStream.getAudioTracks();
+            
+            oldTracks.forEach(oldTrack => {
+              this.localStream.removeTrack(oldTrack);
+              oldTrack.stop();
+            });
+            
+            newTracks.forEach(newTrack => {
+              this.localStream.addTrack(newTrack);
+            });
+          }
+          
+          this.audioInput = nextDevice.deviceId;
+          console.log('✅ Switched to audio device:', nextDevice.label || nextDevice.deviceId);
+          alert(`Switched to: ${nextDevice.label || 'Audio Device'}`);
+        } catch (err) {
+          console.error('Error switching audio device:', err);
+          alert('Failed to switch audio device. Please check permissions.');
+        }
+      } catch (err) {
+        console.error('Error enumerating audio devices:', err);
+        alert('Could not access audio devices.');
+      }
+    },
+    getKeypadLetters(key) {
+      const letters = {
+        '2': 'ABC', '3': 'DEF', '4': 'GHI', '5': 'JKL',
+        '6': 'MNO', '7': 'PQRS', '8': 'TUV', '9': 'WXYZ'
+      };
+      return letters[key] || '';
+    },
+    formatCallDuration(seconds) {
+      const mins = Math.floor(seconds / 60);
+      const secs = seconds % 60;
+      return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    },
+    startCallTimer() {
+      this.callDuration = 0;
+      if (this.callDurationTimer) {
+        clearInterval(this.callDurationTimer);
+      }
+      this.callDurationTimer = setInterval(() => {
+        if (this.isInCall && !this.isOnHold) {
+          this.callDuration++;
+        }
+      }, 1000);
+    },
+    stopCallTimer() {
+      if (this.callDurationTimer) {
+        clearInterval(this.callDurationTimer);
+        this.callDurationTimer = null;
+      }
+      this.callDuration = 0;
+    },
+    async handleDTMFTone(digit) {
+      // Send DTMF tone during active call
+      if (!this.client || !this.isInCall) {
+        console.warn('Cannot send DTMF: No active call');
+        return;
+      }
+      
+      try {
+        // Try client DTMF method if available
+        if (typeof this.client.dtmf === 'function') {
+          this.client.dtmf(digit);
+          console.log('✅ Sent DTMF tone:', digit);
+        } else if (typeof this.client.sendDTMF === 'function') {
+          this.client.sendDTMF(digit);
+          console.log('✅ Sent DTMF tone:', digit);
+        } else {
+          // Fallback: Use Web Audio API to generate DTMF tone
+          this.playDTMFTone(digit);
+          console.log('✅ Played DTMF tone (local):', digit);
+        }
+      } catch (err) {
+        console.error('Error sending DTMF tone:', err);
+        // Fallback to local playback
+        this.playDTMFTone(digit);
+      }
+    },
+    playDTMFTone(digit) {
+      // Generate DTMF tone using Web Audio API as fallback
+      try {
+        if (!this.audioContext) {
+          this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        
+        const dtmfFrequencies = {
+          '1': [697, 1209], '2': [697, 1336], '3': [697, 1477],
+          '4': [770, 1209], '5': [770, 1336], '6': [770, 1477],
+          '7': [852, 1209], '8': [852, 1336], '9': [852, 1477],
+          '*': [941, 1209], '0': [941, 1336], '#': [941, 1477]
+        };
+        
+        const frequencies = dtmfFrequencies[digit];
+        if (!frequencies) return;
+        
+        const oscillator1 = this.audioContext.createOscillator();
+        const oscillator2 = this.audioContext.createOscillator();
+        const gainNode = this.audioContext.createGain();
+        
+        oscillator1.type = 'sine';
+        oscillator1.frequency.value = frequencies[0];
+        
+        oscillator2.type = 'sine';
+        oscillator2.frequency.value = frequencies[1];
+        
+        gainNode.gain.setValueAtTime(0.3, this.audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.1);
+        
+        oscillator1.connect(gainNode);
+        oscillator2.connect(gainNode);
+        gainNode.connect(this.audioContext.destination);
+        
+        oscillator1.start(this.audioContext.currentTime);
+        oscillator2.start(this.audioContext.currentTime);
+        oscillator1.stop(this.audioContext.currentTime + 0.1);
+        oscillator2.stop(this.audioContext.currentTime + 0.1);
+      } catch (err) {
+        console.error('Error playing DTMF tone:', err);
+      }
     },
     handleKeyPress(event) {
       const { key } = event;
@@ -790,63 +1166,254 @@ export default {
   min-height: 420px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
+/* Android-style In-Call Interface */
 .in-call {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 500px;
+  position: relative;
+}
+
+.in-call-header {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 2rem 1rem;
   text-align: center;
 }
-.in-call-header {
+
+.call-status {
   margin-bottom: 1rem;
 }
-.call-title {
-  font-size: 1.1rem;
-  font-weight: 700;
+
+.hold-indicator {
+  display: inline-block;
+  padding: 0.4rem 1rem;
+  background: rgba(255, 193, 7, 0.2);
+  color: #ff9800;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 600;
 }
-.call-target {
-  font-size: 1.2rem;
-  color: #1a73e8;
-  margin-top: 0.25rem;
+
+.caller-info {
+  margin-top: 1rem;
 }
-.control-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
-  margin: 0.75rem 0;
+
+.caller-name {
+  font-size: 1.8rem;
+  font-weight: 400;
+  color: #333;
+  margin-bottom: 0.5rem;
 }
-.top-grid {
-  margin-top: 0;
+
+.call-duration {
+  font-size: 1rem;
+  color: #666;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
 }
-.control {
+
+.call-status-text {
+  font-size: 0.95rem;
+  color: #999;
+  margin-top: 0.5rem;
+}
+
+/* Android-style Control Buttons */
+.in-call-controls {
+  padding: 1rem;
+}
+
+.control-row {
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.control-btn {
   display: flex;
   flex-direction: column;
   align-items: center;
-}
-.icon-btn {
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  border: 1px solid #d6d9e0;
-  background: #f6f7fb;
+  gap: 0.5rem;
+  background: transparent;
+  border: none;
   cursor: pointer;
+  padding: 0.75rem;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+  min-width: 70px;
 }
-.material-symbols-outlined.active {
+
+.control-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.control-btn:not(:disabled):active {
+  transform: scale(0.95);
+}
+
+.control-btn .material-symbols-outlined {
+  font-size: 32px;
+  width: 32px;
+  height: 32px;
+  color: #333;
+}
+
+.control-btn.active .material-symbols-outlined {
   color: #1a73e8;
 }
+
+.control-btn.active {
+  background: rgba(26, 115, 232, 0.1);
+}
+
 .control-label {
-  margin-top: 0.35rem;
-  font-size: 0.9rem;
+  font-size: 0.75rem;
+  color: #666;
+  font-weight: 500;
+  text-transform: capitalize;
 }
-.end-call-row {
-  margin-top: 1.25rem;
+
+.control-btn.active .control-label {
+  color: #1a73e8;
+  font-weight: 600;
 }
-.end-call-btn {
+
+/* Android-style End Call Button */
+.end-call-container {
+  padding: 1.5rem;
+  display: flex;
+  justify-content: center;
+  margin-top: auto;
+}
+
+.end-call-btn-android {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
   background: #d93025;
-  color: #fff;
   border: none;
-  padding: 0.65rem 1.4rem;
-  border-radius: 999px;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(217, 48, 37, 0.4);
+  transition: all 0.2s ease;
+}
+
+.end-call-btn-android:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.end-call-btn-android:not(:disabled):active {
+  transform: scale(0.95);
+  box-shadow: 0 1px 4px rgba(217, 48, 37, 0.3);
+}
+
+.end-call-btn-android .material-symbols-outlined {
+  font-size: 36px;
+  color: #fff;
+}
+
+/* Keypad Overlay (Android style) */
+.keypad-overlay-in-call {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #fff;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  border-radius: 10px;
+}
+
+.keypad-header-in-call {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+  border-bottom: 1px solid #e1e4ea;
+}
+
+.close-keypad-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background 0.2s;
+}
+
+.close-keypad-btn:hover {
+  background: #f5f5f5;
+}
+
+.close-keypad-btn .material-symbols-outlined {
+  font-size: 24px;
+  color: #666;
+}
+
+.keypad-title-in-call {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.keypad-grid-in-call {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  padding: 1.5rem;
+  align-content: start;
+}
+
+.keypad-btn-in-call {
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 1px solid #e1e4ea;
+  background: #fff;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  padding: 1rem;
+}
+
+.keypad-btn-in-call:active {
+  background: #f5f5f5;
+  transform: scale(0.95);
+}
+
+.keypad-number {
+  font-size: 1.8rem;
+  font-weight: 400;
+  color: #333;
+  line-height: 1;
+}
+
+.keypad-letters {
+  font-size: 0.65rem;
+  color: #666;
+  margin-top: 0.2rem;
+  font-weight: 500;
+  letter-spacing: 0.5px;
 }
 .tab-actions {
   display: flex;

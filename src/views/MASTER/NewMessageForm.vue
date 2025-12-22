@@ -290,6 +290,41 @@ export default {
       this.messageBody = '';
     },
 
+    // Helper method to clean and validate phone number
+    cleanPhoneNumber(phone) {
+      if (!phone) return '';
+      
+      // Convert to string and remove whitespace
+      let cleaned = String(phone).trim();
+      
+      // Remove all non-digit characters except +
+      cleaned = cleaned.replace(/[^\d+]/g, '');
+      
+      // Handle Kenyan phone numbers
+      // If starts with +254, convert to 0 format (e.g., +254712345678 -> 0712345678)
+      if (cleaned.startsWith('+254')) {
+        cleaned = '0' + cleaned.substring(4);
+      }
+      // If starts with 254 (without +), convert to 0 format (e.g., 254712345678 -> 0712345678)
+      else if (cleaned.startsWith('254') && cleaned.length === 12) {
+        cleaned = '0' + cleaned.substring(3);
+      }
+      // If starts with 0, keep as is (local format like 0712345678)
+      else if (cleaned.startsWith('0')) {
+        // Already in correct format
+      }
+      // If it's 9 digits, assume it's missing leading 0 (e.g., 712345678 -> 0712345678)
+      else if (cleaned.length === 9 && /^\d+$/.test(cleaned)) {
+        cleaned = '0' + cleaned;
+      }
+      // If it's 10 digits and doesn't start with 0, might be valid but check
+      else if (cleaned.length === 10 && /^\d+$/.test(cleaned) && !cleaned.startsWith('0')) {
+        // Keep as is, might be valid format
+      }
+      
+      return cleaned;
+    },
+
     async sendMessage() {
       const toast = useToast();
 
@@ -299,48 +334,215 @@ export default {
       }
 
       // Build contacts list for /messages/sendbulk
+      console.log('Selected school codes:', this.selectedSchools);
+      console.log('Available schools count:', this.schools.length);
+      
       const contacts = this.selectedSchools
-        .map(code => this.schools.find(s => s.schoolCode === code))
+        .map(code => {
+          const school = this.schools.find(s => s.schoolCode === code);
+          if (!school) {
+            console.warn(`School not found for code: ${code}`);
+            return null;
+          }
+          return school;
+        })
         .filter(Boolean)
-        .map(school => ({
-          contactName: school.schoolName || '',
-          designation: school.principalName || '',
-          email: school.email || '',
-          phoneNo: school.principalPhoneNo || school.phoneNo || '',
-          schoolCode: school.schoolCode,
-        }));
+        .map(school => {
+          console.log('Processing school:', { 
+            schoolCode: school.schoolCode, 
+            schoolName: school.schoolName,
+            principalPhoneNo: school.principalPhoneNo,
+            phoneNo: school.phoneNo
+          });
+          
+          const phoneNo = this.cleanPhoneNumber(school.principalPhoneNo || school.phoneNo || '');
+          
+          // Only include contact if phone number is valid (at least 9 digits)
+          if (!phoneNo || phoneNo.replace(/\D/g, '').length < 9) {
+            console.warn(`Invalid phone number for school ${school.schoolCode}: ${phoneNo}`);
+            return null;
+          }
+
+          // Ensure schoolCode is definitely available
+          const schoolCodeValue = String(school.schoolCode || '').trim();
+          if (!schoolCodeValue) {
+            console.error('ERROR: schoolCode is empty for school:', school);
+            return null;
+          }
+          
+          const contact = {
+            contactName: String(school.schoolName || '').trim() || 'Unknown',
+            designation: String(school.principalName || '').trim() || '',
+            email: String(school.email || '').trim() || '',
+            phoneNo: String(phoneNo).trim(),
+            schoolCode: schoolCodeValue,
+          };
+          
+          console.log('Created contact with schoolCode:', schoolCodeValue, 'Full contact:', contact);
+          
+          return contact;
+        })
+        .filter(Boolean); // Remove any null entries
+      
+      console.log('Final contacts before validation:', contacts);
 
       if (contacts.length === 0) {
-        toast.error('No valid contacts found for selected schools.');
+        toast.error('No valid contacts found with valid phone numbers for selected schools.');
         return;
       }
 
-      // Validate that at least some contacts have phone numbers
-      const contactsWithPhone = contacts.filter(c => c.phoneNo && c.phoneNo.trim() !== '');
-      if (contactsWithPhone.length === 0) {
-        toast.error('None of the selected schools have valid phone numbers. Please select schools with phone numbers.');
+      // Validate all required fields are present
+      const validContacts = contacts.filter(c => {
+        return c.contactName && 
+               c.phoneNo && 
+               c.phoneNo.trim().length >= 9 && 
+               c.schoolCode;
+      });
+
+      if (validContacts.length === 0) {
+        toast.error('None of the selected schools have complete contact information. Please ensure schools have valid phone numbers, names, and codes.');
+        return;
+      }
+
+      // Build message with subject and body
+      const messageText = this.subject.trim() 
+        ? `${this.subject.trim()}\n\n${this.messageBody.trim()}`
+        : this.messageBody.trim();
+
+      // Final validation: ensure each contact has all required fields as non-empty strings
+      // Create a clean contact object with ONLY the fields the API expects (no extra fields)
+      const finalContacts = validContacts.map(contact => {
+        // Ensure all fields are present and are strings (no null/undefined values)
+        // Convert everything to string explicitly, defaulting to empty string if falsy
+        // Only include the exact fields the API expects (according to API docs)
+        const finalContact = {
+          contactName: (contact.contactName != null ? String(contact.contactName) : '').trim(),
+          phoneNo: (contact.phoneNo != null ? String(contact.phoneNo) : '').trim(),
+          designation: (contact.designation != null ? String(contact.designation) : '').trim(),
+          email: (contact.email != null ? String(contact.email) : '').trim(),
+          schoolCode: (contact.schoolCode != null ? String(contact.schoolCode) : '').trim(),
+        };
+
+        // Validate required fields (contactName, phoneNo, schoolCode must not be empty)
+        if (!finalContact.contactName || finalContact.contactName.length === 0) {
+          console.warn('Invalid contact (missing contactName):', finalContact);
+          return null;
+        }
+        if (!finalContact.phoneNo || finalContact.phoneNo.length === 0) {
+          console.warn('Invalid contact (missing phoneNo):', finalContact);
+          return null;
+        }
+        if (!finalContact.schoolCode || finalContact.schoolCode.length === 0) {
+          console.warn('Invalid contact (missing schoolCode):', finalContact);
+          return null;
+        }
+
+        // Validate phone number has at least 9 digits
+        const digitsOnly = finalContact.phoneNo.replace(/\D/g, '');
+        if (digitsOnly.length < 9) {
+          console.warn('Invalid contact (phone number too short):', finalContact);
+          return null;
+        }
+
+        return finalContact;
+      }).filter(Boolean);
+
+      if (finalContacts.length === 0) {
+        toast.error('No valid contacts after final validation. Please check contact information.');
         return;
       }
 
       const payload = {
-        message: `${this.subject.trim()}\n\n${this.messageBody.trim()}`,
-        contacts: contactsWithPhone, // Only send contacts with phone numbers
+        message: messageText,
+        contacts: finalContacts,
       };
 
-      // Log payload for debugging (remove in production if needed)
-      console.log('Sending bulk message payload:', {
-        messageLength: payload.message.length,
-        contactsCount: payload.contacts.length,
-        contacts: payload.contacts.map(c => ({ name: c.contactName, phone: c.phoneNo, code: c.schoolCode }))
+      // Log complete payload for debugging - SHOW EXACT JSON
+      console.log('=== COMPLETE PAYLOAD BEING SENT ===');
+      console.log('Full JSON payload:', JSON.stringify(payload, null, 2));
+      console.log('Message:', payload.message);
+      console.log('Contacts count:', payload.contacts.length);
+      console.log('\n=== DETAILED CONTACT INFORMATION ===');
+      payload.contacts.forEach((contact, index) => {
+        console.log(`\nContact ${index + 1}:`);
+        console.log('  contactName:', contact.contactName, '(type:', typeof contact.contactName, ', length:', contact.contactName?.length, ')');
+        console.log('  phoneNo:', contact.phoneNo, '(type:', typeof contact.phoneNo, ', length:', contact.phoneNo?.length, ')');
+        console.log('  designation:', contact.designation, '(type:', typeof contact.designation, ', length:', contact.designation?.length, ')');
+        console.log('  email:', contact.email, '(type:', typeof contact.email, ', length:', contact.email?.length, ')');
+        console.log('  schoolCode:', contact.schoolCode, '(type:', typeof contact.schoolCode, ', length:', contact.schoolCode?.length, ')');
+        console.log('  Full contact object:', JSON.stringify(contact, null, 2));
+      });
+      console.log('\n=== END OF PAYLOAD LOG ===\n');
+
+      // Validate payload structure before sending
+      if (!payload.message || typeof payload.message !== 'string' || payload.message.trim().length === 0) {
+        toast.error('Message cannot be empty.');
+        return;
+      }
+
+      if (!Array.isArray(payload.contacts) || payload.contacts.length === 0) {
+        toast.error('At least one contact is required.');
+        return;
+      }
+
+      // Final check: Verify each contact has ALL required fields
+      const missingFields = [];
+      payload.contacts.forEach((contact, index) => {
+        const requiredFields = ['contactName', 'phoneNo', 'schoolCode'];
+        requiredFields.forEach(field => {
+          if (!contact[field] || (typeof contact[field] === 'string' && contact[field].trim().length === 0)) {
+            missingFields.push(`Contact ${index + 1} missing ${field}`);
+          }
+        });
       });
 
+      if (missingFields.length > 0) {
+        console.error('Validation failed - missing required fields:', missingFields);
+        toast.error(`Validation error: ${missingFields.join(', ')}`);
+        return;
+      }
+
+      console.log('✅ Payload validation passed - all required fields present');
+      
+      // CRITICAL: Double-check schoolCode is present in every contact before sending
+      console.log('\n🔍 FINAL PRE-SEND CHECK - Verifying schoolCode in each contact:');
+      const contactsWithMissingSchoolCode = payload.contacts.filter((contact, index) => {
+        const hasSchoolCode = contact.schoolCode && contact.schoolCode.trim().length > 0;
+        if (!hasSchoolCode) {
+          console.error(`❌ Contact ${index + 1} MISSING schoolCode!`, contact);
+        } else {
+          console.log(`✅ Contact ${index + 1} has schoolCode: "${contact.schoolCode}"`);
+        }
+        return !hasSchoolCode;
+      });
+      
+      if (contactsWithMissingSchoolCode.length > 0) {
+        toast.error(`Cannot send: ${contactsWithMissingSchoolCode.length} contact(s) are missing schoolCode. Check console for details.`);
+        console.error('BLOCKED: Request cancelled due to missing schoolCode');
+        return;
+      }
+      
+      console.log('✅ All contacts have schoolCode - proceeding with API call\n');
+      
+      // Final log right before sending - show exact JSON
+      console.log('🚀 ABOUT TO SEND REQUEST TO /messages/sendbulk');
+      console.log('📦 Final payload (JSON):', JSON.stringify(payload, null, 2));
+      console.log('📦 Payload structure check:');
+      console.log('  - message type:', typeof payload.message, ', length:', payload.message?.length);
+      console.log('  - contacts is array:', Array.isArray(payload.contacts));
+      console.log('  - contacts length:', payload.contacts?.length);
+      payload.contacts.forEach((c, i) => {
+        console.log(`  - Contact ${i + 1} keys:`, Object.keys(c));
+        console.log(`  - Contact ${i + 1} values:`, c);
+      });
+      
       this.Loading = true;
 
       try {
         const response = await axios.post('/messages/sendbulk', payload);
 
         if (response.status === 200 || response.status === 201) {
-          toast.success(`Message sent successfully to ${contactsWithPhone.length} school(s)!`);
+          toast.success(`Message sent successfully to ${finalContacts.length} school(s)!`);
           this.$emit('fetchMessages');
           this.$emit('closeForm');
           this.clearForm();
@@ -348,8 +550,23 @@ export default {
           toast.error(`Unexpected response status: ${response.status}`);
         }
       } catch (error) {
-        console.error('Error sending message - Full error:', error);
+        console.error('\n❌❌❌ ERROR SENDING MESSAGE ❌❌❌');
+        console.error('Full error object:', error);
         console.error('Error response:', error.response);
+        console.error('Error response status:', error.response?.status);
+        console.error('Error response headers:', error.response?.headers);
+        console.error('Error response data:', error.response?.data);
+        console.error('Error response data (stringified):', JSON.stringify(error.response?.data, null, 2));
+        
+        // Log the EXACT payload that was sent
+        console.error('\n📤 EXACT PAYLOAD THAT WAS SENT:');
+        console.error(JSON.stringify(payload, null, 2));
+        console.error('\n📋 Payload breakdown:');
+        console.error('  Message:', payload.message);
+        console.error('  Contacts count:', payload.contacts.length);
+        payload.contacts.forEach((contact, idx) => {
+          console.error(`  Contact ${idx + 1}:`, JSON.stringify(contact, null, 2));
+        });
         
         // Handle different error types
         if (error.response) {
@@ -361,17 +578,44 @@ export default {
           
           if (status === 500) {
             errorMessage += 'Server error occurred. ';
-            if (errorData && errorData.message) {
-              errorMessage += errorData.message;
-            } else if (errorData && typeof errorData === 'string') {
-              errorMessage += errorData;
+            
+            // Try to extract any useful error information
+            if (errorData) {
+              // Check for nested error messages
+              const possibleErrorFields = ['message', 'error', 'exception', 'trace', 'details', 'cause'];
+              let foundError = false;
+              
+              for (const field of possibleErrorFields) {
+                if (errorData[field]) {
+                  if (typeof errorData[field] === 'string') {
+                    errorMessage += `${field}: ${errorData[field]}`;
+                    foundError = true;
+                    break;
+                  } else if (typeof errorData[field] === 'object') {
+                    errorMessage += `${field}: ${JSON.stringify(errorData[field])}`;
+                    foundError = true;
+                    break;
+                  }
+                }
+              }
+              
+              if (!foundError) {
+                if (typeof errorData === 'string') {
+                  errorMessage += errorData;
+                } else {
+                  // Show the full error object for debugging
+                  errorMessage += 'Check console for details. Server returned: ' + JSON.stringify(errorData);
+                }
+              }
             } else {
-              errorMessage += 'Please check server logs or contact support.';
+              errorMessage += 'No error details provided. Please check server logs or contact support.';
             }
           } else if (status === 400) {
             errorMessage += 'Invalid request. ';
             if (errorData && errorData.message) {
               errorMessage += errorData.message;
+            } else if (errorData && typeof errorData === 'string') {
+              errorMessage += errorData;
             } else {
               errorMessage += 'Please check your message content and try again.';
             }
@@ -380,7 +624,7 @@ export default {
           } else if (status === 403) {
             errorMessage += 'You do not have permission to send messages.';
           } else {
-            errorMessage += errorData?.message || `Server returned status ${status}`;
+            errorMessage += errorData?.message || errorData?.error || `Server returned status ${status}`;
           }
           
           toast.error(errorMessage);
