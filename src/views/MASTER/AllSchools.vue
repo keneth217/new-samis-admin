@@ -44,6 +44,7 @@
             <th>Sch Name</th>
             <th>Sch Code</th>
             <th>Principal Contact</th>
+            <th>Phone No</th>
             <th>County</th>
             <th>Registered by</th>
             <th>Status</th>
@@ -52,13 +53,14 @@
         </thead>
         <tbody>
           <tr v-if="displayedSchools.length === 0">
-            <td colspan="8">No schools found</td>
+            <td colspan="9">No schools found</td>
           </tr>
           <tr v-for="(school, index) in displayedSchools" :key="school.schoolCode" :class="{ 'even-row': index % 2 !== 0 }">
             <td>{{ (currentPage - 1) * schoolsPerPage + index + 1 }}</td>
             <td>{{ school.schoolName }}</td>
             <td>{{ school.schoolCode }}</td>
             <td>{{ school.principalPhoneNo }}</td>
+            <td>{{ school.phoneNo || 'N/A' }}</td>
             <td>{{ school.county }}</td>
             <td>{{ school.registeredByName || 'N/A' }}</td>
             <td :class="{ 'text-success': !school.deleted, 'text-danger': school.deleted }">
@@ -97,6 +99,11 @@
             <div class="card-row">
               <span class="card-label">Principal Contact:</span>
               <span class="card-value">{{ school.principalPhoneNo }}</span>
+            </div>
+            
+            <div class="card-row">
+              <span class="card-label">Phone No:</span>
+              <span class="card-value">{{ school.phoneNo || 'N/A' }}</span>
             </div>
             
             <div class="card-row">
@@ -1425,12 +1432,17 @@ export default {
   
   .students-table th,
   .students-table td {
-    padding: clamp(0.5rem, 1.5vw, 1rem);
+    padding: clamp(0.5rem, 1.2vw, 0.75rem);
     text-align: left;
     border-bottom: 1px solid #ddd;
     vertical-align: middle;
     border: 1px solid #ddd;
     word-break: break-word;
+    line-height: 1.4;
+  }
+
+  .students-table tbody tr {
+    height: auto;
   }
   
   .students-table thead th {
@@ -1540,6 +1552,9 @@ export default {
     font-weight: bold;
     font-size: clamp(0.9rem, 1.3vw, 1.1rem);
     padding: 0 0.5rem;
+    color: #333;
+    display: inline-block;
+    white-space: nowrap;
   }
 
   .students-controls {
@@ -1575,7 +1590,7 @@ export default {
   @media only screen and (max-width: 1400px) {
     .students-table th,
     .students-table td {
-      padding: clamp(0.6rem, 1vw, 0.9rem);
+      padding: clamp(0.5rem, 1vw, 0.7rem);
     }
   }
 
@@ -1586,7 +1601,7 @@ export default {
 
     .students-table th,
     .students-table td {
-      padding: clamp(0.5rem, 1vw, 0.75rem);
+      padding: clamp(0.5rem, 1vw, 0.7rem);
       font-size: clamp(0.85rem, 1.1vw, 0.95rem);
     }
 

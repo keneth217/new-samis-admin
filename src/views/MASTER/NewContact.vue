@@ -107,7 +107,10 @@ export default {
       handler(newContact) {
         if (newContact) {
           this.editMode = true;
-          this.contactID = newContact.contactID || newContact.contactId || null;
+          // Extract contactID - API returns contactID (long)
+          this.contactID = newContact.contactID || newContact.contactId || newContact.id || null;
+          console.log('👁️ Contact prop received:', newContact);
+          console.log('👁️ Extracted contactID:', this.contactID);
           this.contactName = newContact.contactName || '';
           this.designation = newContact.designation || '';
           this.email = newContact.email || '';
@@ -150,9 +153,27 @@ export default {
       try {
         let response;
         if (this.editMode && this.contactID != null) {
-          response = await axios.post(`/contacts/update/${this.contactID}`, payload);
+          // Ensure contactID is a valid number/string for the URL
+          const contactID = String(this.contactID).trim();
+          console.log('📝 Updating contact with ID:', contactID);
+          console.log('📝 Update payload:', payload);
+          
+          response = await axios.post(`/contacts/update/${contactID}`, payload, {
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          });
+          
+          console.log('✅ Update response:', response.data);
         } else {
-          response = await axios.post('/contacts/create', payload);
+          console.log('➕ Creating new contact');
+          console.log('➕ Create payload:', payload);
+          response = await axios.post('/contacts/create', payload, {
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          });
+          console.log('✅ Create response:', response.data);
         }
 
         if (response.status === 200 || response.status === 201) {
@@ -164,12 +185,19 @@ export default {
           toast.error(`Unexpected response status: ${response.status}`);
         }
       } catch (error) {
+        console.error('❌ Error saving contact:', error);
+        console.error('❌ Error response:', error.response);
+        console.error('❌ Error data:', error.response?.data);
+        console.error('❌ Error status:', error.response?.status);
+        
         if (error.response && error.response.data) {
-          toast.error(`ERROR: ${error.response.data.message || 'An unexpected error occurred'}`);
+          const errorMessage = error.response.data.message || error.response.data.error || 'An unexpected error occurred';
+          toast.error(`ERROR: ${errorMessage}`);
+        } else if (error.request) {
+          toast.error('ERROR: No response from server. Please check your connection.');
         } else {
           toast.error('ERROR SAVING CONTACT!');
         }
-        console.error('Error saving contact:', error);
       } finally {
         this.Loading = false;
       }
