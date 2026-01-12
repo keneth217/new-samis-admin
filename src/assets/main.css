@@ -8,6 +8,19 @@
   font-weight: normal;
 }
 
+/* Ensure toast notifications appear above modals (z-index 10000+) */
+.Vue-Toastification__container {
+  z-index: 20000 !important;
+}
+
+.toast-container-custom {
+  z-index: 20000 !important;
+}
+
+.Vue-Toastification__toast {
+  z-index: 20000 !important;
+}
+
 
 @media (hover: hover) {
   a:hover {

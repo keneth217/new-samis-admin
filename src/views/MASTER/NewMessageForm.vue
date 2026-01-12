@@ -6,6 +6,19 @@
       </div>
       <div class="form-title">
         <h2>SEND MESSAGE TO SCHOOLS</h2>
+        <!-- Balance Display -->
+        <div class="balance-info" v-if="smsBalance !== null">
+          <span class="balance-label">SMS Balance:</span>
+          <span class="balance-value" :class="{ 'balance-low': smsBalance < 5, 'balance-insufficient': smsBalance < selectedSchools.length }">
+            {{ formatBalance(smsBalance) }}
+          </span>
+          <button @click="checkBalance" class="refresh-balance-btn-small" :disabled="checkingBalance" title="Refresh Balance">
+            <span class="material-symbols-outlined">refresh</span>
+          </button>
+        </div>
+        <div class="balance-warning" v-if="smsBalance !== null && smsBalance < selectedSchools.length">
+          ⚠️ Warning: Your balance ({{ formatBalance(smsBalance) }}) is less than selected schools ({{ selectedSchools.length }})
+        </div>
       </div>
       <hr />
 
@@ -28,6 +41,7 @@
 
             <!-- Loading State -->
             <div v-if="Loading" class="status-box loading-box">
+              <span class="material-symbols-outlined" style="animation: spin 1s linear infinite;">sync</span>
               Loading schools...
             </div>
 
@@ -167,6 +181,7 @@
 import axios from '../../axios';
 import { useToast } from 'vue-toastification';
 import LoadingSpinner from '../../components/LoadingSpinner.vue';
+import { sendBulkMessages, getAccountBalance } from '../../services/messagesApi';
 
 export default {
   name: 'NewMessageForm',
@@ -186,6 +201,8 @@ export default {
       Loading: false,
       editMode: false,
       schoolSearch: '',
+      smsBalance: null,
+      checkingBalance: false,
     };
   },
   computed: {
@@ -228,15 +245,42 @@ export default {
     },
   },
   methods: {
+    async checkBalance() {
+      this.checkingBalance = true;
+      try {
+        const response = await getAccountBalance();
+        this.smsBalance = typeof response.data === 'number' ? response.data : parseFloat(response.data) || 0;
+      } catch (error) {
+        console.error('Error fetching balance:', error);
+        this.smsBalance = null;
+      } finally {
+        this.checkingBalance = false;
+      }
+    },
+
+    formatBalance(balance) {
+      if (balance === null || balance === undefined) return 'Checking...';
+      return typeof balance === 'number' ? balance.toFixed(2) : String(balance);
+    },
+
     async fetchSchools() {
+      console.log('🔄 fetchSchools() called');
       this.Loading = true;
       const toast = useToast();
       try {
+        console.log('📡 Making API call to /schools/list...');
         const response = await axios.post('/schools/list', {});
         
+        console.log('✅ API Response received:', response);
+        console.log('📊 Response status:', response.status);
+        console.log('📦 Response data:', response.data);
+        console.log('📦 Is array?', Array.isArray(response.data));
+        
         if (response.data && Array.isArray(response.data)) {
+          console.log('📋 Total schools in response:', response.data.length);
+          
           // Map the response data to ensure we have schoolCode and schoolName
-          this.schools = response.data.map(school => ({
+          const mappedSchools = response.data.map(school => ({
             schoolCode: school.schoolCode || school.school_code || '',
             schoolName: school.schoolName || school.school_name || 'N/A',
             email: school.email || '',
@@ -244,19 +288,48 @@ export default {
             principalName: school.principalName || school.principal_name || '',
             county: school.county || '',
             deleted: school.deleted || false,
-          })).filter(school => school.schoolCode && !school.deleted); // Filter out deleted schools
+          }));
           
-          toast.success(`Loaded ${this.schools.length} school(s) from database!`);
+          console.log('📋 Mapped schools:', mappedSchools);
+          
+          // Filter out deleted schools and schools without schoolCode
+          this.schools = mappedSchools.filter(school => {
+            const hasCode = school.schoolCode && school.schoolCode.trim() !== '';
+            const notDeleted = !school.deleted;
+            const include = hasCode && notDeleted;
+            if (!include) {
+              console.log('🚫 Filtered out school:', school);
+            }
+            return include;
+          });
+          
+          console.log('✅ Final schools after filtering:', this.schools);
+          console.log('📊 Total active schools:', this.schools.length);
+          
+          if (this.schools.length > 0) {
+            toast.success(`✅ Loaded ${this.schools.length} school(s) from database!`);
+          } else {
+            toast.warning('⚠️ No active schools found. All schools may be deleted or have no school code.');
+          }
         } else {
-          toast.error('No schools found in the response.');
+          console.error('❌ Response data is not an array:', response.data);
+          toast.error('❌ Invalid response format from server. Expected array of schools.');
           this.schools = [];
         }
       } catch (error) {
-        console.error('Error fetching schools:', error);
-        toast.error('Failed to fetch schools from backend. Please check your connection.');
+        console.error('❌ Error fetching schools:', error);
+        console.error('❌ Error details:', {
+          message: error.message,
+          response: error.response?.data,
+          status: error.response?.status,
+          config: error.config,
+        });
+        const errorMsg = error.response?.data?.message || error.message || 'Unknown error';
+        toast.error(`❌ Failed to fetch schools: ${errorMsg}`);
         this.schools = [];
       } finally {
         this.Loading = false;
+        console.log('🏁 Finished loading schools. Final count:', this.schools.length);
       }
     },
 
@@ -331,6 +404,31 @@ export default {
       if (!this.canSend) {
         toast.warning('Please select at least one school and fill in subject and message!');
         return;
+      }
+
+      // Check balance before sending (non-blocking, just for info)
+      try {
+        const balanceResponse = await getAccountBalance();
+        const balance = typeof balanceResponse.data === 'number' ? balanceResponse.data : parseFloat(balanceResponse.data) || 0;
+        const recipientCount = this.selectedSchools.length;
+        
+        console.log(`📊 SMS Balance Check: ${balance}, Recipients: ${recipientCount}`);
+        
+        // Update UI balance
+        this.smsBalance = balance;
+        
+        // Warn if balance is insufficient (non-blocking warning)
+        if (balance < recipientCount) {
+          toast.warning(
+            `⚠️ Low Balance: ${balance.toFixed(2)} credits. Trying to send to ${recipientCount} school(s). Message may fail.`,
+            { timeout: 6000 }
+          );
+        } else if (balance < 5) {
+          toast.info(`SMS Balance: ${balance.toFixed(2)}. Consider topping up soon.`, { timeout: 4000 });
+        }
+      } catch (error) {
+        console.warn('Could not check SMS balance:', error);
+        // Don't block sending if balance check fails
       }
 
       // Build contacts list for /messages/sendbulk
@@ -532,14 +630,20 @@ export default {
       console.log('  - contacts is array:', Array.isArray(payload.contacts));
       console.log('  - contacts length:', payload.contacts?.length);
       payload.contacts.forEach((c, i) => {
-        console.log(`  - Contact ${i + 1} keys:`, Object.keys(c));
-        console.log(`  - Contact ${i + 1} values:`, c);
+        console.log(`\n  Contact ${i + 1}:`);
+        console.log(`    Keys:`, Object.keys(c));
+        console.log(`    contactName: "${c.contactName}" (type: ${typeof c.contactName}, length: ${c.contactName?.length})`);
+        console.log(`    phoneNo: "${c.phoneNo}" (type: ${typeof c.phoneNo}, length: ${c.phoneNo?.length})`);
+        console.log(`    schoolCode: "${c.schoolCode}" (type: ${typeof c.schoolCode}, length: ${c.schoolCode?.length})`);
+        console.log(`    designation: "${c.designation}" (type: ${typeof c.designation}, length: ${c.designation?.length})`);
+        console.log(`    email: "${c.email}" (type: ${typeof c.email}, length: ${c.email?.length})`);
+        console.log(`    Full object:`, JSON.stringify(c, null, 2));
       });
       
       this.Loading = true;
 
       try {
-        const response = await axios.post('/messages/sendbulk', payload);
+        const response = await sendBulkMessages(payload);
 
         if (response.status === 200 || response.status === 201) {
           toast.success(`Message sent successfully to ${finalContacts.length} school(s)!`);
@@ -563,9 +667,17 @@ export default {
         console.error(JSON.stringify(payload, null, 2));
         console.error('\n📋 Payload breakdown:');
         console.error('  Message:', payload.message);
+        console.error('  Message length:', payload.message?.length);
         console.error('  Contacts count:', payload.contacts.length);
         payload.contacts.forEach((contact, idx) => {
-          console.error(`  Contact ${idx + 1}:`, JSON.stringify(contact, null, 2));
+          console.error(`\n  Contact ${idx + 1}:`);
+          console.error('    Keys:', Object.keys(contact));
+          console.error('    Full object:', JSON.stringify(contact, null, 2));
+          console.error('    contactName:', contact.contactName, '| Type:', typeof contact.contactName, '| Length:', contact.contactName?.length);
+          console.error('    phoneNo:', contact.phoneNo, '| Type:', typeof contact.phoneNo, '| Length:', contact.phoneNo?.length);
+          console.error('    schoolCode:', contact.schoolCode, '| Type:', typeof contact.schoolCode, '| Length:', contact.schoolCode?.length);
+          console.error('    designation:', contact.designation, '| Type:', typeof contact.designation);
+          console.error('    email:', contact.email, '| Type:', typeof contact.email);
         });
         
         // Handle different error types
@@ -577,47 +689,62 @@ export default {
           let errorMessage = 'Failed to send message. ';
           
           if (status === 500) {
-            errorMessage += 'Server error occurred. ';
+            errorMessage += 'Server error (500). ';
             
-            // Try to extract any useful error information
-            if (errorData) {
-              // Check for nested error messages
-              const possibleErrorFields = ['message', 'error', 'exception', 'trace', 'details', 'cause'];
-              let foundError = false;
-              
-              for (const field of possibleErrorFields) {
-                if (errorData[field]) {
-                  if (typeof errorData[field] === 'string') {
-                    errorMessage += `${field}: ${errorData[field]}`;
-                    foundError = true;
-                    break;
-                  } else if (typeof errorData[field] === 'object') {
-                    errorMessage += `${field}: ${JSON.stringify(errorData[field])}`;
-                    foundError = true;
-                    break;
+            // Check if it might be a balance issue (common cause of 500 errors)
+            const errorString = JSON.stringify(errorData || {}).toLowerCase();
+            if (errorString.includes('balance') || errorString.includes('insufficient') || errorString.includes('fund') || errorString.includes('credit')) {
+              errorMessage += '\n\n⚠️ INSUFFICIENT SMS BALANCE!\n';
+              errorMessage += 'This error is likely caused by insufficient SMS credits in your account.\n';
+              errorMessage += 'Please top up your SMS balance and try again.';
+            } else {
+              // Try to extract any useful error information
+              if (errorData) {
+                // Check for nested error messages
+                const possibleErrorFields = ['message', 'error', 'exception', 'trace', 'details', 'cause', 'path'];
+                let foundError = false;
+                
+                for (const field of possibleErrorFields) {
+                  if (errorData[field]) {
+                    if (typeof errorData[field] === 'string') {
+                      errorMessage += `${field}: ${errorData[field]}`;
+                      foundError = true;
+                      break;
+                    } else if (typeof errorData[field] === 'object') {
+                      errorMessage += `${field}: ${JSON.stringify(errorData[field])}`;
+                      foundError = true;
+                      break;
+                    }
                   }
                 }
+                
+                if (!foundError) {
+                  if (typeof errorData === 'string') {
+                    errorMessage += errorData;
+                  } else {
+                    // Show the full error object for debugging
+                    errorMessage += 'Check browser console for detailed error. Server response: ' + JSON.stringify(errorData, null, 2);
+                  }
+                }
+              } else {
+                errorMessage += 'No error details provided. The server encountered an internal error.';
               }
               
-              if (!foundError) {
-                if (typeof errorData === 'string') {
-                  errorMessage += errorData;
-                } else {
-                  // Show the full error object for debugging
-                  errorMessage += 'Check console for details. Server returned: ' + JSON.stringify(errorData);
-                }
-              }
-            } else {
-              errorMessage += 'No error details provided. Please check server logs or contact support.';
+              errorMessage += '\n\nPossible causes:\n';
+              errorMessage += '⚠️ INSUFFICIENT SMS BALANCE (most likely)\n';
+              errorMessage += '- Invalid phone number format\n';
+              errorMessage += '- School code doesn\'t exist in database\n';
+              errorMessage += '- Backend validation failed\n';
+              errorMessage += '- Check browser console for payload details';
             }
           } else if (status === 400) {
-            errorMessage += 'Invalid request. ';
+            errorMessage += 'Invalid request (400). ';
             if (errorData && errorData.message) {
               errorMessage += errorData.message;
             } else if (errorData && typeof errorData === 'string') {
               errorMessage += errorData;
             } else {
-              errorMessage += 'Please check your message content and try again.';
+              errorMessage += 'Please check your message content and contact information.';
             }
           } else if (status === 401) {
             errorMessage += 'Authentication failed. Please log in again.';
@@ -627,12 +754,12 @@ export default {
             errorMessage += errorData?.message || errorData?.error || `Server returned status ${status}`;
           }
           
-          toast.error(errorMessage);
+          toast.error(errorMessage, { timeout: 8000 });
         } else if (error.request) {
           // Request was made but no response received
           toast.error('Network error: Unable to reach the server. Please check your internet connection.');
         } else {
-          // Something else happened
+          // Something else happened (validation error, etc.)
           toast.error(`Error: ${error.message || 'An unexpected error occurred'}`);
         }
       } finally {
@@ -643,6 +770,8 @@ export default {
   mounted() {
     // Fetch schools from backend when component loads
     this.fetchSchools();
+    // Load balance on mount
+    this.checkBalance();
   },
 };
 </script>
@@ -1282,6 +1411,87 @@ label.filled {
   .schools-selection {
     max-height: 200px;
   }
+}
+
+/* Balance Display Styles */
+.balance-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.balance-label {
+  color: gold;
+  font-weight: 600;
+}
+
+.balance-value {
+  color: white;
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.balance-value.balance-low {
+  color: #ffc107;
+}
+
+.balance-value.balance-insufficient {
+  color: #ff5252;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.refresh-balance-btn-small {
+  background: transparent;
+  border: 1px solid gold;
+  color: gold;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  font-size: 0.8rem;
+}
+
+.refresh-balance-btn-small:hover:not(:disabled) {
+  background-color: gold;
+  color: #4368b9;
+}
+
+.refresh-balance-btn-small:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.refresh-balance-btn-small .material-symbols-outlined {
+  font-size: 1rem;
+}
+
+.balance-warning {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background-color: rgba(255, 193, 7, 0.2);
+  border: 1px solid #ffc107;
+  border-radius: 4px;
+  color: #ffc107;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: center;
 }
 </style>
 

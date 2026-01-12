@@ -92,11 +92,11 @@ export const useAuthStore = defineStore("auth", () => {
       );
   
       const receivedToken = response.data.token;
-      // const receivedUserId = response.data.id;
-      // const receivedPhoneNo= response.data.phoneNo;
+      const receivedUserId = response.data.id;
+      const receivedPhoneNo = response.data.phoneNo;
       const receivedUsername = response.data.username;
+      const receivedFullname = response.data.fullname;
       const receivedRoles = response.data.roles;
-      const receivedAccountNo = response.data.accountNo;
       
   
 
@@ -105,8 +105,9 @@ export const useAuthStore = defineStore("auth", () => {
       localStorage.setItem('token', receivedToken);
       localStorage.setItem('authToken', receivedToken); // Also store as authToken for axios interceptor
       localStorage.setItem('username', receivedUsername);
-      // localStorage.setItem('phoneNo1', phoneNo1);
-      localStorage.setItem('accountNo', receivedAccountNo);
+      localStorage.setItem('fullname', receivedFullname || '');
+      localStorage.setItem('phoneNo', receivedPhoneNo || '');
+      localStorage.setItem('userId', receivedUserId?.toString() || '');
       localStorage.setItem('roles', JSON.stringify(receivedRoles));
 
       // localStorage.setItem("token", receivedToken);
@@ -150,10 +151,10 @@ export const useAuthStore = defineStore("auth", () => {
       // }
   
       token.value = receivedToken;
-      // phoneNo1.value = receivedPhoneNo;
-      accountNo.value = receivedAccountNo;
       username.value = receivedUsername;
       roles.value = receivedRoles;
+      // accountNo is not part of the API response, keeping it as empty or legacy
+      accountNo.value = '';
       
 
   

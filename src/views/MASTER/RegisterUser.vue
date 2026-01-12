@@ -239,14 +239,17 @@ export default {
       this.users = [];
       try {
         const response = await axios.post('/auth/list_users');
+        // API returns: userID, username, fullname, phoneNo, email, usertype, role
         this.users = response.data.map(user => ({
+          userID: user.userID, // API returns userID (not id)
           phoneNo: user.phoneNo,
           username: user.username,
           fullname: user.fullname,
           email: user.email,
           usertype: user.usertype,
-          station: user.station,
           role: user.role,
+          // Note: station and activated are not in API spec, but keeping for backward compatibility
+          station: user.station || '',
           activated: user.activated !== undefined ? user.activated : true,
         }));
       } catch (error) {

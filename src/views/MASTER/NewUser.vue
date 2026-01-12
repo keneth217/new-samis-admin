@@ -131,15 +131,20 @@ export default {
       }
 
       try {
+        // API expects: username, fullname, phoneNo, email, usertype, password (optional), role
+        // Note: 'station' is not in API spec, but keeping it for backward compatibility if backend accepts it
         const formData = {
-          fullname: this.fullname,
           username: this.username,
-          email: this.email,
+          fullname: this.fullname,
           phoneNo: this.phoneNo,
+          email: this.email,
           usertype: this.usertype,
-          station: this.station,
           role: this.role,
         };
+        // Only include station if backend accepts it (not in API spec)
+        if (this.station) {
+          formData.station = this.station;
+        }
         // Send password only when provided; backend can auto-generate otherwise
         if (this.password) {
           formData.password = this.password;

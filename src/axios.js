@@ -58,8 +58,16 @@ apiClient.interceptors.response.use(
       if (token) {
         localStorage.setItem("authToken", token);
         apiClient.defaults.headers.common.Authorization = `Bearer ${token}`;
-        if (response.data?.user) {
-          localStorage.setItem("user", JSON.stringify(response.data.user));
+        // Store user data from response (API returns fields directly, not nested in 'user')
+        if (response.data) {
+          const userData = {
+            id: response.data.id,
+            username: response.data.username,
+            phoneNo: response.data.phoneNo,
+            fullname: response.data.fullname,
+            roles: response.data.roles,
+          };
+          localStorage.setItem("user", JSON.stringify(userData));
         }
       }
     }

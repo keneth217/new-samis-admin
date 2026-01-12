@@ -39,6 +39,9 @@ app.use(Toast, {
   closeButton: "button",
   icon: true,
   rtl: false,
+  // Ensure toasts appear above modals
+  containerClassName: "toast-container-custom",
+  maxToasts: 5,
 });
 
 // Use Vuetify, Pinia, and Router in the app

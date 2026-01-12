@@ -60,15 +60,15 @@
             <td>{{ school.schoolCode }}</td>
             <td>{{ school.principalPhoneNo }}</td>
             <td>{{ school.county }}</td>
-            <td>{{ school.registeredByName ?? '' }}</td>
+            <td>{{ school.registeredByName || 'N/A' }}</td>
             <td :class="{ 'text-success': !school.deleted, 'text-danger': school.deleted }">
-              {{ school.deleted ? 'DELETED' : '' }}
+              {{ school.deleted ? 'DELETED' : 'ACTIVE' }}
             </td>
             <td class="actions">
               <button @click="viewSchool(school)" class="manage-btn" aria-label="View Profile">
                 <span class="material-symbols-outlined">person</span> Details
               </button>
-              <button @click="deleteSchool(school)" class="class-list-btn" aria-label="Delete School">
+              <button @click="confirmDeleteSchool(school)" class="class-list-btn" aria-label="Delete School">
                 <span class="material-symbols-outlined">delete</span> Delete
               </button>
               <!-- Add Module Button -->
@@ -106,7 +106,7 @@
             
             <div class="card-row">
               <span class="card-label">Registered By:</span>
-              <span class="card-value">{{ school.registeredByName ?? '' }}</span>
+              <span class="card-value">{{ school.registeredByName || 'N/A' }}</span>
             </div>
             
             <div class="card-row">
@@ -121,7 +121,7 @@
             <button @click="viewSchool(school)" class="card-action-btn manage-btn" aria-label="View Profile">
               <span class="material-symbols-outlined">person</span> Details
             </button>
-            <button @click="deleteSchool(school)" class="card-action-btn class-list-btn" aria-label="Delete School">
+            <button @click="confirmDeleteSchool(school)" class="card-action-btn class-list-btn" aria-label="Delete School">
               <span class="material-symbols-outlined">delete</span> Delete
             </button>
             <button @click="openActivationModal(school)" class="card-action-btn activate-btn" aria-label="Add Module">
@@ -142,52 +142,126 @@
       </div>
     </div>
 
-    <!-- Activation Modal -->
-    <div v-if="showActivationModal" class="modal-overlay">
+    <!-- Delete Confirmation Modal -->
+    <div v-if="showDeleteConfirm" class="modal-overlay" @click.self="cancelDeleteSchool">
       <div class="modal-content">
-        <h3>Activate New Module</h3>
-        <form @submit.prevent="submitActivation">
-          <label for="schoolCode">School Code:</label>
-          <input v-model="activationData.schoolCode" id="schoolCode" disabled />
-<!-- Module Multi-Select Dropdown -->
-<div class="form-group">
-  <label   for="moduleSelect">Select Module(s):</label>
-  <select 
-    id="moduleSelect"
-    v-model="activationData.moduleName"
-   
-    class="form-control"
-  >
-    <option 
-      v-for="module in modules" 
-      :key="module.id" 
-      :value="module.name"
-    >
-      {{ module.name }}
-    </option>
-  </select>
-</div>
-
-
-
-<div class="form-group">
-          <label for="expiryDate" >Expiry Date:</label>
-          <input v-model="activationData.expiryDate" type="date" id="expiryDate" required />
+        <div class="modal-header">
+          <h3>Confirm Delete School</h3>
+          <button @click="cancelDeleteSchool" class="close-btn">
+            <i class="fas fa-times"></i>
+          </button>
         </div>
-        <div class="form-group">
-          <label for="maintenanceFee">Maintenance Fee:</label>
-          <input v-model="activationData.maintenanceFee" type="number" id="maintenanceFee" />
-        </div>
-        
-<div class="form-group">
-          <label for="sellingPrice">Selling Price:</label>
-          <input v-model="activationData.sellingPrice" type="number" id="sellingPrice" />
+        <div class="modal-body">
+          <p class="delete-warning-text">
+            Are you sure you want to delete <strong>{{ schoolToDelete?.schoolName || schoolToDelete?.schoolCode }}</strong>?
+          </p>
+          <div class="delete-school-preview" v-if="schoolToDelete">
+            <div class="preview-row">
+              <strong>School Code:</strong> {{ schoolToDelete.schoolCode }}
+            </div>
+            <div class="preview-row">
+              <strong>School Name:</strong> {{ schoolToDelete.schoolName }}
+            </div>
+            <div class="preview-row" v-if="schoolToDelete.principalName">
+              <strong>Principal:</strong> {{ schoolToDelete.principalName }}
+            </div>
+            <div class="preview-row" v-if="schoolToDelete.county">
+              <strong>County:</strong> {{ schoolToDelete.county }}
+            </div>
+          </div>
+          <p class="delete-warning-note">
+            <i class="fas fa-exclamation-triangle"></i> This action will soft delete the school. The school will be marked as deleted but not permanently removed from the system.
+          </p>
         </div>
         <div class="form-actions">
-          <button type="submit" class="submit-btn">Activate</button>
-          <button @click="closeActivationModal" class="cancel-btn">Cancel</button>
+          <button @click="cancelDeleteSchool" class="cancel-btn">Cancel</button>
+          <button @click="deleteSchoolConfirm" class="delete-confirm-btn" :disabled="Loading">
+            <span class="material-symbols-outlined">delete</span> Delete School
+          </button>
         </div>
-        </form>
+      </div>
+    </div>
+
+    <!-- Activation Modal -->
+    <div v-if="showActivationModal" class="activation-form-wrap">
+      <div class="activation-form-content">
+        <div class="activation-cancel" @click="closeActivationModal">
+          <i class="fas fa-times"></i>
+        </div>
+        <div class="activation-form-title">
+          <h2>Activate New Module</h2>
+        </div>
+        <hr />
+        <div class="activation-form-inputs">
+          <div class="activation-form-group">
+            <input 
+              type="text" 
+              class="activation-form-control" 
+              v-model="activationData.schoolCode" 
+              id="activationSchoolCode" 
+              placeholder="School Code"
+              disabled 
+            />
+            <label for="activationSchoolCode" :class="{ filled: activationData.schoolCode !== '' }">School Code</label>
+          </div>
+
+          <div class="activation-form-group">
+            <select 
+              id="activationModuleSelect"
+              v-model="activationData.moduleName"
+              class="activation-form-control"
+              required
+            >
+              <option value="" disabled>Select Module*</option>
+              <option 
+                v-for="module in modules" 
+                :key="module.id" 
+                :value="module.name"
+              >
+                {{ module.name }}
+              </option>
+            </select>
+            <label for="activationModuleSelect" :class="{ filled: activationData.moduleName !== '' && activationData.moduleName !== null }">Select Module*</label>
+          </div>
+
+          <div class="activation-form-group">
+            <input 
+              v-model="activationData.expiryDate" 
+              type="date" 
+              id="activationExpiryDate" 
+              class="activation-form-control"
+              required 
+            />
+            <label for="activationExpiryDate" :class="{ filled: activationData.expiryDate !== '' }">Expiry Date*</label>
+          </div>
+
+          <div class="activation-form-group">
+            <input 
+              v-model="activationData.maintenanceFee" 
+              type="number" 
+              id="activationMaintenanceFee" 
+              class="activation-form-control"
+              placeholder="Maintenance Fee"
+            />
+            <label for="activationMaintenanceFee" :class="{ filled: activationData.maintenanceFee !== '' && activationData.maintenanceFee !== null }">Maintenance Fee</label>
+          </div>
+
+          <div class="activation-form-group">
+            <input 
+              v-model="activationData.sellingPrice" 
+              type="number" 
+              id="activationSellingPrice" 
+              class="activation-form-control"
+              placeholder="Selling Price"
+            />
+            <label for="activationSellingPrice" :class="{ filled: activationData.sellingPrice !== '' && activationData.sellingPrice !== null }">Selling Price</label>
+          </div>
+        </div>
+        <hr />
+        <div class="activation-form-actions">
+          <button type="button" @click="closeActivationModal">Close</button>
+          <button type="button" @click="submitActivation">Activate</button>
+        </div>
       </div>
     </div>
 
@@ -230,6 +304,9 @@ export default {
       schoolsPerPage: 15,
       schoolsPerPageOptions: [5, 15, 30, 50, 75, 100],
       showActivationModal: false,
+      showDeleteConfirm: false,
+      schoolToDelete: null,
+      users: [], // Store users list for mapping registeredByID to names
       activationData: {
         schoolCode: "",
         moduleName: [], // This will hold selected module(s)
@@ -337,26 +414,126 @@ export default {
     updateschoolsPerPage() {
       this.currentPage = 1;
     },
+    async fetchUsers() {
+      try {
+        const response = await axios.post('/auth/list_users', {});
+        console.log('👥 Users API Response (raw):', response.data);
+        console.log('👥 First user sample:', response.data?.[0]);
+        console.log('👥 First user keys:', response.data?.[0] ? Object.keys(response.data[0]) : 'No users');
+        
+        // API returns: userID, username, fullname, phoneNo, email, usertype, role
+        // Store users for mapping - API returns userID (not id)
+        this.users = response.data.map((user, index) => {
+          const userId = user.userID; // API spec says userID
+          console.log(`👤 User ${index} - ID field:`, {
+            userID: user.userID,
+            allKeys: Object.keys(user),
+          });
+          
+          return {
+            id: userId,
+            idString: userId ? String(userId) : null,
+            idNumber: userId ? Number(userId) : null,
+            fullname: user.fullname || '',
+            username: user.username || '',
+          };
+        });
+        
+        console.log('✅ Mapped users with IDs:', this.users);
+      } catch (error) {
+        console.error('❌ Error fetching users:', error);
+        // Don't show error toast - users fetch is optional for mapping
+      }
+    },
+
     async fetchSchools() {
       this.Loading = true;
       const toast = useToast();
       try {
+        // Fetch users first to get the mapping
+        await this.fetchUsers();
+        
+        // Create a map of user ID to fullname (try both string and number keys)
+        const userMap = new Map();
+        this.users.forEach(user => {
+          if (user.id !== null && user.id !== undefined) {
+            // Add both string and number keys to handle type mismatches
+            userMap.set(String(user.id), user.fullname);
+            userMap.set(Number(user.id), user.fullname);
+            userMap.set(user.id, user.fullname);
+          }
+        });
+        console.log('🗺️ User ID to Name Map (size:', userMap.size, '):', Array.from(userMap.entries()).slice(0, 5));
+        
         const response = await axios.post('/schools/list', {});
-        this.schools = response.data.map(school => ({
-          schoolCode: school.schoolCode,
-          schoolName: school.schoolName,
-          email:school.email,
-          principalPhoneNo: school.principalPhoneNo,
-          principalName:school.principalName,
-          students:school.students,
-          county: school.county,
-          subcounty:school.subcounty,
-          registeredByName: school.registeredByName,
-          registeredOn: school.registeredOn,
-          phoneNo:school.phoneNo,
-          address:school.address,
-          deleted: school.deleted,
-        }));
+        
+        console.log('📋 Schools API Response (first 2):', response.data?.slice(0, 2));
+        if (response.data && response.data.length > 0) {
+          const firstSchool = response.data[0];
+          console.log('📋 First school ALL FIELDS:', firstSchool);
+          console.log('📋 First school keys:', Object.keys(firstSchool));
+          console.log('📋 First school - registeredBy fields:', {
+            registeredByName: firstSchool.registeredByName,
+            registeredByID: firstSchool.registeredByID,
+            registeredBy: firstSchool.registeredBy,
+            registeredById: firstSchool.registeredById,
+            registered_by_id: firstSchool.registered_by_id,
+            registered_by_name: firstSchool.registered_by_name,
+            registered_by: firstSchool.registered_by,
+          });
+        }
+        
+        this.schools = response.data.map(school => {
+          // Check ALL possible field names for registered by info
+          const registeredByID = school.registeredByID || school.registeredById || school.registered_by_id || school.registeredBy;
+          let registeredByName = school.registeredByName || school.registered_by_name || school.registeredBy || null;
+          
+          // If we have a registeredByID but no name, try to map it
+          if (!registeredByName && registeredByID !== null && registeredByID !== undefined && registeredByID !== '') {
+            // Try multiple lookups with different type conversions
+            registeredByName = userMap.get(registeredByID) || 
+                             userMap.get(String(registeredByID)) || 
+                             userMap.get(Number(registeredByID)) ||
+                             null;
+            
+            if (registeredByName) {
+              console.log(`✅ Found name for registeredByID ${registeredByID}:`, registeredByName);
+            } else {
+              console.log(`❌ No name found for registeredByID ${registeredByID} (type: ${typeof registeredByID})`);
+            }
+          }
+          
+          console.log('🔍 School:', {
+            schoolCode: school.schoolCode,
+            registeredByName: registeredByName,
+            registeredByID: registeredByID,
+            registeredByIDType: typeof registeredByID,
+            allRegisteredByFields: {
+              registeredByName: school.registeredByName,
+              registeredByID: school.registeredByID,
+              registeredBy: school.registeredBy,
+              registeredById: school.registeredById,
+            }
+          });
+          
+          return {
+            schoolCode: school.schoolCode,
+            schoolName: school.schoolName,
+            email: school.email,
+            principalPhoneNo: school.principalPhoneNo,
+            principalName: school.principalName,
+            students: school.students,
+            county: school.county,
+            subcounty: school.subcounty,
+            registeredByName: registeredByName || school.registeredBy || 'N/A',
+            registeredOn: school.registeredOn,
+            phoneNo: school.phoneNo,
+            address: school.address,
+            deleted: school.deleted,
+          };
+        });
+        
+        console.log('✅ Final mapped schools (first 3):', this.schools.slice(0, 3));
       } catch (error) {
         console.error('Error fetching all schools:', error);
         toast.error('Failed to fetch schools. Please try again.');
@@ -381,47 +558,98 @@ export default {
 
 
     },
-    async deleteSchool(schoolCode) {
-  if (!confirm(`Are you sure you want to delete school ${schoolCode}?`)) {
-    return;
-  }
-  
-  this.Loading = true;
-  const toast = useToast();
-  
-  try {
-    const response = await axios.post(
-      '/schools/delete',
-      { schoolCode },
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          // 'Authorization': `Bearer ${yourToken}` // if needed
-        },
-        // withCredentials: true // if using cookies
-      }
-    );
+    confirmDeleteSchool(school) {
+      this.schoolToDelete = school;
+      this.showDeleteConfirm = true;
+    },
 
-    console.log(`School ${schoolCode} deleted successfully`, response.data);
-    this.schools = this.schools.filter(school => school.schoolCode !== schoolCode);
-    toast.success(`School ${schoolCode} deleted successfully!`);
-  } catch (error) {
-    console.error('Error deleting school:', error);
-    let errorMessage = 'Failed to delete school. Please try again.';
-    
-    if (error.response) {
-      // The request was made and the server responded with a status code
-      errorMessage = error.response.data.message || errorMessage;
-    } else if (error.request) {
-      // The request was made but no response was received
-      errorMessage = 'No response from server. Please check your connection.';
-    }
-    
-    toast.error(errorMessage);
-  } finally {
-    this.Loading = false;
-  }
-},
+    cancelDeleteSchool() {
+      this.showDeleteConfirm = false;
+      this.schoolToDelete = null;
+    },
+
+    async deleteSchoolConfirm() {
+      if (!this.schoolToDelete || !this.schoolToDelete.schoolCode) {
+        const toast = useToast();
+        toast.error('Invalid school. Cannot delete.');
+        return;
+      }
+
+      const schoolCode = this.schoolToDelete.schoolCode;
+      const toast = useToast();
+      this.Loading = true;
+
+      try {
+        console.log('🗑️ Deleting school:', schoolCode);
+        
+        // Use the correct endpoint format: POST /api/schools/delete/{schoolcode}
+        const response = await axios.post(
+          `/schools/delete/${encodeURIComponent(schoolCode)}`,
+          {},
+          {
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+
+        console.log('✅ School deleted successfully:', response.data);
+
+        if (response.data) {
+          // Update the school in the list to mark it as deleted
+          const schoolIndex = this.schools.findIndex(s => s.schoolCode === schoolCode);
+          if (schoolIndex !== -1) {
+            this.schools[schoolIndex].deleted = true;
+          }
+          
+          toast.success(`School "${this.schoolToDelete.schoolName || schoolCode}" deleted successfully!`);
+        } else {
+          // Response is null - school doesn't exist
+          toast.warning(`School "${schoolCode}" not found. It may have already been deleted.`);
+          // Remove from list if it doesn't exist
+          this.schools = this.schools.filter(school => school.schoolCode !== schoolCode);
+        }
+
+        this.cancelDeleteSchool();
+        // Optionally refresh the list
+        // await this.fetchSchools();
+      } catch (error) {
+        console.error('❌ Error deleting school:', error);
+        console.error('❌ Error details:', {
+          message: error.message,
+          status: error.response?.status,
+          data: error.response?.data,
+          config: error.config,
+        });
+
+        let errorMessage = 'Failed to delete school. Please try again.';
+
+        if (error.response) {
+          const status = error.response.status;
+          const errorData = error.response.data;
+
+          if (status === 400) {
+            errorMessage = errorData?.message || 'Invalid request. The school code may be invalid.';
+          } else if (status === 404) {
+            errorMessage = 'School not found. It may have already been deleted.';
+            // Remove from list if not found
+            this.schools = this.schools.filter(school => school.schoolCode !== schoolCode);
+          } else if (status === 500) {
+            errorMessage = 'Server error. Please try again later.';
+          } else {
+            errorMessage = errorData?.message || `Server returned status ${status}`;
+          }
+        } else if (error.request) {
+          errorMessage = 'No response from server. Please check your connection.';
+        } else {
+          errorMessage = error.message || 'An unexpected error occurred.';
+        }
+
+        toast.error(errorMessage, { timeout: 6000 });
+      } finally {
+        this.Loading = false;
+      }
+    },
 
     openActivationModal(school) {
   console.log("Modal opened for school:", school.schoolCode); // Check if the modal is opened correctly
@@ -554,117 +782,362 @@ export default {
   }
 
 
-  /* Modal Responsive Styles */
-  .modal-overlay {
+  /* Activation Modal Styles - Matching NewSchool.vue */
+  .activation-form-wrap {
+    background-color: rgba(17, 167, 167, 0.5);
+    width: 100%;
+    height: 100%;
     position: fixed;
     top: 0;
     left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1001;
     display: flex;
-    justify-content: center;
     align-items: center;
-    z-index: 1000;
-    padding: 1rem;
+    justify-content: center;
   }
 
-  .modal-content {
-    width: 100%;
-    max-width: min(90vw, 500px);
-    padding: clamp(1rem, 3vw, 2rem);
-    max-height: min(90vh, 600px);
+  .activation-form-content {
+    background-color: #4368b9;
+    border-radius: 5px;
+    padding: 20px;
+    box-shadow: 0px 0px 5px gold;
+    width: 90%;
+    max-width: 500px;
+    max-height: 90%;
     overflow-y: auto;
-    background-color: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    position: relative;
   }
 
-  .modal-content h3 {
-    font-size: clamp(1.1rem, 2vw, 1.5rem);
-    margin-bottom: clamp(0.75rem, 2vw, 1rem);
-    color: #333;
+  .activation-cancel {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    cursor: pointer;
+    color: gold;
+    font-size: 1.3rem;
   }
 
-  .modal-content label {
-    font-size: clamp(0.9rem, 1.3vw, 1rem);
-    margin-bottom: clamp(0.3rem, 1vw, 0.5rem);
-    display: block;
-    color: #333;
+  .activation-form-title {
+    color: gold;
+    text-align: center;
   }
 
-  .modal-content input {
-    font-size: clamp(0.9rem, 1.3vw, 1rem);
-    padding: clamp(0.4rem, 1vw, 0.6rem);
-    margin-bottom: clamp(0.75rem, 1.5vw, 1rem);
-    width: 100%;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    box-sizing: border-box;
+  .activation-form-title h2 {
+    margin: 0;
+    font-size: 1.5rem;
   }
 
-  .modal-content select {
-    width: 100%;
-    padding: clamp(0.4rem, 1vw, 0.6rem);
-    margin-bottom: clamp(0.75rem, 1.5vw, 1rem);
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    background-color: white;
-    color: #333;
-    font-size: clamp(0.9rem, 1.3vw, 1rem);
-    box-sizing: border-box;
-    height: auto;
+  .activation-form-inputs {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    padding-top: 10px;
   }
 
-  .modal-content select:focus {
-    border-color: #2b7ab7;
+  .activation-form-group {
+    position: relative;
+    grid-column: span 1;
+  }
+
+  .activation-form-group:first-child {
+    grid-column: span 2;
+  }
+
+  .activation-form-control {
+    border: 1px solid gold;
     outline: none;
-  }
-
-  .modal-content select option {
-    padding: 0.5rem;
-    background-color: white;
-    color: #333;
-  }
-
-  .modal-content select[multiple] {
-    height: auto;
-    min-height: 100px;
-    padding: 0.5rem;
+    padding: 0.3rem;
     border-radius: 4px;
+    font-size: 1rem;
+    width: 100%;
+    box-sizing: border-box;
+    background-color: #4368b9;
+    color: white;
   }
 
-  .form-actions {
-    margin-top: clamp(0.75rem, 2vw, 1rem);
+  .activation-form-control:disabled {
+    background-color: rgba(67, 104, 185, 0.7);
+    cursor: not-allowed;
+    opacity: 0.7;
+  }
+
+  .activation-form-control::placeholder {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.9rem;
+  }
+
+  .activation-form-group label {
+    position: absolute;
+    top: 50%;
+    left: 4px;
+    background: #4368b9;
+    padding: 0 5px;
+    transform: translateY(-50%);
+    transition: all 0.3s ease;
+    color: gold;
+    pointer-events: none;
+  }
+
+  .activation-form-group label.filled {
+    top: -1px;
+    left: 5px;
+    color: gold;
+    font-size: 0.95rem;
+    font-weight: 600;
+  }
+
+  .activation-form-group input:focus + label,
+  .activation-form-group input:not(:placeholder-shown) + label,
+  .activation-form-group input:disabled + label.filled,
+  .activation-form-group select:focus + label,
+  .activation-form-group select:not([value=""]) + label {
+    top: -1px;
+    left: 5px;
+    color: gold;
+    font-size: 0.95rem;
+    font-weight: 600;
+  }
+
+  .activation-form-control option {
+    background-color: #4368b9;
+    color: white;
+    padding: 0.5rem;
+  }
+
+  .activation-form-actions {
     display: flex;
     justify-content: space-between;
     gap: 0.5rem;
+    margin-top: 0;
   }
 
-  .submit-btn, .cancel-btn {
+  .activation-form-actions button {
+    padding: 0.3rem 1rem;
+    border: none;
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: medium;
+  }
+
+  .activation-form-actions button:first-child {
+    background: rgba(245, 56, 56, 1);
+    border: 1px solid rgba(245, 56, 56, 1);
+    color: black;
+  }
+
+  .activation-form-actions button:first-child:hover {
+    background-color: #4368b9;
+    color: white;
+  }
+
+  .activation-form-actions button:last-child {
+    background: gold;
+    border: 1px solid gold;
+    color: black;
+  }
+
+  .activation-form-actions button:last-child:hover {
+    background-color: #4368b9;
+    color: white;
+  }
+
+  .activation-form-content hr {
+    border: 1px solid gold;
+    margin: 20px 0;
+  }
+
+  @media only screen and (max-width: 1024px) {
+    .activation-form-content {
+      width: 85%;
+      max-width: 600px;
+    }
+  }
+
+  @media only screen and (max-width: 768px) {
+    .activation-form-content {
+      width: 95%;
+      max-width: 100%;
+      padding: 15px;
+      max-height: 95vh;
+    }
+
+    .activation-form-inputs {
+      grid-template-columns: 1fr;
+      gap: 0.9rem;
+    }
+
+    .activation-form-group {
+      grid-column: span 1;
+    }
+
+    .activation-form-title h2 {
+      font-size: 1.1rem;
+    }
+  }
+
+  @media only screen and (max-width: 480px) {
+    .activation-form-wrap {
+      padding: 0.5rem;
+    }
+
+    .activation-form-content {
+      width: 100%;
+      padding: 12px;
+      max-height: 100vh;
+      border-radius: 0;
+    }
+
+    .activation-form-title h2 {
+      font-size: 1rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .activation-form-inputs {
+      gap: 0.75rem;
+      padding-top: 5px;
+    }
+
+    .activation-form-control {
+      padding: 0.4rem;
+      font-size: 0.9rem;
+    }
+
+    .activation-form-actions {
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .activation-form-actions button {
+      width: 100%;
+      padding: 0.5rem;
+    }
+
+    .activation-cancel {
+      top: 5px;
+      right: 5px;
+      font-size: 1.2rem;
+    }
+  }
+
+  .delete-confirm-btn {
+    background-color: #dc3545;
+    color: white;
     padding: clamp(0.4rem, 1vw, 0.6rem) clamp(0.8rem, 2vw, 1.2rem);
     font-size: clamp(0.85rem, 1.3vw, 1rem);
     border: none;
     border-radius: 4px;
     cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: background-color 0.3s ease;
   }
 
-  .submit-btn {
-    background-color: #2b7ab7;
-    color: white;
+  .delete-confirm-btn:hover:not(:disabled) {
+    background-color: #c82333;
   }
 
-  .submit-btn:hover {
-    background-color: #1e6192;
+  .delete-confirm-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
   }
 
-  .cancel-btn {
-    background-color: #ddd;
+  .delete-confirm-btn .material-symbols-outlined {
+    font-size: 1.1rem;
+  }
+
+  .delete-warning-text {
+    font-size: clamp(1rem, 1.5vw, 1.2rem);
+    margin-bottom: 1rem;
+    color: #333;
+    line-height: 1.5;
+  }
+
+  .delete-warning-text strong {
+    color: #dc3545;
+  }
+
+  .delete-school-preview {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 1rem;
+    margin: 1rem 0;
+  }
+
+  .preview-row {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #e9ecef;
+    font-size: clamp(0.9rem, 1.3vw, 1rem);
+  }
+
+  .preview-row:last-child {
+    border-bottom: none;
+  }
+
+  .preview-row strong {
+    color: #495057;
+    margin-right: 0.5rem;
+  }
+
+  .delete-warning-note {
+    background-color: #fff3cd;
+    border: 1px solid #ffc107;
+    border-radius: 4px;
+    padding: 0.75rem;
+    margin-top: 1rem;
+    font-size: clamp(0.85rem, 1.2vw, 0.95rem);
+    color: #856404;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .delete-warning-note i {
+    color: #ffc107;
+    font-size: 1.1rem;
+    margin-top: 0.1rem;
+    flex-shrink: 0;
+  }
+
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: clamp(0.75rem, 2vw, 1rem);
+    padding-bottom: clamp(0.5rem, 1.5vw, 0.75rem);
+    border-bottom: 2px solid #e9ecef;
+  }
+
+  .modal-header h3 {
+    font-size: clamp(1.1rem, 2vw, 1.5rem);
+    margin: 0;
     color: #333;
   }
 
-  .cancel-btn:hover {
-    background-color: #bbb;
+  .close-btn {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: #6c757d;
+    cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+  }
+
+  .close-btn:hover {
+    background-color: #f8f9fa;
+    color: #dc3545;
+  }
+
+  .modal-body {
+    margin-bottom: clamp(0.75rem, 2vw, 1rem);
   }
 
   @media only screen and (max-width: 480px) {
@@ -672,6 +1145,20 @@ export default {
       width: 95vw;
       padding: clamp(0.75rem, 3vw, 1.25rem);
       border-radius: 6px;
+    }
+
+    .delete-school-preview {
+      padding: 0.75rem;
+    }
+
+    .preview-row {
+      padding: 0.4rem 0;
+      font-size: clamp(0.85rem, 1.2vw, 0.9rem);
+    }
+
+    .delete-warning-note {
+      padding: 0.6rem;
+      font-size: clamp(0.8rem, 1.1vw, 0.85rem);
     }
   }
 
