@@ -1904,10 +1904,201 @@ export default {
       padding: 0.3rem 0.4rem;
     }
 
-    .action-btn {
+  .action-btn {
       font-size: 0.75rem;
       padding: 0.35rem 0.5rem;
     }
   }
-    </style>
+
+/* Delete Confirmation Modal Styles (matching other delete dialogs) */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.modal-overlay .modal-content {
+  width: 100%;
+  max-width: min(90vw, 500px);
+  padding: clamp(1rem, 3vw, 2rem);
+  max-height: min(90vh, 700px);
+  overflow-y: auto;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.modal-overlay .modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: clamp(0.75rem, 2vw, 1rem);
+  padding-bottom: clamp(0.5rem, 1.5vw, 0.75rem);
+  border-bottom: 2px solid #e9ecef;
+}
+
+.modal-overlay .modal-header h3 {
+  font-size: clamp(1.1rem, 2vw, 1.5rem);
+  margin: 0;
+  color: #333;
+}
+
+.modal-overlay .close-btn {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #6c757d;
+  cursor: pointer;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+}
+
+.modal-overlay .close-btn:hover {
+  background-color: #f8f9fa;
+  color: #dc3545;
+}
+
+.modal-overlay .modal-body {
+  margin-bottom: clamp(0.75rem, 2vw, 1rem);
+}
+
+.delete-warning-text {
+  font-size: clamp(1rem, 1.5vw, 1.2rem);
+  margin-bottom: 1rem;
+  color: #333;
+  line-height: 1.5;
+}
+
+.delete-warning-text strong {
+  color: #dc3545;
+}
+
+.delete-school-preview {
+  background-color: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  padding: 1rem;
+  margin: 1rem 0;
+}
+
+.delete-school-preview .preview-row {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #e9ecef;
+  font-size: clamp(0.9rem, 1.3vw, 1rem);
+}
+
+.delete-school-preview .preview-row:last-child {
+  border-bottom: none;
+}
+
+.delete-school-preview .preview-row strong {
+  color: #495057;
+  margin-right: 0.5rem;
+}
+
+.delete-warning-note {
+  background-color: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 4px;
+  padding: 0.75rem;
+  margin: 1rem 0;
+  font-size: clamp(0.85rem, 1.2vw, 0.95rem);
+  color: #856404;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.delete-warning-note i {
+  color: #ffc107;
+  font-size: 1.1rem;
+  margin-top: 0.1rem;
+  flex-shrink: 0;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: clamp(0.75rem, 2vw, 1rem);
+}
+
+.cancel-btn {
+  background-color: #ddd;
+  color: #333;
+  padding: clamp(0.4rem, 1vw, 0.6rem) clamp(0.8rem, 2vw, 1.2rem);
+  font-size: clamp(0.85rem, 1.3vw, 1rem);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.cancel-btn:hover {
+  background-color: #bbb;
+}
+
+.delete-confirm-btn {
+  background-color: #dc3545;
+  color: white;
+  padding: clamp(0.4rem, 1vw, 0.6rem) clamp(0.8rem, 2vw, 1.2rem);
+  font-size: clamp(0.85rem, 1.3vw, 1rem);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: background-color 0.3s ease;
+}
+
+.delete-confirm-btn:hover:not(:disabled) {
+  background-color: #c82333;
+}
+
+.delete-confirm-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.delete-confirm-btn .material-symbols-outlined {
+  font-size: 1.1rem;
+}
+
+@media only screen and (max-width: 480px) {
+  .modal-overlay .modal-content {
+    width: 95vw;
+    padding: clamp(0.75rem, 3vw, 1.25rem);
+    border-radius: 6px;
+  }
+
+  .delete-school-preview {
+    padding: 0.75rem;
+  }
+
+  .delete-school-preview .preview-row {
+    padding: 0.4rem 0;
+    font-size: clamp(0.85rem, 1.2vw, 0.9rem);
+  }
+
+  .delete-warning-note {
+    padding: 0.6rem;
+    font-size: clamp(0.8rem, 1.1vw, 0.85rem);
+  }
+}
+</style>
     

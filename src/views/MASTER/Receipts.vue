@@ -238,27 +238,51 @@
     </div>
 
     <!-- Delete / Reverse Receipt Dialog -->
-    <div v-if="showDeleteDialog" class="delete-modal-overlay" @click.self="cancelDelete">
-      <div class="delete-modal-content">
-        <h3>Reverse Receipt</h3>
-        <p class="delete-modal-text">
-          You are about to <strong>REVERSE</strong> receipt
-          <strong>{{ receiptToDelete?.receiptNo }}</strong>.
-          This will undo the payment allocation on all related invoices.
-        </p>
-        <p class="delete-modal-text">
-          Please provide a clear reason for this reversal. This reason will be stored for audit purposes.
-        </p>
-        <textarea
-          v-model="deleteReason"
-          class="delete-modal-textarea"
-          placeholder="Type the reversal reason here..."
-          rows="3"
-        ></textarea>
-        <div class="delete-modal-actions">
-          <button class="delete-cancel-btn" @click="cancelDelete">Cancel</button>
-          <button class="delete-confirm-btn" @click="confirmDelete" :disabled="!deleteReason.trim()">
-            Reverse Receipt
+    <div v-if="showDeleteDialog" class="modal-overlay" @click.self="cancelDelete">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Reverse Receipt</h3>
+          <button @click="cancelDelete" class="close-btn">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <p class="delete-warning-text">
+            Are you sure you want to reverse receipt <strong>{{ receiptToDelete?.receiptNo || 'this receipt' }}</strong>?
+          </p>
+          <div class="delete-receipt-preview" v-if="receiptToDelete">
+            <div class="preview-row">
+              <strong>Receipt Number:</strong> {{ receiptToDelete.receiptNo }}
+            </div>
+            <div class="preview-row" v-if="receiptToDelete.schoolCode">
+              <strong>School Code:</strong> {{ receiptToDelete.schoolCode }}
+            </div>
+            <div class="preview-row" v-if="receiptToDelete.amount">
+              <strong>Amount:</strong> KSh {{ formatNumber(receiptToDelete.amount) }}
+            </div>
+            <div class="preview-row" v-if="receiptToDelete.receiptDate">
+              <strong>Date:</strong> {{ receiptToDelete.receiptDate }}
+            </div>
+          </div>
+          <p class="delete-warning-note">
+            <i class="fas fa-exclamation-triangle"></i> This will undo the payment allocation on all related invoices.
+          </p>
+          <div class="reason-input-group">
+            <label for="deleteReason">Reversal Reason <span class="required">*</span></label>
+            <textarea
+              id="deleteReason"
+              v-model="deleteReason"
+              class="reason-textarea"
+              placeholder="Type the reversal reason here..."
+              rows="3"
+            ></textarea>
+            <p class="reason-help-text">This reason will be stored for audit purposes.</p>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button @click="cancelDelete" class="cancel-btn">Cancel</button>
+          <button @click="confirmDelete" class="delete-confirm-btn" :disabled="!deleteReason.trim() || Loading">
+            <span class="material-symbols-outlined">undo</span> Reverse Receipt
           </button>
         </div>
       </div>
@@ -1041,8 +1065,8 @@ export default {
   padding: 0 0.5rem;
 }
 
-/* Delete / Reverse dialog styles (match InvoicesSchool) */
-.delete-modal-overlay {
+/* Delete / Reverse Receipt Dialog Styles (matching Contacts delete modal) */
+.modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
@@ -1050,79 +1074,210 @@ export default {
   height: 100%;
   background-color: rgba(0, 0, 0, 0.5);
   display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.modal-content {
+  width: 100%;
+  max-width: min(90vw, 500px);
+  padding: clamp(1rem, 3vw, 2rem);
+  max-height: min(90vh, 700px);
+  overflow-y: auto;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: clamp(0.75rem, 2vw, 1rem);
+  padding-bottom: clamp(0.5rem, 1.5vw, 0.75rem);
+  border-bottom: 2px solid #e9ecef;
+}
+
+.modal-header h3 {
+  font-size: clamp(1.1rem, 2vw, 1.5rem);
+  margin: 0;
+  color: #333;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #6c757d;
+  cursor: pointer;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 10002;
+  border-radius: 50%;
+  transition: all 0.3s ease;
 }
 
-.delete-modal-content {
-  background-color: #4368b9;
-  border-radius: 8px;
-  padding: 1.5rem;
-  width: 90%;
-  max-width: 480px;
-  box-shadow: 0px 0px 5px gold;
-  color: #fff;
+.close-btn:hover {
+  background-color: #f8f9fa;
+  color: #dc3545;
 }
 
-.delete-modal-content h3 {
-  margin: 0 0 0.75rem 0;
-  color: gold;
-  text-align: center;
+.modal-body {
+  margin-bottom: clamp(0.75rem, 2vw, 1rem);
 }
 
-.delete-modal-text {
-  font-size: 0.9rem;
-  margin-bottom: 0.5rem;
+.delete-warning-text {
+  font-size: clamp(1rem, 1.5vw, 1.2rem);
+  margin-bottom: 1rem;
+  color: #333;
+  line-height: 1.5;
 }
 
-.delete-modal-textarea {
-  width: 100%;
+.delete-warning-text strong {
+  color: #dc3545;
+}
+
+.delete-receipt-preview {
+  background-color: #f8f9fa;
+  border: 1px solid #dee2e6;
   border-radius: 4px;
-  border: 1px solid gold;
-  padding: 0.5rem;
-  font-size: 0.9rem;
-  background-color: #4368b9;
-  color: #fff;
-  resize: vertical;
+  padding: 1rem;
+  margin: 1rem 0;
 }
 
-.delete-modal-textarea::placeholder {
-  color: rgba(255, 255, 255, 0.7);
+.preview-row {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #e9ecef;
+  font-size: clamp(0.9rem, 1.3vw, 1rem);
 }
 
-.delete-modal-actions {
+.preview-row:last-child {
+  border-bottom: none;
+}
+
+.preview-row strong {
+  color: #495057;
+  margin-right: 0.5rem;
+}
+
+.delete-warning-note {
+  background-color: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 4px;
+  padding: 0.75rem;
+  margin: 1rem 0;
+  font-size: clamp(0.85rem, 1.2vw, 0.95rem);
+  color: #856404;
   display: flex;
-  justify-content: flex-end;
+  align-items: flex-start;
   gap: 0.5rem;
+}
+
+.delete-warning-note i {
+  color: #ffc107;
+  font-size: 1.1rem;
+  margin-top: 0.1rem;
+  flex-shrink: 0;
+}
+
+.reason-input-group {
   margin-top: 1rem;
 }
 
-.delete-cancel-btn,
-.delete-confirm-btn {
-  padding: 0.4rem 0.9rem;
-  border-radius: 4px;
-  border: 1px solid transparent;
-  font-size: 0.85rem;
-  cursor: pointer;
-}
-
-.delete-cancel-btn {
-  background-color: #e5e7eb;
-  color: #111827;
-  border-color: #d1d5db;
-}
-
-.delete-confirm-btn {
-  background-color: #f97316;
-  border-color: #ea580c;
-  color: #111827;
+.reason-input-group label {
+  display: block;
   font-weight: 600;
+  color: #333;
+  margin-bottom: 0.5rem;
+  font-size: clamp(0.9rem, 1.3vw, 1rem);
+}
+
+.reason-input-group .required {
+  color: #dc3545;
+}
+
+.reason-textarea {
+  width: 100%;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  padding: 0.75rem;
+  font-size: clamp(0.9rem, 1.2vw, 1rem);
+  font-family: inherit;
+  resize: vertical;
+  min-height: 80px;
+  transition: border-color 0.3s ease;
+  box-sizing: border-box;
+}
+
+.reason-textarea:focus {
+  outline: none;
+  border-color: #2b7ab7;
+  box-shadow: 0 0 0 2px rgba(43, 122, 183, 0.2);
+}
+
+.reason-textarea::placeholder {
+  color: #6c757d;
+}
+
+.reason-help-text {
+  margin-top: 0.5rem;
+  font-size: clamp(0.8rem, 1.1vw, 0.9rem);
+  color: #6c757d;
+  font-style: italic;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: clamp(0.75rem, 2vw, 1rem);
+}
+
+.cancel-btn {
+  background-color: #ddd;
+  color: #333;
+  padding: clamp(0.4rem, 1vw, 0.6rem) clamp(0.8rem, 2vw, 1.2rem);
+  font-size: clamp(0.85rem, 1.3vw, 1rem);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.cancel-btn:hover {
+  background-color: #bbb;
+}
+
+.delete-confirm-btn {
+  background-color: #dc3545;
+  color: white;
+  padding: clamp(0.4rem, 1vw, 0.6rem) clamp(0.8rem, 2vw, 1.2rem);
+  font-size: clamp(0.85rem, 1.3vw, 1rem);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: background-color 0.3s ease;
+}
+
+.delete-confirm-btn:hover:not(:disabled) {
+  background-color: #c82333;
 }
 
 .delete-confirm-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.delete-confirm-btn .material-symbols-outlined {
+  font-size: 1.1rem;
 }
 
 /* Print Receipt Styles */
@@ -1487,7 +1642,7 @@ export default {
   }
 
   /* Modal Responsive Styles */
-  .delete-modal-content,
+  .modal-content,
   .print-receipt-container {
     width: 100%;
     max-width: min(90vw, 600px);
@@ -1608,12 +1763,26 @@ export default {
     font-size: clamp(0.75rem, 1vw, 0.85rem);
   }
 
-  .delete-modal-content,
+  .modal-content,
   .print-receipt-container {
     width: 100%;
     padding: 1rem;
     border-radius: 0;
     max-height: 100vh;
+  }
+
+  .delete-receipt-preview {
+    padding: 0.75rem;
+  }
+
+  .preview-row {
+    padding: 0.4rem 0;
+    font-size: clamp(0.85rem, 1.2vw, 0.9rem);
+  }
+
+  .delete-warning-note {
+    padding: 0.6rem;
+    font-size: clamp(0.8rem, 1.1vw, 0.85rem);
   }
 }
 
