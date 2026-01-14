@@ -47,12 +47,13 @@
           <tr v-if="filteredSchools.length === 0">
             <td colspan="10">No schools found</td>
           </tr>
-          <tr v-for="(school, index) in paginatedSchools" :key="school.activationID" 
+          <tr v-for="(school, index) in paginatedSchools" 
+              :key="`${school.schoolCode}-${school.moduleName}-${school.activationID}-${index}`" 
               :class="{ 'even-row': index % 2 !== 0 }">
             <td>{{ (currentPage - 1) * schoolsPerPage + index + 1 }}</td>
             <td>{{ school.schoolName }}</td>
             <td>{{ school.schoolCode }}</td>
-            <td>{{ school.moduleNameJoined || school.moduleName }}</td>
+            <td>{{ school.moduleName }}</td>
             <td>{{ school.installationDate }}</td>
             <td>{{ school.expiryDate }}</td>
             <td>{{ school.registeredByName }}</td>
@@ -83,7 +84,7 @@
             
             <div class="card-row">
               <span class="card-label">Module Name:</span>
-              <span class="card-value">{{ school.moduleNameJoined || school.moduleName }}</span>
+              <span class="card-value">{{ school.moduleName }}</span>
             </div>
             
             <div class="card-row">
@@ -215,39 +216,28 @@ export default {
     },
   },
   computed: {
-    // Group activations by school so multiple modules share one row
-    groupedSchools() {
-      const map = new Map();
-      this.schools.forEach(s => {
-        const code = (s.schoolCode || '').toString().trim();
-        if (!map.has(code)) {
-          map.set(code, {
-            ...s,
-            modules: [],
-          });
-        }
-        const entry = map.get(code);
-        if (s.moduleName && !entry.modules.includes(s.moduleName)) {
-          entry.modules.push(s.moduleName);
-        }
-      });
-      return Array.from(map.values()).map(s => ({
-        ...s,
-        moduleNameJoined: s.modules.join(', '),
-      }));
-    },
-
     // Calculate the total number of pages
     totalPages() {
       return Math.ceil(this.filteredSchools.length / this.schoolsPerPage);
     },
 
-    // Filter individual activations (no grouping so each module stays separate)
+    // Filter individual activations - each module activation is a separate row
     filteredSchools() {
       const query = this.searchQuery.trim().toLowerCase();
-      return this.groupedSchools.filter(school => {
+      // Filter schools array directly - no grouping, each activation is a separate row
+      const filtered = this.schools.filter(school => {
+        // Skip invalid entries
+        const code = (school.schoolCode || '').toString().trim();
+        if (!code || code === 'N/A') {
+          console.log('Skipping invalid school:', school);
+          return false;
+        }
+        
+        // If no search query, return all valid entries
         if (!query) return true;
+        
         const nameMatch = (school.schoolName || '').toString().toLowerCase().includes(query);
+        const moduleMatch = (school.moduleName || '').toString().toLowerCase().includes(query);
 
         // For school codes, prefer exact match when the query is numeric to avoid partial matches (e.g., 1234 matching 123456)
         const normalizedCode = (school.schoolCode || '').toString().replace(/\s+/g, '').toLowerCase();
@@ -258,8 +248,24 @@ export default {
           ? normalizedCode === normalizedQuery
           : normalizedCode.includes(normalizedQuery);
 
-        return nameMatch || codeMatch;
+        return nameMatch || codeMatch || moduleMatch;
       });
+      
+      // Debug logging
+      if (this.schools.length > 0) {
+        console.log('Total schools fetched:', this.schools.length);
+        console.log('Filtered schools count:', filtered.length);
+        const financeModules = this.schools.filter(s => 
+          (s.moduleName || '').toString().toLowerCase().includes('finance')
+        );
+        console.log('Finance modules found:', financeModules.length, financeModules);
+        const academicModules = this.schools.filter(s => 
+          (s.moduleName || '').toString().toLowerCase().includes('academic')
+        );
+        console.log('Academic modules found:', academicModules.length, academicModules);
+      }
+      
+      return filtered;
     },
 
     // Paginate the filtered schools list
@@ -325,7 +331,7 @@ export default {
               subcounty: fullSchoolData.subcounty || fullSchoolData.sub_county || '',
               schoolLevel: fullSchoolData.schoolLevel || fullSchoolData.school_level || '',
               // Preserve activation-specific data
-              moduleName: school.moduleName || school.moduleNameJoined || '',
+              moduleName: school.moduleName || '',
               installationDate: school.installationDate || '',
               expiryDate: school.expiryDate || '',
               registeredByName: school.registeredByName || fullSchoolData.registeredByName || '',
@@ -458,24 +464,56 @@ export default {
 
     const payload = Array.isArray(response.data) ? response.data : [response.data];
 
-    this.schools = payload.map(school => ({
-      activationID: school.activationID || 'N/A',
-      schoolName: school.schoolName || 'N/A',
-      schoolCode: (school.schoolCode || 'N/A').toString().trim(),
-      moduleName: school.moduleName || 'N/A',
-      installationDate: school.installationDate || 'N/A',
-      expiryDate: school.expiryDate || 'N/A',
-      registeredByName: school.registeredByName || 'N/A',
-      marketerName: school.marketerName || 'N/A',
-      sellingPrice: school.sellingPrice || 0,
-      maintenanceFee: school.maintenanceFee || 0,
-      lastLogin: school.lastLogin || 'N/A',
-      students: school.students || 'N/A',
-      receipts: school.receipts || 'N/A',
-      vouchers: school.vouchers || 'N/A',
-    }));
+    this.schools = payload.map(school => {
+      const mapped = {
+        activationID: school.activationID || 'N/A',
+        schoolName: school.schoolName || 'N/A',
+        schoolCode: (school.schoolCode || 'N/A').toString().trim(),
+        moduleName: (school.moduleName || 'N/A').toString().trim(), // Ensure module name is trimmed
+        installationDate: school.installationDate || 'N/A',
+        expiryDate: school.expiryDate || 'N/A',
+        registeredByName: school.registeredByName || 'N/A',
+        marketerName: school.marketerName || 'N/A',
+        sellingPrice: school.sellingPrice || 0,
+        maintenanceFee: school.maintenanceFee || 0,
+        lastLogin: school.lastLogin || 'N/A',
+        students: school.students || 'N/A',
+        receipts: school.receipts || 'N/A',
+        vouchers: school.vouchers || 'N/A',
+      };
+      
+      // Log each school being mapped
+      if (mapped.schoolName.toLowerCase().includes('christ') || mapped.schoolName.toLowerCase().includes('king')) {
+        console.log('Christ the King activation found:', mapped);
+      }
+      
+      return mapped;
+    });
 
-    console.log("Schools Data:", this.schools);  // Log to check if data is populated
+    console.log("Schools Data (all activations):", this.schools);
+    console.log("Total activations fetched:", this.schools.length);
+    
+    // Debug: Check for schools with same code but different modules
+    const schoolCodes = {};
+    this.schools.forEach(s => {
+      const code = s.schoolCode;
+      if (!schoolCodes[code]) {
+        schoolCodes[code] = [];
+      }
+      schoolCodes[code].push({
+        moduleName: s.moduleName,
+        activationID: s.activationID,
+        schoolName: s.schoolName
+      });
+    });
+    console.log("Schools grouped by code (for debugging):", schoolCodes);
+    
+    // Specifically check for Christ the King
+    const christTheKing = this.schools.filter(s => 
+      s.schoolName.toLowerCase().includes('christ') && s.schoolName.toLowerCase().includes('king')
+    );
+    console.log("Christ the King activations:", christTheKing);
+    
   } catch (error) {
     console.error("Error fetching schools:", error);
     toast.error("Failed to fetch schools.");
@@ -873,19 +911,38 @@ export default {
   .students-table td {
     padding: clamp(0.5rem, 1.5vw, 1rem);
     text-align: left;
-    border-bottom: 1px solid #ddd;
-    vertical-align: middle;
     border: 1px solid #ddd;
+    vertical-align: middle;
     word-break: break-word;
+    line-height: 1.4;
+    height: auto;
+    min-height: 50px;
+  }
+  
+  /* Prevent row numbers from wrapping vertically */
+  .students-table tbody td:first-child,
+  .students-table thead th:first-child {
+    white-space: nowrap;
+    text-align: center;
+    min-width: 50px;
+    width: 50px;
+  }
+  
+  .students-table tbody tr {
+    height: auto;
+    min-height: 50px;
   }
   
   .students-table thead th {
     background-color: #f1f1f1;
     font-weight: 600;
+    border: 1px solid #ddd;
     border-bottom: 2px solid #ddd;
     position: sticky;
     top: 0;
     z-index: 10;
+    height: auto;
+    min-height: 50px;
   }
   
   .even-row {
@@ -1055,6 +1112,19 @@ export default {
     .students-table th,
     .students-table td {
       padding: clamp(0.6rem, 1vw, 0.9rem);
+      min-height: 50px;
+    }
+    
+    .students-table tbody tr {
+      min-height: 50px;
+    }
+    
+    /* Keep row numbers horizontal */
+    .students-table tbody td:first-child,
+    .students-table thead th:first-child {
+      white-space: nowrap;
+      min-width: 50px;
+      width: 50px;
     }
   }
 
@@ -1067,6 +1137,19 @@ export default {
     .students-table td {
       padding: clamp(0.5rem, 1vw, 0.75rem);
       font-size: clamp(0.85rem, 1.1vw, 0.95rem);
+      min-height: 50px;
+    }
+    
+    .students-table tbody tr {
+      min-height: 50px;
+    }
+    
+    /* Keep row numbers horizontal */
+    .students-table tbody td:first-child,
+    .students-table thead th:first-child {
+      white-space: nowrap;
+      min-width: 50px;
+      width: 50px;
     }
 
     .search-input {

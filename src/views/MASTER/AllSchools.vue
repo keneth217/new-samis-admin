@@ -537,6 +537,8 @@ export default {
             phoneNo: school.phoneNo,
             address: school.address,
             deleted: school.deleted,
+            modules: school.modules || (school.moduleName ? [school.moduleName] : []), // Initialize modules array
+            moduleName: school.moduleName || (school.modules ? school.modules.join(', ') : ''), // For backward compatibility
           };
         });
         
@@ -704,10 +706,33 @@ export default {
       // Update the existing school entry instead of duplicating it
       const idx = this.schools.findIndex(s => s.schoolCode === response.data.schoolCode);
       if (idx !== -1) {
+        // Initialize modules array if it doesn't exist
+        if (!this.schools[idx].modules) {
+          // If moduleName exists and is a string, split it or create array
+          if (this.schools[idx].moduleName) {
+            const existingModule = this.schools[idx].moduleName;
+            // Check if it's already a comma-separated string
+            this.schools[idx].modules = existingModule.includes(',') 
+              ? existingModule.split(',').map(m => m.trim()).filter(m => m)
+              : [existingModule];
+          } else {
+            this.schools[idx].modules = [];
+          }
+        }
+        
+        // Add the new module to the array if it's not already there
+        const newModuleName = response.data.moduleName;
+        if (newModuleName && !this.schools[idx].modules.includes(newModuleName)) {
+          this.schools[idx].modules.push(newModuleName);
+        }
+        
+        // Update the school entry with joined module names for display
+        const updatedModules = this.schools[idx].modules;
         this.schools[idx] = {
           ...this.schools[idx],
           activationID: response.data.activationID,
-          moduleName: response.data.moduleName,
+          modules: updatedModules, // Keep the array
+          moduleName: updatedModules.length > 0 ? updatedModules.join(', ') : '', // Join all modules for display
           installationDate: response.data.installationDate,
           expiryDate: response.data.expiryDate,
           registeredByName: response.data.registeredByName,
@@ -725,6 +750,7 @@ export default {
           activationID: response.data.activationID,
           schoolName: response.data.schoolName,
           schoolCode: response.data.schoolCode,
+          modules: response.data.moduleName ? [response.data.moduleName] : [],
           moduleName: response.data.moduleName,
           installationDate: response.data.installationDate,
           expiryDate: response.data.expiryDate,
