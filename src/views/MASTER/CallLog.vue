@@ -9,6 +9,15 @@
       </div>
     </div>
 
+    <!-- Call Ended Notification Banner -->
+    <div v-if="showCallEndedNotification" class="call-ended-banner">
+      <div class="call-ended-content">
+        <span class="call-ended-icon">📴</span>
+        <span class="call-ended-message">Call Ended: The recipient has terminated the call.</span>
+        <button class="call-ended-close" @click="showCallEndedNotification = false">×</button>
+      </div>
+    </div>
+
     <div class="tab-bar">
       <button
         v-for="tab in tabs"
@@ -29,8 +38,18 @@
           </div>
           <div class="caller-info">
             <div class="caller-name">{{ currentContactDisplay }}</div>
-            <div class="call-duration" v-if="callDuration > 0">{{ formatCallDuration(callDuration) }}</div>
-            <div class="call-status-text" v-else>Connecting...</div>
+            <!-- Android-style: Show call duration when connected and call is active -->
+            <div class="call-duration" v-if="callStatus === 'connected' && isInCall">
+              {{ formatCallDuration(callDuration) }}
+            </div>
+            <!-- Android-style: Show status text for all other states -->
+            <div class="call-status-text" v-else>
+              <span v-if="callStatus === 'connecting'" class="status-connecting">CALLING...</span>
+              <span v-else-if="callStatus === 'ringing'" class="status-ringing">RINGING...</span>
+              <span v-else-if="callStatus === 'connected' && !isInCall" class="status-connected">CONNECTING...</span>
+              <span v-else-if="callStatus === 'ended'" class="status-ended">CALL ENDED</span>
+              <span v-else class="status-default">CALLING...</span>
+            </div>
           </div>
         </div>
 
@@ -63,7 +82,7 @@
               class="control-btn mute-btn" 
               :class="{ active: isMuted }" 
               @click="handleMuteClick"
-              :disabled="loading && !isInCall"
+              :disabled="loading || !isInCall"
             >
               <span class="material-symbols-outlined">{{ isMuted ? 'mic_off' : 'mic' }}</span>
               <span class="control-label">{{ isMuted ? 'Unmute' : 'Mute' }}</span>
@@ -71,7 +90,7 @@
             <button 
               class="control-btn keypad-btn" 
               @click="showKeypadInCall = true"
-              :disabled="loading && !isInCall"
+              :disabled="loading || !isInCall"
             >
               <span class="material-symbols-outlined">dialpad</span>
               <span class="control-label">Keypad</span>
@@ -80,7 +99,7 @@
               class="control-btn speaker-btn" 
               :class="{ active: isSpeakerOn }" 
               @click="handleSpeakerClick"
-              :disabled="loading && !isInCall"
+              :disabled="loading || !isInCall"
             >
               <span class="material-symbols-outlined">{{ isSpeakerOn ? 'volume_up' : 'phone' }}</span>
               <span class="control-label">{{ isSpeakerOn ? 'Speaker' : 'Earpiece' }}</span>
@@ -92,7 +111,7 @@
             <button 
               class="control-btn add-call-btn" 
               @click="handleAddCall"
-              :disabled="loading && !isInCall"
+              :disabled="loading || !isInCall"
             >
               <span class="material-symbols-outlined">add_call</span>
               <span class="control-label">Add Call</span>
@@ -101,7 +120,7 @@
               class="control-btn hold-btn" 
               :class="{ active: isOnHold }" 
               @click="handleHold"
-              :disabled="loading && !isInCall"
+              :disabled="loading || !isInCall"
             >
               <span class="material-symbols-outlined">{{ isOnHold ? 'play_arrow' : 'pause' }}</span>
               <span class="control-label">{{ isOnHold ? 'Resume' : 'Hold' }}</span>
@@ -109,7 +128,7 @@
             <button 
               class="control-btn audio-btn" 
               @click="handleSwitchAudio"
-              :disabled="loading && !isInCall"
+              :disabled="loading || !isInCall"
             >
               <span class="material-symbols-outlined">settings_voice</span>
               <span class="control-label">Audio</span>
@@ -122,7 +141,7 @@
           <button 
             class="end-call-btn-android" 
             @click="handleEndCall" 
-            :disabled="loading && !isInCall"
+            :disabled="loading"
           >
             <span class="material-symbols-outlined">call_end</span>
           </button>
@@ -144,7 +163,15 @@
         </div>
 
         <div v-if="tabValue === 'keypad'" class="keypad-pane">
-          <div class="dialed-number">{{ dialedNumber || 'Enter Number' }}</div>
+          <input 
+            type="text" 
+            class="dialed-number" 
+            v-model="dialedNumber" 
+            placeholder="Enter Number"
+            @paste="handlePaste"
+            @input="handleNumberInput"
+            :disabled="isInCall"
+          />
           <div class="keypad-grid">
             <button 
               v-for="key in keypadKeys" 
@@ -263,10 +290,15 @@
 <script>
 import axios from '../../axios';
 import LoadingSpinner from '../../components/LoadingSpinner.vue';
+import { useToast } from 'vue-toastification';
 
 export default {
   name: 'CallLog',
   components: { LoadingSpinner },
+  setup() {
+    const toast = useToast();
+    return { toast };
+  },
   data() {
     return {
       tabs: [
@@ -286,7 +318,10 @@ export default {
       showKeypadInCall: false,
       client: null,
       loading: false,
+      callStatus: 'idle', // 'idle', 'connecting', 'ringing', 'connected', 'ended'
+      statusUpdateInterval: null, // Track polling interval for cleanup
       keypadKeys: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'],
+      showCallEndedNotification: false,
       showErrorDialog: false,
       errorTitle: '',
       errorMessage: '',
@@ -327,6 +362,30 @@ export default {
     },
     currentContactDisplay() {
       return this.dialedNumber || 'Unknown Contact';
+    },
+  },
+  watch: {
+    callStatus(newStatus, oldStatus) {
+      console.log(`📊 Call Status Changed: ${oldStatus} → ${newStatus}`);
+      
+      // CRITICAL: Prevent status from being reset from 'ended' to 'ringing' or 'connecting'
+      if (oldStatus === 'ended' && (newStatus === 'ringing' || newStatus === 'connecting' || newStatus === 'connected')) {
+        console.error(`❌ BLOCKED: Attempted to change status from 'ended' to '${newStatus}' - preventing reset!`);
+        // Force it back to 'ended'
+        this.$nextTick(() => {
+          if (this.callStatus !== 'ended') {
+            this.callStatus = 'ended';
+            this.$forceUpdate();
+            console.log(`✅ Status forced back to 'ended'`);
+          }
+        });
+        return;
+      }
+      
+      // Force UI update when status changes
+      this.$nextTick(() => {
+        console.log(`✅ UI should now show: ${newStatus}`);
+      });
     },
   },
   mounted() {
@@ -623,18 +682,203 @@ export default {
       newClient.on('connecting', () => {
         console.log('✅ WebRTC: Connecting to Africastalking...');
         console.log('✅ This happens when call() is invoked - connection is starting!');
+        this.callStatus = 'connecting';
+        this.$forceUpdate();
+        this.$nextTick(() => {
+          console.log('✅ Status updated to: connecting (from initializeClientWithToken)');
+        });
       });
       
       newClient.on('connected', () => {
         console.log('✅ WebRTC: Connected successfully! WebSocket is open.');
         console.log('✅ Connection established - call can now proceed!');
         isConnected = true;
+        // Status will be updated to 'ringing' or 'connected' by other events
+      });
+      
+      newClient.on('ringing', () => {
+        console.log('📞 Call is ringing - recipient phone is ringing!');
+        console.log('✅ SUCCESS: Call reached the recipient!');
+        this.callStatus = 'ringing';
+        this.$forceUpdate();
+        this.$nextTick(() => {
+          console.log('✅ Status updated to: ringing (from initializeClientWithToken)');
+        });
+      });
+      
+      newClient.on('callestablished', () => {
+        console.log('✅ Call established successfully! Connection is live - recipient answered!');
+        
+        // Set status and state BEFORE starting timer
+        console.log('🔄 Setting status to "connected" and isInCall to true');
+        this.callStatus = 'connected';
+        this.isInCall = true;
+        this.loading = false;
+        this.isMuted = false;
+        this.isOnHold = false;
+        this.showKeypadInCall = false;
+        
+        // Force UI update immediately
+        this.$forceUpdate();
+        console.log('✅ Status set to connected, isInCall=true, UI should show call duration');
+        
+        // Initialize audio streams
+        this.initializeCallAudio();
+        // Start call duration timer
+        this.startCallTimer();
+        console.log('✅ Call timer started');
+        
+        // Verify status after a moment
+        this.$nextTick(() => {
+          console.log('✅ Verification - callStatus:', this.callStatus, 'isInCall:', this.isInCall, 'callDuration:', this.callDuration);
+        });
+      });
+      
+      newClient.on('callended', () => {
+        console.log('📴 Call ended event received (from initializeClientWithToken)');
+        console.log('📴 Call terminated - recipient ended the call');
+        console.log('📴 Current isInCall state:', this.isInCall);
+        console.log('📴 Current callStatus:', this.callStatus);
+        
+        // IMMEDIATELY stop polling to prevent status from being reset
+        if (this.statusUpdateInterval) {
+          console.log('🛑 Stopping status polling immediately');
+          clearInterval(this.statusUpdateInterval);
+          this.statusUpdateInterval = null;
+        }
+        
+        // Store state BEFORE any cleanup
+        const wasInCall = this.isInCall || this.callStatus === 'connected' || this.callStatus === 'ringing';
+        console.log('📴 wasInCall (determined from state):', wasInCall);
+        
+        // Update status immediately - FORCE it to 'ended'
+        console.log('🔄 FORCING status to "ended" and isInCall to false');
+        this.callStatus = 'ended';
+        this.isInCall = false; // Set to false so UI shows status text instead of duration
+        this.$forceUpdate();
+        console.log('✅ Status set to ended, isInCall=false, UI should show "CALL ENDED"');
+        // Double-check it's set
+        setTimeout(() => {
+          if (this.callStatus !== 'ended') {
+            console.error(`❌ Status was reset! Forcing it back to 'ended'`);
+            this.callStatus = 'ended';
+            this.isInCall = false;
+            this.$forceUpdate();
+          }
+        }, 100);
+        
+        this.$nextTick(() => {
+          console.log('✅ Status updated to: ended (from initializeClientWithToken)');
+        });
+        
+        // Show notification IMMEDIATELY before any cleanup - show if we were in a call
+        if (wasInCall) {
+          console.log('📴 Showing notifications: Recipient ended the call');
+          
+          // Show banner immediately
+          this.showCallEndedNotification = true;
+          // Auto-hide banner after 10 seconds
+          setTimeout(() => {
+            this.showCallEndedNotification = false;
+          }, 10000);
+          
+          // Show alert immediately (can't be missed) - this will pop up right away
+          alert('📴 Call Ended\n\nThe recipient has terminated the call.');
+          
+          // Show toast notification
+          try {
+            const toast = useToast();
+            toast.error('📴 Call Ended: The recipient has terminated the call.', {
+              timeout: 8000,
+              position: 'top-center',
+              closeOnClick: true,
+              pauseOnFocusLoss: true,
+              pauseOnHover: true
+            });
+            console.log('✅ Toast notification shown');
+          } catch (error) {
+            console.error('❌ Error showing toast:', error);
+          }
+          
+          console.log('✅ All notifications triggered');
+        } else {
+          console.log('⚠️ Not showing notifications - was not in a call');
+        }
+        
+        // Terminate the call and reset all states
+        this.terminateCall(false); // Don't show alert again (already shown above)
       });
       
       newClient.on('disconnected', () => {
-        console.log('⚠️ WebRTC: Disconnected');
-        this.isInCall = false;
+        console.log('⚠️ WebRTC: Disconnected event received');
+        console.log('📴 Current isInCall state:', this.isInCall);
+        console.log('📴 Current callStatus:', this.callStatus);
+        
+        // IMMEDIATELY stop polling to prevent status from being reset
+        if (this.statusUpdateInterval) {
+          console.log('🛑 Stopping status polling immediately');
+          clearInterval(this.statusUpdateInterval);
+          this.statusUpdateInterval = null;
+        }
+        
+        // Store state BEFORE any cleanup
+        const wasInCall = this.isInCall || this.callStatus === 'connected' || this.callStatus === 'ringing';
+        console.log('📴 wasInCall (determined from state):', wasInCall);
+        
         isConnected = false;
+        
+        // Terminate the call when disconnected (if in call, will show notification)
+        if (wasInCall) {
+          console.log('📴 Call terminated - recipient may have ended the call');
+          
+          // Update status immediately - FORCE it to 'ended'
+          console.log('🔄 FORCING status to "ended" and isInCall to false');
+          this.callStatus = 'ended';
+          this.isInCall = false; // Set to false so UI shows status text instead of duration
+          this.$forceUpdate();
+          console.log('✅ Status set to ended, isInCall=false, UI should show "CALL ENDED"');
+          // Double-check it's set
+          setTimeout(() => {
+            if (this.callStatus !== 'ended') {
+              console.error(`❌ Status was reset! Forcing it back to 'ended'`);
+              this.callStatus = 'ended';
+              this.isInCall = false;
+              this.$forceUpdate();
+            }
+          }, 100);
+          
+          // Show notification IMMEDIATELY
+          console.log('📴 Showing notifications: Call disconnected');
+          
+          this.showCallEndedNotification = true;
+          // Auto-hide banner after 10 seconds
+          setTimeout(() => {
+            this.showCallEndedNotification = false;
+          }, 10000);
+          
+          // Show alert immediately (can't be missed) - this will pop up right away
+          alert('📴 Call Disconnected\n\nThe call has been disconnected. The recipient may have ended the call.');
+          
+          try {
+            const toast = useToast();
+            toast.error('📴 Call Disconnected: The recipient may have ended the call.', {
+              timeout: 8000,
+              position: 'top-center',
+              closeOnClick: true,
+              pauseOnFocusLoss: true,
+              pauseOnHover: true
+            });
+            console.log('✅ Toast notification shown');
+          } catch (error) {
+            console.error('❌ Error showing toast:', error);
+          }
+          
+          console.log('✅ All notifications triggered');
+          
+          this.terminateCall(false); // Don't show alert again
+        } else {
+          console.log('📴 Disconnected but not in call - ignoring');
+        }
       });
       
       // Handle errors - WebSocket errors during ICE candidate sending are often non-fatal
@@ -730,6 +974,10 @@ export default {
         // Store the number for retry
         this.lastDialedNumber = this.dialedNumber;
         this.tabValue = 'inCall';
+        // Set status to connecting and force UI update immediately
+        this.callStatus = 'connecting';
+        this.$forceUpdate();
+        console.log('📞 Call status set to: connecting (UI should show "CALLING...")');
         
         // Initialize WebRTC client and wait for it to be ready
         console.log('Initializing WebRTC client...');
@@ -752,26 +1000,145 @@ export default {
         let callRinging = false;
         let callEstablished = false;
         
+        // Clean up any existing polling interval
+        if (this.statusUpdateInterval) {
+          clearInterval(this.statusUpdateInterval);
+          this.statusUpdateInterval = null;
+        }
+        
+        // Function to force status update (Android-style)
+        const updateStatus = (newStatus) => {
+          // CRITICAL: Never allow status to change from 'ended' to anything else
+          if (this.callStatus === 'ended' && newStatus !== 'ended' && newStatus !== 'idle') {
+            console.warn(`⚠️ Attempted to change status from 'ended' to '${newStatus}' - BLOCKED`);
+            return;
+          }
+          
+          console.log(`🔄 Updating status: ${this.callStatus} → ${newStatus}`);
+          this.callStatus = newStatus;
+          // Force Vue to update immediately
+          this.$forceUpdate();
+          // Also use nextTick to ensure reactivity
+          this.$nextTick(() => {
+            console.log(`✅ Status updated to: ${newStatus} (UI should be updated)`);
+            console.log(`✅ Current callStatus value: ${this.callStatus}`);
+            // Double-check the status was set correctly
+            if (this.callStatus !== newStatus) {
+              console.error(`❌ Status mismatch! Expected: ${newStatus}, Got: ${this.callStatus}`);
+              // Force it again
+              this.callStatus = newStatus;
+              this.$forceUpdate();
+            }
+          });
+        };
+        
+        // Polling mechanism to check call state if events don't fire (Android-style)
+        const startStatusPolling = () => {
+          let pollCount = 0;
+          const maxPolls = 120; // Poll for up to 60 seconds (0.5s intervals)
+          let lastStatus = this.callStatus;
+          let hasShownRinging = false;
+          
+          this.statusUpdateInterval = setInterval(() => {
+            pollCount++;
+            
+            // CRITICAL: If status is 'ended', stop polling immediately and DO NOT change status
+            if (this.callStatus === 'ended') {
+              console.log('📴 Polling detected: Call has ended - stopping polling immediately');
+              clearInterval(this.statusUpdateInterval);
+              this.statusUpdateInterval = null;
+              return;
+            }
+            
+            // CRITICAL: If isInCall is false and we're not in idle state, call might have ended
+            // Check if we should set status to 'ended'
+            if (!this.isInCall && (this.callStatus === 'ringing' || this.callStatus === 'connected')) {
+              console.log('📴 Polling detected: isInCall=false but status is not ended - call might have ended');
+              // Don't automatically set to ended here - let the event handlers do it
+              // But stop polling to prevent interference
+              clearInterval(this.statusUpdateInterval);
+              this.statusUpdateInterval = null;
+              return;
+            }
+            
+            // Check if call is established by checking isInCall and callDuration
+            if (this.isInCall && this.callDuration > 0 && this.callStatus !== 'connected' && this.callStatus !== 'ended') {
+              console.log('📊 Polling detected: Call is connected (isInCall=true, duration>0)');
+              updateStatus('connected');
+              clearInterval(this.statusUpdateInterval);
+              this.statusUpdateInterval = null;
+              return;
+            }
+            
+            // Check if call is established by checking isInCall (even if duration is 0)
+            if (this.isInCall && this.callStatus !== 'connected' && this.callStatus !== 'ringing' && this.callStatus !== 'ended') {
+              console.log('📊 Polling detected: Call is connected (isInCall=true)');
+              updateStatus('connected');
+              clearInterval(this.statusUpdateInterval);
+              this.statusUpdateInterval = null;
+              return;
+            }
+            
+            // Fallback: If we've been connecting for more than 2 seconds, show "RINGING..."
+            // BUT ONLY if status is still 'connecting' and call hasn't ended
+            if (this.callStatus === 'connecting' && pollCount > 4 && !hasShownRinging && !callRinging && !callEstablished && this.callStatus !== 'ended' && this.isInCall !== false) {
+              console.log('📊 Fallback: Transitioning from "Calling..." to "Ringing..." (after 2 seconds)');
+              updateStatus('ringing');
+              hasShownRinging = true;
+              callRinging = true; // Mark as ringing so we don't keep updating
+            }
+            
+            // NEVER set status to 'ringing' if call has ended or isInCall is false
+            if (this.callStatus === 'ringing' && !this.isInCall && this.callStatus !== 'ended') {
+              console.log('⚠️ Polling detected: Status is ringing but isInCall is false - call might have ended');
+              // Don't change status here - let event handlers handle it
+            }
+            
+            // Log status changes for debugging
+            if (this.callStatus !== lastStatus) {
+              console.log(`📊 Status changed during polling: ${lastStatus} → ${this.callStatus}`);
+              lastStatus = this.callStatus;
+            }
+            
+            if (pollCount >= maxPolls) {
+              console.log('⏱️ Status polling timeout - stopping');
+              clearInterval(this.statusUpdateInterval);
+              this.statusUpdateInterval = null;
+            }
+          }, 500); // Poll every 500ms
+        };
+        
         // Monitor connection events
         client.on('connecting', () => {
           console.log('🔄 WebSocket: Connecting...');
+          updateStatus('connecting');
         });
         
         client.on('connected', () => {
           console.log('✅ WebSocket: Connected successfully!');
           connectionEstablished = true;
+          // Keep status as connecting until we get ringing or callestablished
+          // Status will be updated to 'ringing' or 'connected' by other events
         });
         
         client.on('ringing', () => {
           console.log('📞 Call is ringing - recipient phone is ringing!');
           console.log('✅ SUCCESS: Call reached the recipient despite any library errors!');
           callRinging = true;
+          updateStatus('ringing');
           // This event means the call reached the recipient's phone
         });
         
         client.on('callfailed', (e) => {
           console.error('❌ Call failed:', e);
           const errorMsg = e?.message || e?.error || 'Unknown error';
+          
+          if (this.statusUpdateInterval) {
+            clearInterval(this.statusUpdateInterval);
+            this.statusUpdateInterval = null;
+          }
+          
+          updateStatus('ended');
           this.showCallError(new Error(`Call failed: ${errorMsg}`));
           this.isInCall = false;
           this.tabValue = 'keypad';
@@ -781,24 +1148,196 @@ export default {
         client.on('callestablished', () => {
           console.log('✅ Call established successfully! Connection is live - recipient answered!');
           callEstablished = true;
+          if (this.statusUpdateInterval) {
+            clearInterval(this.statusUpdateInterval);
+            this.statusUpdateInterval = null;
+          }
+          
+          // Set status and state BEFORE starting timer
+          console.log('🔄 Setting status to "connected" and isInCall to true');
+          this.callStatus = 'connected';
           this.isInCall = true;
           this.loading = false;
           this.isMuted = false;
           this.isOnHold = false;
           this.showKeypadInCall = false;
+          
+          // Force UI update immediately
+          this.$forceUpdate();
+          console.log('✅ Status set to connected, isInCall=true, UI should show call duration');
+          
           // Initialize audio streams
           this.initializeCallAudio();
           // Start call duration timer
           this.startCallTimer();
+          console.log('✅ Call timer started');
+          
+          // Verify status after a moment
+          this.$nextTick(() => {
+            console.log('✅ Verification - callStatus:', this.callStatus, 'isInCall:', this.isInCall, 'callDuration:', this.callDuration);
+          });
         });
         
         client.on('callended', () => {
-          console.log('📴 Call ended');
-          this.isInCall = false;
-          this.tabValue = 'keypad';
-          this.loading = false;
-          this.showKeypadInCall = false;
-          this.stopCallTimer();
+          console.log('📴 Call ended event received');
+          console.log('📴 Call terminated - recipient ended the call');
+          console.log('📴 Current isInCall state:', this.isInCall);
+          console.log('📴 Current callStatus:', this.callStatus);
+          
+          // IMMEDIATELY stop polling to prevent status from being reset
+          if (this.statusUpdateInterval) {
+            console.log('🛑 Stopping status polling immediately');
+            clearInterval(this.statusUpdateInterval);
+            this.statusUpdateInterval = null;
+          }
+          
+          // Store state BEFORE any cleanup
+          const wasInCall = this.isInCall || this.callStatus === 'connected' || this.callStatus === 'ringing';
+          console.log('📴 wasInCall (determined from state):', wasInCall);
+          
+          // Update status immediately - FORCE it to 'ended'
+          console.log('🔄 FORCING status to "ended" and isInCall to false');
+          this.callStatus = 'ended';
+          this.isInCall = false; // Set to false so UI shows status text instead of duration
+          this.$forceUpdate();
+          console.log('✅ Status set to ended, isInCall=false, UI should show "CALL ENDED"');
+          
+          // Set up a guard to prevent status from being reset for 5 seconds
+          let statusGuardCount = 0;
+          const statusGuard = setInterval(() => {
+            statusGuardCount++;
+            if (this.callStatus !== 'ended') {
+              console.error(`❌ Status was reset to '${this.callStatus}'! Forcing it back to 'ended' (attempt ${statusGuardCount})`);
+              this.callStatus = 'ended';
+              this.isInCall = false;
+              this.$forceUpdate();
+            }
+            // Stop guarding after 5 seconds (10 checks)
+            if (statusGuardCount >= 10) {
+              clearInterval(statusGuard);
+              console.log('✅ Status guard stopped after 5 seconds');
+            }
+          }, 500); // Check every 500ms
+          
+          // Double-check it's set immediately
+          setTimeout(() => {
+            if (this.callStatus !== 'ended') {
+              console.error(`❌ Status was reset! Forcing it back to 'ended'`);
+              this.callStatus = 'ended';
+              this.isInCall = false;
+              this.$forceUpdate();
+            }
+          }, 100);
+          
+          // Show notification IMMEDIATELY before any cleanup - show if we were in a call
+          if (wasInCall) {
+            console.log('📴 Showing notifications: Recipient ended the call');
+            
+            // Show banner immediately
+            this.showCallEndedNotification = true;
+            // Auto-hide banner after 10 seconds
+            setTimeout(() => {
+              this.showCallEndedNotification = false;
+            }, 10000);
+            
+            // Show alert immediately (can't be missed) - this will pop up right away
+            alert('📴 Call Ended\n\nThe recipient has terminated the call.');
+            
+            // Show toast notification
+            try {
+              const toast = useToast();
+              toast.error('📴 Call Ended: The recipient has terminated the call.', {
+                timeout: 8000,
+                position: 'top-center',
+                closeOnClick: true,
+                pauseOnFocusLoss: true,
+                pauseOnHover: true
+              });
+              console.log('✅ Toast notification shown');
+            } catch (error) {
+              console.error('❌ Error showing toast:', error);
+            }
+            
+            console.log('✅ All notifications triggered');
+          } else {
+            console.log('⚠️ Not showing notifications - was not in a call');
+          }
+          
+          // Terminate the call and reset all states
+          this.terminateCall(false); // Don't show alert again (already shown above)
+        });
+        
+        // Also listen for disconnected event in case recipient hangs up
+        client.on('disconnected', () => {
+          console.log('📴 Disconnected event received');
+          console.log('📴 Current isInCall state:', this.isInCall);
+          console.log('📴 Current callStatus:', this.callStatus);
+          
+          // IMMEDIATELY stop polling to prevent status from being reset
+          if (this.statusUpdateInterval) {
+            console.log('🛑 Stopping status polling immediately');
+            clearInterval(this.statusUpdateInterval);
+            this.statusUpdateInterval = null;
+          }
+          
+          // Store state BEFORE any cleanup
+          const wasInCall = this.isInCall || this.callStatus === 'connected' || this.callStatus === 'ringing';
+          console.log('📴 wasInCall (determined from state):', wasInCall);
+          
+          if (wasInCall) {
+            console.log('📴 WebRTC disconnected - recipient may have ended the call');
+            
+            // Update status immediately - FORCE it to 'ended'
+            console.log('🔄 FORCING status to "ended" and isInCall to false');
+            this.callStatus = 'ended';
+            this.isInCall = false; // Set to false so UI shows status text instead of duration
+            this.$forceUpdate();
+            console.log('✅ Status set to ended, isInCall=false, UI should show "CALL ENDED"');
+            // Double-check it's set
+            setTimeout(() => {
+              if (this.callStatus !== 'ended') {
+                console.error(`❌ Status was reset! Forcing it back to 'ended'`);
+                this.callStatus = 'ended';
+                this.isInCall = false;
+                this.$forceUpdate();
+              }
+            }, 100);
+            
+            // Show notification IMMEDIATELY before any cleanup
+            console.log('📴 Showing notifications: Call disconnected');
+            
+            // Show banner immediately
+            this.showCallEndedNotification = true;
+            // Auto-hide banner after 10 seconds
+            setTimeout(() => {
+              this.showCallEndedNotification = false;
+            }, 10000);
+            
+            // Show alert immediately (can't be missed) - this will pop up right away
+            alert('📴 Call Disconnected\n\nThe call has been disconnected. The recipient may have ended the call.');
+            
+            // Show toast notification
+            try {
+              const toast = useToast();
+              toast.error('📴 Call Disconnected: The recipient may have ended the call.', {
+                timeout: 8000,
+                position: 'top-center',
+                closeOnClick: true,
+                pauseOnFocusLoss: true,
+                pauseOnHover: true
+              });
+              console.log('✅ Toast notification shown');
+            } catch (error) {
+              console.error('❌ Error showing toast:', error);
+            }
+            
+            console.log('✅ All notifications triggered');
+            
+            // Terminate the call (don't show alert again - already shown above)
+            this.terminateCall(false);
+          } else {
+            console.log('📴 Disconnected but not in call - ignoring');
+          }
         });
         
         // Request microphone permission before making the call (non-blocking)
@@ -837,6 +1376,9 @@ export default {
           clientType: typeof client
         });
         
+        // Explicitly set status to connecting
+        this.callStatus = 'connecting';
+        
         // Brief wait to ensure client is ready
         await new Promise(resolve => setTimeout(resolve, 500));
         
@@ -859,6 +1401,13 @@ export default {
             console.log('✅ call() invoked successfully');
             console.log('ℹ️ WebSocket connection is being established now...');
             console.log('ℹ️ If you see library errors, they may be non-fatal - monitor for call events');
+            
+            // Ensure status is still connecting after call is made
+            updateStatus('connecting');
+            
+            // Start polling to check call state (fallback if events don't fire)
+            startStatusPolling();
+            console.log('✅ Status polling started - will check call state every 500ms');
           } catch (callInvokeError) {
             const errorMsg = callInvokeError.message || callInvokeError.toString();
             console.error('❌ Error invoking call():', callInvokeError);
@@ -1091,13 +1640,99 @@ export default {
         this.audioContext = null;
       }
     },
-    handleEndCall() {
+    terminateCall(showAlert = true) {
+      // This method is called when the recipient ends the call
+      // or when the call is terminated for any reason
+      // showAlert: if true, shows notification when recipient ends call (default: true)
+      console.log('📴 Terminating call and cleaning up...');
+      console.log('📴 terminateCall called with showAlert:', showAlert);
+      console.log('📴 Current isInCall state:', this.isInCall);
+      
+      // Clean up polling interval
+      if (this.statusUpdateInterval) {
+        clearInterval(this.statusUpdateInterval);
+        this.statusUpdateInterval = null;
+        console.log('✅ Status polling interval cleaned up');
+      }
+      
+      // Store the call state BEFORE resetting it
+      const wasInCall = this.isInCall;
+      console.log('📴 wasInCall (stored state):', wasInCall);
+      
+      // Show notification BEFORE cleanup if recipient ended the call
+      if (showAlert && wasInCall) {
+        console.log('📴 Showing notification: Recipient ended the call');
+        
+        // Show visible banner notification (most visible)
+        this.showCallEndedNotification = true;
+        // Auto-hide after 10 seconds
+        setTimeout(() => {
+          this.showCallEndedNotification = false;
+        }, 10000);
+        
+        // Show toast notification (backup)
+        try {
+          const toast = useToast();
+          toast.error('📴 Call Ended: The recipient has terminated the call.', {
+            timeout: 8000, // Longer timeout - 8 seconds
+            position: 'top-center',
+            closeOnClick: true,
+            pauseOnFocusLoss: true,
+            pauseOnHover: true,
+            draggable: true,
+            draggablePercent: 0.6,
+            showCloseButtonOnHover: true,
+            hideProgressBar: false,
+            closeButton: 'button',
+            icon: true,
+            rtl: false
+          });
+          console.log('✅ Toast notification shown successfully');
+        } catch (error) {
+          console.error('❌ Error showing toast notification:', error);
+        }
+        
+        // Also show alert as backup (always visible, can't be missed)
+        setTimeout(() => {
+          alert('📴 Call Ended\n\nThe recipient has terminated the call.');
+        }, 300);
+        
+        console.log('✅ Banner, toast, and alert notifications all triggered');
+      } else {
+        console.log('📴 Notification NOT shown - showAlert:', showAlert, 'wasInCall:', wasInCall);
+      }
+      
       // Clean up audio
       this.cleanupCallAudio();
       
       // Stop call timer
       this.stopCallTimer();
       
+      // Reset all call states
+      this.isInCall = false;
+      this.isMuted = false;
+      this.isOnHold = false;
+      this.isSpeakerOn = false;
+      this.showKeypadInCall = false;
+      this.tabValue = 'keypad';
+      this.loading = false;
+      this.callStatus = 'idle'; // Reset call status
+      
+      // Clean up audio streams if any
+      if (this.localStream) {
+        this.localStream.getTracks().forEach(track => track.stop());
+        this.localStream = null;
+      }
+    },
+    handleEndCall() {
+      // This method is called when the user manually ends the call
+      // Clean up audio
+      this.cleanupCallAudio();
+      
+      // Stop call timer
+      this.stopCallTimer();
+      
+      // Try to hangup the call on our end
       if (this.client) {
         try {
           if (typeof this.client.hangup === 'function') {
@@ -1109,12 +1744,9 @@ export default {
           console.warn('Hangup error:', err);
         }
       }
-      this.isInCall = false;
-      this.isMuted = false;
-      this.isOnHold = false;
-      this.isSpeakerOn = false;
-      this.showKeypadInCall = false;
-      this.tabValue = 'keypad';
+      
+      // Use terminateCall to reset all states (don't show alert - user ended the call)
+      this.terminateCall(false);
       this.dialedNumber = '';
       this.client = null;
     },
@@ -1132,6 +1764,50 @@ export default {
       if (this.dialedNumber && this.dialedNumber.length > 0) {
         this.dialedNumber = this.dialedNumber.slice(0, -1);
       }
+    },
+    handlePaste(event) {
+      if (this.isInCall) {
+        event.preventDefault();
+        return;
+      }
+      
+      // Get pasted text
+      const pastedText = (event.clipboardData || window.clipboardData).getData('text');
+      
+      // Clean the pasted text - remove spaces, dashes, parentheses, and other non-digit characters except +
+      let cleaned = pastedText.replace(/[\s\-\(\)\.]/g, '');
+      
+      // Only allow digits, +, and * #
+      cleaned = cleaned.replace(/[^\d\+\*\#]/g, '');
+      
+      // If it starts with +, keep it, otherwise ensure proper format
+      if (cleaned.startsWith('+')) {
+        this.dialedNumber = cleaned;
+      } else {
+        // Remove any leading + if pasted number doesn't start with it
+        this.dialedNumber = cleaned.replace(/^\+/, '');
+      }
+      
+      event.preventDefault();
+      console.log('📋 Pasted number:', pastedText, '→ Cleaned:', this.dialedNumber);
+    },
+    handleNumberInput(event) {
+      if (this.isInCall) {
+        event.preventDefault();
+        return;
+      }
+      
+      // Get the input value
+      let value = event.target.value;
+      
+      // Clean the input - remove spaces, dashes, parentheses, and other non-digit characters except +, *, #
+      value = value.replace(/[\s\-\(\)\.]/g, '');
+      
+      // Only allow digits, +, *, and #
+      value = value.replace(/[^\d\+\*\#]/g, '');
+      
+      // Update the dialed number
+      this.dialedNumber = value;
     },
     async handleMuteClick() {
       if (!this.client || !this.isInCall) return;
@@ -1449,6 +2125,69 @@ export default {
   display: flex;
   gap: 0.5rem;
 }
+
+/* Call Ended Notification Banner */
+.call-ended-banner {
+  background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+  color: white;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+  animation: slideDown 0.3s ease-out;
+  position: relative;
+  z-index: 1000;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.call-ended-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.call-ended-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.call-ended-message {
+  flex: 1;
+  font-size: 1rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.call-ended-close {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  font-size: 1.5rem;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.2s ease;
+}
+
+.call-ended-close:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
 .primary-btn {
   background: #1a73e8;
   color: #fff;
@@ -1543,16 +2282,72 @@ export default {
 }
 
 .call-duration {
-  font-size: 1rem;
-  color: #666;
-  font-weight: 500;
+  font-size: 1.3rem;
+  color: #4caf50;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
+  margin-top: 0.75rem;
+  text-align: center;
+  letter-spacing: 1px;
 }
 
 .call-status-text {
-  font-size: 0.95rem;
+  font-size: 1.1rem;
   color: #999;
-  margin-top: 0.5rem;
+  margin-top: 0.75rem;
+  font-weight: 600;
+  min-height: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.call-status-text .status-connecting {
+  color: #ff9800;
+  font-weight: 700;
+  font-size: 1.2rem;
+  animation: pulse 1.5s ease-in-out infinite;
+  text-shadow: 0 0 10px rgba(255, 152, 0, 0.3);
+}
+
+.call-status-text .status-ringing {
+  color: #2196f3;
+  font-weight: 700;
+  font-size: 1.2rem;
+  animation: pulse 1.5s ease-in-out infinite;
+  text-shadow: 0 0 10px rgba(33, 150, 243, 0.3);
+}
+
+.call-status-text .status-connected {
+  color: #4caf50;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.call-status-text .status-ended {
+  color: #f44336;
+  font-weight: 700;
+  font-size: 1.2rem;
+  animation: pulse 1s ease-in-out infinite;
+}
+
+.call-status-text .status-default {
+  color: #999;
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.05);
+  }
 }
 
 /* Android-style Control Buttons */
@@ -1571,14 +2366,14 @@ export default {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.3rem;
   background: transparent;
   border: none;
   cursor: pointer;
-  padding: 0.75rem;
+  padding: 0.5rem;
   border-radius: 50%;
   transition: all 0.2s ease;
-  min-width: 70px;
+  min-width: 60px;
 }
 
 .control-btn:disabled {
@@ -1592,9 +2387,9 @@ export default {
 }
 
 .control-btn .material-symbols-outlined {
-  font-size: 32px;
-  width: 32px;
-  height: 32px;
+  font-size: 24px;
+  width: 24px;
+  height: 24px;
   color: #333;
 }
 
@@ -1607,7 +2402,7 @@ export default {
 }
 
 .control-label {
-  font-size: 0.75rem;
+  font-size: 0.65rem;
   color: #666;
   font-weight: 500;
   text-transform: capitalize;
@@ -1709,43 +2504,46 @@ export default {
   flex: 1;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
-  padding: 1.5rem;
+  gap: 0.6rem;
+  padding: 1rem;
+  max-width: 360px;
+  margin: 0 auto;
   align-content: start;
 }
 
 .keypad-btn-in-call {
-  aspect-ratio: 1;
-  border-radius: 50%;
-  border: 1px solid #e1e4ea;
-  background: #fff;
+  height: 64px;
+  min-width: 90px;
+  border-radius: 10px;
+  border: 1px solid #d6d9e0;
+  background: #f9fafc;
   cursor: pointer;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   transition: all 0.15s ease;
-  padding: 1rem;
+  font-size: 1.2rem;
 }
 
 .keypad-btn-in-call:active {
-  background: #f5f5f5;
-  transform: scale(0.95);
+  background: #e8eaf0;
+  transform: scale(0.98);
 }
 
 .keypad-number {
-  font-size: 1.8rem;
+  font-size: 1.2rem;
   font-weight: 400;
   color: #333;
   line-height: 1;
 }
 
 .keypad-letters {
-  font-size: 0.65rem;
+  font-size: 0.5rem;
   color: #666;
-  margin-top: 0.2rem;
+  margin-top: 0.1rem;
   font-weight: 500;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
 }
 .tab-actions {
   display: flex;
@@ -1776,6 +2574,23 @@ export default {
   font-size: 1.4rem;
   font-weight: 700;
   margin-bottom: 0.75rem;
+  width: 100%;
+  border: none;
+  background: transparent;
+  text-align: center;
+  outline: none;
+  color: #333;
+  padding: 0;
+}
+
+.dialed-number:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dialed-number::placeholder {
+  color: #999;
+  font-weight: 400;
 }
 .keypad-grid {
   display: grid;
