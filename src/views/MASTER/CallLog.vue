@@ -301,6 +301,7 @@ export default {
       audioOutput: null,
       callDuration: 0,
       callDurationTimer: null,
+      isInitializingClient: false, // Prevent concurrent client initialization
     };
   },
   computed: {
@@ -380,10 +381,135 @@ export default {
       script.onerror = () => console.error('Failed to load Africastalking library.');
       document.body.appendChild(script);
     },
+    async reloadAfricastalkingLibrary() {
+      // Reload the Africastalking library to reset its internal state
+      // This can help clear lingering WebSocket connections
+      console.log('🔄 Reloading Africastalking library to reset internal state...');
+      
+      // Remove existing script
+      const existingScript = document.querySelector('script[src*="africastalking"]');
+      if (existingScript) {
+        existingScript.remove();
+      }
+      
+      // Clear the Africastalking object
+      delete window.Africastalking;
+      
+      // Wait a moment
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Reload the script
+      this.loadAfricastalkingScript();
+      
+      // Wait for it to load
+      let waitCount = 0;
+      while (!window.Africastalking && waitCount < 20) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+        waitCount++;
+      }
+      
+      if (window.Africastalking) {
+        console.log('✅ Africastalking library reloaded successfully');
+      } else {
+        console.error('❌ Failed to reload Africastalking library');
+        throw new Error('Failed to reload Africastalking library');
+      }
+    },
+    async cleanupOldClient() {
+      // Properly clean up any existing client before creating a new one
+      if (this.client) {
+        console.log('🧹 Cleaning up previous client...');
+        try {
+          // Try to hangup any active call first
+          if (this.isInCall && typeof this.client.hangup === 'function') {
+            console.log('📴 Hanging up active call...');
+            this.client.hangup();
+            this.isInCall = false;
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+          // Try to logout/disconnect - this should close the WebSocket properly
+          if (typeof this.client.logout === 'function') {
+            console.log('🚪 Logging out client...');
+            this.client.logout();
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+        } catch (err) {
+          console.warn('⚠️ Error cleaning up old client (may be normal):', err);
+        }
+        // Remove client reference
+        this.client = null;
+        // CRITICAL: Give WebSocket EXTRA time to fully close
+        // Africastalking WebSocket can take 5-8 seconds to fully close
+        // This prevents "WebSocket is already in CLOSING or CLOSED state" errors
+        console.log('⏳ Waiting for WebSocket to fully close (7 seconds)...');
+        await new Promise(resolve => setTimeout(resolve, 7000));
+        console.log('✅ Old client cleaned up, WebSocket should be closed');
+      } else {
+        // Even if no client, wait a moment to ensure any lingering WebSockets are closed
+        await new Promise(resolve => setTimeout(resolve, 3000));
+      }
+      
+      // Additional wait to ensure all WebSocket connections are fully closed
+      console.log('⏳ Final wait to ensure WebSocket is completely closed (2 seconds)...');
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Try to find and close any lingering WebSocket connections
+      // This is a workaround for Africastalking library's internal WebSocket management
+      try {
+        // Check if there are any WebSocket instances in the global scope
+        // The Africastalking library might store WebSocket references internally
+        if (window.WebSocket) {
+          console.log('🔍 Checking for lingering WebSocket connections...');
+          // Force garbage collection hint (browser may or may not honor this)
+          if (window.gc) {
+            window.gc();
+          }
+        }
+      } catch (e) {
+        // Ignore errors - this is just a cleanup attempt
+      }
+      
+      // If we've had persistent WebSocket errors, try reloading the library
+      // This resets the library's internal state and clears any lingering WebSocket connections
+      const shouldReloadLibrary = this.client === null; // Only if we just cleaned up
+      if (shouldReloadLibrary) {
+        try {
+          console.log('🔄 Reloading Africastalking library to clear internal WebSocket state...');
+          await this.reloadAfricastalkingLibrary();
+          // Wait a bit more after reload
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        } catch (err) {
+          console.warn('⚠️ Failed to reload library, continuing anyway:', err);
+        }
+      }
+      
+      console.log('✅ Ready for new client creation');
+    },
     async initializeClientWithToken() {
+      // Prevent concurrent client initialization
+      if (this.isInitializingClient) {
+        console.warn('⚠️ Client initialization already in progress, waiting...');
+        // Wait for current initialization to complete
+        let waitCount = 0;
+        while (this.isInitializingClient && waitCount < 10) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+          waitCount++;
+        }
+        if (this.isInitializingClient) {
+          throw new Error('Client initialization timeout - previous initialization is stuck');
+        }
+      }
+      
       // Always create fresh client for each call
       const targetNumber = this.dialedNumber;
       if (!targetNumber) throw new Error('No number provided');
+      
+      // Set flag to prevent concurrent initialization
+      this.isInitializingClient = true;
+      
+      try {
+        // Clean up any existing client first
+        await this.cleanupOldClient();
       
       // Get WebRTC token from API (no phoneNumber needed - API uses hardcoded values)
       console.log('Fetching WebRTC token from API...');
@@ -411,132 +537,151 @@ export default {
       }
       
       let newClient;
-      try {
-        newClient = new window.Africastalking.Client(token, params);
-        console.log('Client created:', newClient);
-        console.log('Client type:', typeof newClient);
-        console.log('Client methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(newClient)));
-        console.log('Client has on method:', typeof newClient.on === 'function');
-        console.log('Client has connect method:', typeof newClient.connect === 'function');
-      } catch (err) {
-        console.error('Error creating client:', err);
-        throw new Error(`Failed to create WebRTC client: ${err.message}`);
+      let retryCount = 0;
+      const maxRetries = 2;
+      
+      while (retryCount <= maxRetries) {
+        try {
+          // Wait a bit longer if retrying to ensure WebSocket is fully closed
+          if (retryCount > 0) {
+            console.log(`Retrying client creation (attempt ${retryCount + 1}/${maxRetries + 1})...`);
+            // Additional cleanup before retry
+            this.client = null;
+            await new Promise(resolve => setTimeout(resolve, 2000));
+          }
+          
+          // Create client - WebSocket errors during creation indicate a stale connection
+          // We need to wait longer for the previous WebSocket to fully close
+          try {
+            newClient = new window.Africastalking.Client(token, params);
+            // If we get here, client was created (even if there were WebSocket warnings)
+            // The WebSocket errors in console are from the library's internal handling
+          } catch (createError) {
+            const errorMsg = createError.message || createError.toString();
+            // If it's a WebSocket error, the previous WebSocket is still closing
+            if (errorMsg.includes('WebSocket') && (errorMsg.includes('CLOSED') || errorMsg.includes('CLOSING'))) {
+              console.warn(`⚠️ WebSocket error during client creation (attempt ${retryCount + 1})`);
+              console.warn('⚠️ Previous WebSocket may still be closing. Waiting longer...');
+              
+              // Wait longer for WebSocket to fully close
+              await new Promise(resolve => setTimeout(resolve, 3000));
+              
+              // Try to create again
+              if (retryCount < maxRetries) {
+                retryCount++;
+                console.log(`🔄 Retrying client creation (attempt ${retryCount + 1}/${maxRetries + 1})...`);
+                continue;
+              } else {
+                throw new Error('Failed to create client after multiple retries - WebSocket may be stuck');
+              }
+            }
+            throw createError;
+          }
+          
+          // If client was created but WebSocket errors appeared in console,
+          // wait longer for the WebSocket to initialize properly and any stale connections to clear
+          console.log('⏳ Waiting for client to initialize and stale WebSockets to clear (2 seconds)...');
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          
+          console.log('Client created:', newClient);
+          console.log('Client initDone:', newClient.initDone);
+          console.log('Client type:', typeof newClient);
+          console.log('Client methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(newClient)));
+          console.log('Client has on method:', typeof newClient.on === 'function');
+          
+          // If we got here, client was created successfully
+          // WebSocket errors in console are often non-fatal warnings
+          break;
+        } catch (err) {
+          const errorMsg = err.message || err.toString();
+          console.error(`Error creating client (attempt ${retryCount + 1}):`, err);
+          
+          // If it's a WebSocket error and we haven't exceeded retries, try again
+          if (errorMsg.includes('WebSocket') && retryCount < maxRetries) {
+            retryCount++;
+            console.log('WebSocket error detected, will retry after cleanup...');
+            continue;
+          } else {
+            // If it's not a WebSocket error or we've exhausted retries, throw
+            throw new Error(`Failed to create WebRTC client: ${errorMsg}`);
+          }
+        }
       }
       
-      // Wait for connection before returning - THIS IS CRITICAL
-      return new Promise((resolve, reject) => {
-        let resolved = false;
-        let connectionStarted = false;
-        
-        const cleanup = () => {
-          clearTimeout(timeout);
-          if (connectTimeout) clearTimeout(connectTimeout);
-        };
-        
-        const timeout = setTimeout(() => {
-          if (!resolved) {
-            cleanup();
-            console.error('Client state check:', {
-              hasOn: typeof newClient.on === 'function',
-              hasConnect: typeof newClient.connect === 'function',
-              connectionStarted,
-              clientType: typeof newClient
-            });
-            
-            if (!connectionStarted) {
-              console.error('❌ Connection timeout - no connecting event received');
-              console.error('This usually means:');
-              console.error('1. The client is not auto-connecting');
-              console.error('2. WebRTC service is blocked from localhost');
-              console.error('3. Network/firewall issues');
-              reject(new Error('WebRTC connection timeout. The Africastalking service may be unreachable from localhost. This could be due to:\n\n1. Network/firewall blocking WebRTC connections\n2. Africastalking service not accessible from your network\n3. Try using HTTPS or deploying to production\n\nCheck browser console for more details.'));
-            } else {
-              console.error('❌ Connection timeout - started but did not complete');
-              reject(new Error('WebRTC connection started but did not complete within 20 seconds. Check network/firewall settings.'));
-            }
+      if (!newClient) {
+        throw new Error('Failed to create WebRTC client after multiple attempts');
+      }
+      
+      // Verify event listeners can be attached
+      if (typeof newClient.on !== 'function') {
+        throw new Error('WebRTC client does not support event listeners. The Africastalking library may not be loaded correctly.');
+      }
+      
+      // Set up event listeners - connection happens when call() is invoked
+      let isConnected = false;
+      
+      newClient.on('connecting', () => {
+        console.log('✅ WebRTC: Connecting to Africastalking...');
+        console.log('✅ This happens when call() is invoked - connection is starting!');
+      });
+      
+      newClient.on('connected', () => {
+        console.log('✅ WebRTC: Connected successfully! WebSocket is open.');
+        console.log('✅ Connection established - call can now proceed!');
+        isConnected = true;
+      });
+      
+      newClient.on('disconnected', () => {
+        console.log('⚠️ WebRTC: Disconnected');
+        this.isInCall = false;
+        isConnected = false;
+      });
+      
+      // Handle errors - WebSocket errors during ICE candidate sending are often non-fatal
+      // The Africastalking library handles WebSocket reconnection internally
+      let websocketErrorCount = 0;
+      newClient.on('error', (e) => {
+        const errorMsg = e?.message || e?.error || (typeof e === 'string' ? e : JSON.stringify(e));
+        // WebSocket errors during ICE candidate sending are often non-fatal
+        // These occur when the library tries to send ICE candidates but the WebSocket
+        // is temporarily in a closing state - the library will reconnect automatically
+        if (errorMsg.includes('WebSocket') && (errorMsg.includes('CLOSED') || errorMsg.includes('CLOSING'))) {
+          websocketErrorCount++;
+          // Only log first few to avoid console spam
+          if (websocketErrorCount <= 2) {
+            console.warn(`⚠️ WebSocket error during call setup (non-fatal, library will reconnect):`, errorMsg.substring(0, 100));
           }
-        }, 20000); // 20 second timeout
-        
-        let connectTimeout;
-        
-        // Verify event listeners can be attached
-        if (typeof newClient.on !== 'function') {
-          cleanup();
-          reject(new Error('WebRTC client does not support event listeners. The Africastalking library may not be loaded correctly.'));
-          return;
-        }
-        
-        // Listen for connecting event
-        newClient.on('connecting', () => {
-          if (!connectionStarted) {
-            connectionStarted = true;
-            console.log('✅ WebRTC: Connecting to Africastalking...');
-            // Set a timeout for the actual connection after connecting starts
-            connectTimeout = setTimeout(() => {
-              if (!resolved) {
-                cleanup();
-                reject(new Error('Connection started but did not complete. The Africastalking WebRTC service may be blocked or unreachable.'));
-              }
-            }, 15000);
-          }
-        });
-        
-        // Listen for connected event
-        newClient.on('connected', () => {
-          if (!resolved) {
-            resolved = true;
-            cleanup();
-            console.log('✅ WebRTC: Connected successfully! Ready to make calls.');
-            this.client = newClient;
-            resolve(newClient);
-          }
-        });
-        
-        // Listen for disconnected
-        newClient.on('disconnected', () => {
-          console.log('⚠️ WebRTC: Disconnected');
-          this.isInCall = false;
-        });
-        
-        // Listen for errors
-        newClient.on('error', (e) => {
-          if (!resolved) {
-            resolved = true;
-            cleanup();
-            console.error('❌ WebRTC connection error:', e);
-            const errorMsg = e?.message || e?.error || (typeof e === 'string' ? e : JSON.stringify(e));
-            reject(new Error(`WebRTC connection failed: ${errorMsg}\n\nPossible causes:\n- Africastalking service unreachable\n- Network/firewall blocking WebRTC\n- Invalid token or configuration`));
-          }
-        });
-        
-        // Try to manually trigger connection if method exists
-        // Some Africastalking clients need explicit connection
-        if (typeof newClient.connect === 'function') {
-          console.log('Attempting to manually connect client...');
-          try {
-            newClient.connect();
-            // Give it a moment to start
-            setTimeout(() => {
-              if (!connectionStarted && !resolved) {
-                console.warn('⚠️ Manual connect() called but no connecting event yet. Client may auto-connect later.');
-              }
-            }, 1000);
-          } catch (err) {
-            console.warn('Note: client.connect() threw error (may be normal):', err);
-          }
+          // Don't throw - these errors often don't prevent the call from working
+          // The call may still connect successfully despite these errors
+        } else if (errorMsg.includes('Cannot read properties') || errorMsg.includes('code')) {
+          // This is the library's internal error when processing server messages
+          console.warn('⚠️ Africastalking library internal error (may be non-fatal):', errorMsg);
+          console.warn('⚠️ This could be due to unexpected server response format');
+          console.warn('⚠️ Call may still work - monitoring for call events...');
         } else {
-          console.log('Client does not have explicit connect() method - waiting for auto-connect...');
-          // Some clients auto-connect immediately, give it a moment
-          setTimeout(() => {
-            if (!connectionStarted && !resolved) {
-              console.warn('⚠️ No auto-connect detected. This may indicate:');
-              console.warn('1. WebRTC service is blocked from localhost');
-              console.warn('2. Client needs explicit connection trigger');
-              console.warn('3. Network connectivity issues');
-            }
-          }, 2000);
+          console.error('❌ WebRTC error:', errorMsg);
         }
       });
+      
+      // Store client
+      this.client = newClient;
+      console.log('✅ Client created. Waiting for WebSocket connection...');
+      
+      // IMPORTANT: Africastalking client connects LAZILY when call() is invoked
+      // It does NOT connect automatically upon creation
+      // So we don't wait for connection here - we'll make the call and let it connect
+      console.log('✅ Client created and event listeners set up.');
+      console.log('ℹ️ Note: Africastalking client connects when call() is invoked, not on creation.');
+      console.log('ℹ️ WebSocket connection will be established during the call process.');
+      
+      // Give a brief moment for client to initialize internally
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      return newClient;
+      } finally {
+        // Always clear the flag, even if there was an error
+        this.isInitializingClient = false;
+      }
     },
     formatNumber(num) {
       if (!num) return '';
@@ -559,45 +704,73 @@ export default {
         return;
       }
       
-      // Check if we're on HTTPS or localhost (WebRTC requires secure context)
-      if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
-        console.warn('WebRTC may require HTTPS. Current protocol:', location.protocol);
+      // Note: Africastalking WebRTC may require HTTPS
+      // HTTP connections (even localhost) are often blocked by the service
+      const isLocalhost = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+      const isHttps = location.protocol === 'https:';
+      
+      if (!isHttps && isLocalhost) {
+        // Just log a warning, don't block the user
+        console.warn('⚠️ Running on localhost with HTTP - calls may not work');
+        console.warn('⚠️ Africastalking WebRTC typically requires HTTPS');
       }
       
       console.log('Environment check:', {
         protocol: location.protocol,
         hostname: location.hostname,
+        isHttps: isHttps,
+        isLocalhost: isLocalhost,
         hasAfricastalking: !!window.Africastalking,
-        hasMediaDevices: !!navigator.mediaDevices
+        hasMediaDevices: !!navigator.mediaDevices,
+        warning: !isHttps && isLocalhost ? 'HTTP on localhost may cause WebSocket failures' : 'OK'
       });
       
       try {
         this.loading = true;
         // Store the number for retry
         this.lastDialedNumber = this.dialedNumber;
-        // Force a fresh client each call to avoid using a closed WebSocket
-        this.client = null;
         this.tabValue = 'inCall';
         
-        // Wait for client to connect (this is critical!)
-        console.log('Initializing WebRTC client and waiting for connection...');
+        // Initialize WebRTC client and wait for it to be ready
+        console.log('Initializing WebRTC client...');
         const client = await this.initializeClientWithToken();
-        console.log('Client connected, preparing to make call...');
+        console.log('Client initialized and ready, preparing to make call...');
+        console.log('Client state:', {
+          initDone: client.initDone,
+          hasCall: typeof client.call === 'function'
+        });
         
         // Format the number
         const formatted = this.formatNumber(this.dialedNumber);
         console.log('Calling number:', formatted);
         
-        // Set up event listeners BEFORE making the call
-        client.on('error', (e) => {
-          console.error('Call error:', e);
-          this.isInCall = false;
-          this.tabValue = 'keypad';
-          this.loading = false;
+        // Set up call-specific event listeners BEFORE making the call
+        // This ensures we catch all call events
+        
+        // Track connection status
+        let connectionEstablished = false;
+        let callRinging = false;
+        let callEstablished = false;
+        
+        // Monitor connection events
+        client.on('connecting', () => {
+          console.log('🔄 WebSocket: Connecting...');
+        });
+        
+        client.on('connected', () => {
+          console.log('✅ WebSocket: Connected successfully!');
+          connectionEstablished = true;
+        });
+        
+        client.on('ringing', () => {
+          console.log('📞 Call is ringing - recipient phone is ringing!');
+          console.log('✅ SUCCESS: Call reached the recipient despite any library errors!');
+          callRinging = true;
+          // This event means the call reached the recipient's phone
         });
         
         client.on('callfailed', (e) => {
-          console.error('Call failed:', e);
+          console.error('❌ Call failed:', e);
           const errorMsg = e?.message || e?.error || 'Unknown error';
           this.showCallError(new Error(`Call failed: ${errorMsg}`));
           this.isInCall = false;
@@ -606,7 +779,8 @@ export default {
         });
         
         client.on('callestablished', () => {
-          console.log('✅ Call established successfully! Connection is live.');
+          console.log('✅ Call established successfully! Connection is live - recipient answered!');
+          callEstablished = true;
           this.isInCall = true;
           this.loading = false;
           this.isMuted = false;
@@ -619,7 +793,7 @@ export default {
         });
         
         client.on('callended', () => {
-          console.log('Call ended');
+          console.log('📴 Call ended');
           this.isInCall = false;
           this.tabValue = 'keypad';
           this.loading = false;
@@ -627,9 +801,167 @@ export default {
           this.stopCallTimer();
         });
         
-        // NOW make the call - client is guaranteed to be connected
+        // Request microphone permission before making the call (non-blocking)
+        // This ensures audio is ready when the call connects
+        // Note: This is optional - the call will work without it, just won't be able to speak
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+          console.log('Requesting microphone permission...');
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            console.log('✅ Microphone permission granted');
+            // Store the stream for later use
+            this.localStream = stream;
+            // Stop the stream temporarily - will be used when call is established
+            stream.getTracks().forEach(track => track.stop());
+          } catch (micError) {
+            // Handle different error types
+            if (micError.name === 'NotFoundError' || micError.name === 'DevicesNotFoundError') {
+              console.warn('⚠️ No microphone device found. Call will work but you won\'t be able to speak.');
+            } else if (micError.name === 'NotAllowedError' || micError.name === 'PermissionDeniedError') {
+              console.warn('⚠️ Microphone permission denied. Call will work but you won\'t be able to speak.');
+            } else {
+              console.warn('⚠️ Microphone access error:', micError.name, micError.message);
+            }
+            // Continue anyway - user can still make call but won't be able to speak
+            // The call will work for listening, just not speaking
+          }
+        } else {
+          console.warn('⚠️ getUserMedia not available. Audio may not work properly.');
+        }
+        
+        // Make the call - Africastalking client connects when call() is invoked
         console.log('Initiating call to:', formatted);
-        client.call(formatted);
+        console.log('Client state before call:', {
+          initDone: client.initDone,
+          hasCall: typeof client.call === 'function',
+          clientType: typeof client
+        });
+        
+        // Brief wait to ensure client is ready
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        try {
+          if (typeof client.call !== 'function') {
+            throw new Error('Client does not have a call method');
+          }
+          
+          // Make the call - this will:
+          // 1. Establish WebSocket connection (if not already connected)
+          // 2. Send call request to Africastalking servers
+          // 3. Start ICE negotiation
+          // WebSocket errors during this process are often non-fatal
+          // Note: The library may throw internal errors (like "Cannot read properties of undefined")
+          // These are often non-fatal and the call may still proceed
+          console.log('📞 Invoking call() - this will establish WebSocket connection and send call request...');
+          
+          try {
+            client.call(formatted);
+            console.log('✅ call() invoked successfully');
+            console.log('ℹ️ WebSocket connection is being established now...');
+            console.log('ℹ️ If you see library errors, they may be non-fatal - monitor for call events');
+          } catch (callInvokeError) {
+            const errorMsg = callInvokeError.message || callInvokeError.toString();
+            console.error('❌ Error invoking call():', callInvokeError);
+            
+            // Check if it's the library's internal error
+            if (errorMsg.includes('Cannot read properties') || errorMsg.includes('code')) {
+              console.warn('⚠️ This is an Africastalking library internal error');
+              console.warn('⚠️ It may be non-fatal - the call might still work');
+              console.warn('⚠️ Check for "ringing" or "callestablished" events');
+              // Don't throw - let the call proceed and see if events fire
+            } else {
+              throw callInvokeError;
+            }
+          }
+          
+          // Give the call time to:
+          // 1. Reach Africastalking servers
+          // 2. Start ringing the recipient
+          // 3. Establish connection if answered
+          console.log('⏳ Waiting for call to connect (this may take 10-30 seconds)...');
+          await new Promise(resolve => setTimeout(resolve, 3000));
+          
+          // Check if call was established or if we got a ringing event
+          console.log('Call status after initiation:', {
+            isInCall: this.isInCall,
+            clientExists: !!this.client,
+            loading: this.loading
+          });
+          
+          // Monitor call progress - if no connection after 15 seconds, show detailed error
+          setTimeout(() => {
+            if (!callRinging && !callEstablished && !connectionEstablished && this.loading) {
+              console.error('❌ CALL FAILED: WebSocket did not connect and call did not reach recipient');
+              console.error('❌ Connection Status:', {
+                webSocketConnected: connectionEstablished,
+                callRinging: callRinging,
+                callEstablished: callEstablished,
+                isInCall: this.isInCall
+              });
+              
+              // Show user-friendly error dialog
+              this.showCallError(new Error(
+                'Call failed: The call did not reach the recipient. ' +
+                'WebSocket connection could not be established or the call was not completed.'
+              ));
+              this.isInCall = false;
+              this.tabValue = 'keypad';
+              this.loading = false;
+            } else if (!callRinging && !callEstablished && connectionEstablished) {
+              // WebSocket connected but call not ringing - wait a bit more
+              console.warn('⚠️ WebSocket connected but call not ringing yet...');
+              console.warn('⚠️ Waiting a bit longer...');
+              
+              // Give it 10 more seconds
+              setTimeout(() => {
+                if (!callRinging && !callEstablished && this.loading) {
+                  console.error('❌ CALL FAILED: Call did not reach recipient');
+                  this.showCallError(new Error(
+                    'Call failed: The call did not reach the recipient. ' +
+                    'The recipient phone may be off, unreachable, or the number may be incorrect.'
+                  ));
+                  this.isInCall = false;
+                  this.tabValue = 'keypad';
+                  this.loading = false;
+                }
+              }, 10000);
+            }
+          }, 15000);
+          
+        } catch (callError) {
+          console.error('❌ Error initiating call:', callError);
+          // Check if it's a WebSocket error - might be recoverable
+          const errorMsg = callError.message || callError.toString();
+          if (errorMsg.includes('WebSocket') && errorMsg.includes('CLOSED')) {
+            // Try once more with a fresh client
+            console.log('🔄 WebSocket error detected, retrying with fresh client...');
+            this.client = null;
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            const retryClient = await this.initializeClientWithToken();
+            
+            // Set up event listeners again for retry
+            retryClient.on('ringing', () => {
+              console.log('📞 Call is ringing (retry) - recipient phone is ringing!');
+            });
+            retryClient.on('callestablished', () => {
+              console.log('✅ Call established (retry)!');
+              this.isInCall = true;
+              this.loading = false;
+            });
+            retryClient.on('callfailed', (e) => {
+              console.error('❌ Call failed (retry):', e);
+              this.showCallError(new Error(`Call failed: ${e?.message || 'Unknown error'}`));
+              this.isInCall = false;
+              this.tabValue = 'keypad';
+              this.loading = false;
+            });
+            
+            retryClient.call(formatted);
+            console.log('✅ Retry call initiated');
+          } else {
+            throw new Error(`Failed to initiate call: ${errorMsg}`);
+          }
+        }
         this.isInCall = true; // Set optimistically
         const newCall = {
           contactName: this.dialedNumber,
@@ -650,52 +982,49 @@ export default {
     },
     showCallError(err) {
       const errorMsg = err.message || err.response?.data?.message || 'Failed to place the call.';
-      const isLocalhost = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-      const isHttps = location.protocol === 'https:';
       
       // Determine error type and provide appropriate message
-      if (errorMsg.includes('timeout') || errorMsg.includes('no connecting event')) {
-        this.errorTitle = 'Connection Timeout - Localhost Limitation';
-        this.errorMessage = isLocalhost 
-          ? '⚠️ WebRTC calls typically DO NOT work on localhost. This is expected behavior.'
-          : 'The WebRTC service could not be reached.';
+      if (errorMsg.includes('timeout') || errorMsg.includes('no connecting event') || errorMsg.includes('WebSocket connection could not be established')) {
+        this.errorTitle = 'Call Failed - Connection Timeout';
+        this.errorMessage = 'The call did not reach the recipient. WebSocket connection could not be established.';
         this.errorDetails = [
-          'The Africastalking WebRTC client did not connect within 20 seconds.',
-          isLocalhost 
-            ? '⚠️ IMPORTANT: You are running on localhost. Africastalking WebRTC services are typically blocked from localhost due to network security restrictions.'
-            : 'Network connection may be blocked.',
-          `Protocol: ${location.protocol}`,
-          `Hostname: ${location.hostname}`,
-          isLocalhost ? 'This is a known limitation - WebRTC requires a public-facing server.' : ''
+          'The Africastalking WebRTC client did not connect within the expected time.',
+          'The call request may not have reached the Africastalking servers.',
+          'Network connection may be blocked or unstable.'
         ];
         this.errorSolutions = [
-          isLocalhost 
-            ? '✅ SOLUTION: Deploy your application to a production server with HTTPS (e.g., Vercel, Netlify, AWS, or your own server).'
-            : 'Check your internet connection and firewall settings.',
-          isLocalhost
-            ? 'Alternative: Use a tunneling service like ngrok to expose localhost (https://ngrok.com) - but production deployment is recommended.'
-            : '',
-          isHttps 
-            ? '' 
-            : 'WebRTC typically requires HTTPS. Consider using HTTPS or deploying to production.',
-          isLocalhost
-            ? 'Note: Once deployed to production with HTTPS, calls should work normally.'
-            : 'Verify that Africastalking service is accessible from your network.',
-          'Check browser console (F12) for detailed error messages and debugging info.'
+          'Check your internet connection and try again.',
+          'Verify firewall settings are not blocking WebRTC connections.',
+          'Check if Africastalking service is accessible from your network.',
+          'Verify your Africastalking account configuration and API credentials.',
+          'Check browser console (F12) for detailed error messages.'
         ];
-        this.canRetry = false; // Don't allow retry on localhost - it won't work
+        this.canRetry = true;
       } else if (errorMsg.includes('connection failed') || errorMsg.includes('unreachable')) {
         this.errorTitle = 'Connection Failed';
         this.errorMessage = 'Unable to connect to the WebRTC service.';
         this.errorDetails = [
-          errorMsg,
-          isLocalhost ? 'Running on localhost may cause connection issues.' : ''
+          errorMsg
         ];
         this.errorSolutions = [
           'Check your network connection.',
-          isLocalhost ? 'Consider testing on a deployed server instead of localhost.' : '',
           'Verify firewall settings are not blocking WebRTC connections.',
-          'Check if Africastalking service is accessible.'
+          'Check if Africastalking service is accessible.',
+          'Try again in a few moments.'
+        ];
+        this.canRetry = true;
+      } else if (errorMsg.includes('did not reach the recipient')) {
+        this.errorTitle = 'Call Failed - Recipient Not Reached';
+        this.errorMessage = errorMsg;
+        this.errorDetails = [
+          'The call was initiated but did not reach the recipient.',
+          'Possible reasons: recipient phone is off, unreachable, or number is incorrect.'
+        ];
+        this.errorSolutions = [
+          'Verify the phone number is correct and includes country code (e.g., +254...).',
+          'Check if the recipient phone is turned on and has network coverage.',
+          'Try calling again in a few moments.',
+          'If the problem persists, contact support.'
         ];
         this.canRetry = true;
       } else {

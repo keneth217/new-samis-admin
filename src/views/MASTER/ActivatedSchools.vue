@@ -397,24 +397,36 @@ export default {
     exportToExcel() {
       // Export currently filtered rows (ignores pagination) as CSV
       const headers = [
+        'Activation ID',
         'School Name',
         'School Code',
         'Module Name',
         'Installation Date',
         'Expiry Date',
         'Registered By',
+        'Marketer Name',
         'Selling Price',
         'Maintenance Fee',
+        'Last Login',
+        'Students',
+        'Receipts',
+        'Vouchers',
       ];
       const rows = this.filteredSchools.map(school => ([
-        school.schoolName,
-        school.schoolCode,
-        school.moduleName,
-        school.installationDate,
-        school.expiryDate,
-        school.registeredByName,
-        school.sellingPrice,
-        school.maintenanceFee,
+        school.activationID || 'N/A',
+        school.schoolName || 'N/A',
+        school.schoolCode || 'N/A',
+        school.moduleName || 'N/A',
+        school.installationDate || 'N/A',
+        school.expiryDate || 'N/A',
+        school.registeredByName || 'N/A',
+        school.marketerName || 'N/A',
+        school.sellingPrice || 0,
+        school.maintenanceFee || 0,
+        school.lastLogin || 'N/A',
+        school.students || 'N/A',
+        school.receipts || 'N/A',
+        school.vouchers || 'N/A',
       ]));
 
       const csvContent = [headers, ...rows]

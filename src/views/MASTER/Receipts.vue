@@ -597,6 +597,7 @@ export default {
     },
     exportToExcel() {
       const headers = [
+        'Receipt ID',
         'Receipt No',
         'School Code',
         'Receipt Date',
@@ -604,15 +605,20 @@ export default {
         'Payment Mode',
         'Reference',
         'Status',
+        'Reversed',
+        'Reversal Reason',
       ];
       const rows = this.filteredReceipts.map((r) => [
-        r.receiptNo,
-        r.schoolCode,
-        r.receiptDate,
-        r.amount,
-        r.paymentMode,
+        r.receiptID || r.receiptNo || '',
+        r.receiptNo || '',
+        r.schoolCode || '',
+        r.receiptDate || '',
+        r.amount || 0,
+        r.paymentMode || '',
         r.paymentModeNo || '',
-        r.status || '',
+        r.status || 'Paid',
+        r.deleted ? 'Yes' : 'No',
+        r.deleteReason || '',
       ]);
 
       const csvContent = [headers, ...rows]

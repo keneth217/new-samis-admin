@@ -46,7 +46,7 @@
             <th>Principal Contact</th>
             <th>Phone No</th>
             <th>County</th>
-            <th>Registered by</th>
+            <th>Registered On</th>
             <th>Status</th>
             <th class="actions-header">Actions</th>
           </tr>
@@ -62,7 +62,7 @@
             <td>{{ school.principalPhoneNo }}</td>
             <td>{{ school.phoneNo || 'N/A' }}</td>
             <td>{{ school.county }}</td>
-            <td>{{ school.registeredByName || 'N/A' }}</td>
+            <td>{{ school.registeredOn || 'N/A' }}</td>
             <td :class="{ 'text-success': !school.deleted, 'text-danger': school.deleted }">
               {{ school.deleted ? 'DELETED' : 'ACTIVE' }}
             </td>
@@ -112,8 +112,8 @@
             </div>
             
             <div class="card-row">
-              <span class="card-label">Registered By:</span>
-              <span class="card-value">{{ school.registeredByName || 'N/A' }}</span>
+              <span class="card-label">Registered On:</span>
+              <span class="card-value">{{ school.registeredOn || 'N/A' }}</span>
             </div>
             
             <div class="card-row">
@@ -347,6 +347,32 @@ export default {
       this.selectedSchool = school;
       this.show = true;
     },
+    formatDateForExcel(dateValue) {
+      if (!dateValue || dateValue === 'N/A' || dateValue === '') {
+        return '';
+      }
+      
+      // Try to parse the date
+      let date;
+      if (dateValue instanceof Date) {
+        date = dateValue;
+      } else if (typeof dateValue === 'string') {
+        date = new Date(dateValue);
+      } else {
+        return dateValue.toString();
+      }
+      
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        return dateValue.toString();
+      }
+      
+      // Format as YYYY-MM-DD for Excel (Excel recognizes this format)
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    },
     exportToExcel() {
       // Export currently filtered rows (ignores pagination) as CSV
       const headers = [
@@ -357,7 +383,6 @@ export default {
         'Email',
         'County',
         'Subcounty',
-        'Registered By',
         'Registered On',
         'Students',
         'Phone',
@@ -365,18 +390,17 @@ export default {
         'Status',
       ];
       const rows = this.filteredSchools.map((school) => [
-        school.schoolName,
-        school.schoolCode,
-        school.principalName,
-        school.principalPhoneNo,
-        school.email,
-        school.county,
-        school.subcounty,
-        school.registeredByName,
-        school.registeredOn,
-        school.students,
-        school.phoneNo,
-        school.address,
+        school.schoolName || '',
+        school.schoolCode || '',
+        school.principalName || '',
+        school.principalPhoneNo || '',
+        school.email || '',
+        school.county || '',
+        school.subcounty || '',
+        this.formatDateForExcel(school.registeredOn),
+        school.students || '',
+        school.phoneNo || '',
+        school.address || '',
         school.deleted ? 'DELETED' : 'ACTIVE',
       ]);
 
