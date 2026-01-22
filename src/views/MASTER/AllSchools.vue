@@ -263,6 +263,58 @@
             />
             <label for="activationSellingPrice" :class="{ filled: activationData.sellingPrice !== '' && activationData.sellingPrice !== null }">Selling Price</label>
           </div>
+
+          <div class="activation-form-group">
+            <input 
+              v-model="activationData.marketerID" 
+              type="number" 
+              id="activationMarketerID" 
+              class="activation-form-control"
+              placeholder="Marketer ID"
+              required
+            />
+            <label for="activationMarketerID" :class="{ filled: activationData.marketerID !== '' && activationData.marketerID !== null }">Marketer ID*</label>
+          </div>
+
+          <div class="activation-form-group">
+            <input 
+              v-model="activationData.handledByID" 
+              type="number" 
+              id="activationHandledByID" 
+              class="activation-form-control"
+              placeholder="Handled By ID"
+              required
+            />
+            <label for="activationHandledByID" :class="{ filled: activationData.handledByID !== '' && activationData.handledByID !== null }">Handled By ID*</label>
+          </div>
+
+          <div class="activation-form-group">
+            <select 
+              id="activationRegisteredBySelect"
+              v-model="activationData.registeredByID"
+              class="activation-form-control"
+            >
+              <option value="">Select Registered By (Optional)</option>
+              <option 
+                v-for="user in users" 
+                :key="user.id" 
+                :value="user.id"
+              >
+                {{ user.fullname || user.username }}
+              </option>
+            </select>
+            <label for="activationRegisteredBySelect" :class="{ filled: activationData.registeredByID !== '' && activationData.registeredByID !== null }">Select Registered By (Optional)</label>
+          </div>
+
+          <div class="activation-form-group">
+            <input 
+              v-model="activationData.installationDate" 
+              type="date" 
+              id="activationInstallationDate" 
+              class="activation-form-control"
+            />
+            <label for="activationInstallationDate" :class="{ filled: activationData.installationDate !== '' }">Installation Date (Optional)</label>
+          </div>
         </div>
         <hr />
         <div class="activation-form-actions">
@@ -316,10 +368,14 @@ export default {
       users: [], // Store users list for mapping registeredByID to names
       activationData: {
         schoolCode: "",
-        moduleName: [], // This will hold selected module(s)
+        moduleName: "", // Selected module name
         expiryDate: "",
         maintenanceFee: "",
         sellingPrice: "",
+        marketerID: "",
+        handledByID: "",
+        registeredByID: "", // Optional
+        installationDate: "", // Optional
       },
     };
   },
@@ -684,45 +740,79 @@ export default {
       }
     },
 
-    openActivationModal(school) {
-  console.log("Modal opened for school:", school.schoolCode); // Check if the modal is opened correctly
-  this.activationData.schoolCode = school.schoolCode; // Set the school code
-  this.showActivationModal = true;
-  this.fetchModules(); // Fetch modules when the modal opens
-},
+    async openActivationModal(school) {
+      console.log("Modal opened for school:", school.schoolCode);
+      this.activationData.schoolCode = school.schoolCode; // Set the school code
+      this.showActivationModal = true;
+      // Fetch modules and users when the modal opens
+      this.fetchModules();
+      // Fetch users if not already fetched
+      if (this.users.length === 0) {
+        await this.fetchUsers();
+      }
+    },
 
     closeActivationModal() {
       this.showActivationModal = false;
       this.activationData = {
         schoolCode: "",
-        moduleName: [], // Reset the module selection array
+        moduleName: "", // Reset the module selection
         expiryDate: "",
         maintenanceFee: "",
         sellingPrice: "",
+        marketerID: "",
+        handledByID: "",
+        registeredByID: "",
+        installationDate: "",
       };
     },
     async submitActivation() {
-  const toast = useToast();
-  this.Loading = true;
+      const toast = useToast();
+      this.Loading = true;
 
-  // Ensure the key fields are filled before proceeding
-  if (!this.activationData.moduleName || !this.activationData.expiryDate) {
-    toast.error("Please select a module and expiry date.");
-    this.Loading = false;
-    return;
-  }
+      // Ensure the key fields are filled before proceeding
+      if (!this.activationData.moduleName || !this.activationData.expiryDate) {
+        toast.error("Please select a module and expiry date.");
+        this.Loading = false;
+        return;
+      }
 
-  try {
-    console.log('Submitting activation data:', this.activationData); // Log the data for debugging
+      // Validate mandatory fields: marketerID and handledByID must be valid numbers
+      if (!this.activationData.marketerID || isNaN(parseInt(this.activationData.marketerID))) {
+        toast.error("Please enter a valid Marketer ID.");
+        this.Loading = false;
+        return;
+      }
 
-    const config = {
-      headers: {
-        'Content-Type': 'application/json', // Ensure the content type is set correctly
-      },
-    };
+      if (!this.activationData.handledByID || isNaN(parseInt(this.activationData.handledByID))) {
+        toast.error("Please enter a valid Handled By ID.");
+        this.Loading = false;
+        return;
+      }
 
-    // Instead of 'payload', use 'this.activationData'
-    const response = await axios.post('/activations/activate', this.activationData, config);
+      try {
+        console.log('Submitting activation data:', this.activationData);
+
+        const config = {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        };
+
+        // Prepare payload matching API structure exactly
+        const payload = {
+          schoolCode: this.activationData.schoolCode,
+          moduleName: this.activationData.moduleName,
+          expiryDate: this.activationData.expiryDate,
+          maintenanceFee: this.activationData.maintenanceFee ? parseFloat(this.activationData.maintenanceFee) : null,
+          sellingPrice: this.activationData.sellingPrice ? parseFloat(this.activationData.sellingPrice) : null,
+          marketerID: this.activationData.marketerID ? parseInt(this.activationData.marketerID) : null,
+          handledByID: this.activationData.handledByID ? parseInt(this.activationData.handledByID) : null,
+          registeredByID: this.activationData.registeredByID ? parseInt(this.activationData.registeredByID) : null,
+          installationDate: this.activationData.installationDate || null,
+        };
+
+        const response = await axios.post('/activations/activate', payload, config);
 
     if (response.data) {
       toast.success("Module activated successfully!");

@@ -38,6 +38,7 @@
             <th>Installation Date</th>
             <th>Expiry Date</th>
             <th>Registered By</th>
+            <th>Handled By</th>
             <th>Selling Price</th>
             <th>Maintenance Fee</th>
             <th class="actions-header">Actions</th>
@@ -45,7 +46,7 @@
         </thead>
         <tbody>
           <tr v-if="filteredSchools.length === 0">
-            <td colspan="10">No schools found</td>
+            <td colspan="11">No schools found</td>
           </tr>
           <tr v-for="(school, index) in paginatedSchools" 
               :key="`${school.schoolCode}-${school.moduleName}-${school.activationID}-${index}`" 
@@ -57,6 +58,7 @@
             <td>{{ school.installationDate }}</td>
             <td>{{ school.expiryDate }}</td>
             <td>{{ school.registeredByName }}</td>
+            <td>{{ school.handledByName || 'N/A' }}</td>
             <td>{{ school.sellingPrice }}</td>
             <td>{{ school.maintenanceFee }}</td>
             <td class="actions">
@@ -103,6 +105,11 @@
             </div>
             
             <div class="card-row">
+              <span class="card-label">Handled By:</span>
+              <span class="card-value">{{ school.handledByName || 'N/A' }}</span>
+            </div>
+            
+            <div class="card-row">
               <span class="card-label">Selling Price:</span>
               <span class="card-value">{{ school.sellingPrice }}</span>
             </div>
@@ -133,27 +140,124 @@
     </div>
 
     <!-- Activation Modal -->
-    <div v-if="showActivationModal" class="modal-overlay">
-      <div class="modal-content">
-        <h3>Activate New Module</h3>
+    <div v-if="showActivationModal" class="activation-form-wrap">
+      <div class="activation-form-content">
+        <div class="activation-cancel" @click="closeActivationModal">
+          <i class="fas fa-times"></i>
+        </div>
+        <div class="activation-form-title">
+          <h2>Activate New Module</h2>
+        </div>
+        <hr />
         <form @submit.prevent="submitActivation">
-          <label for="schoolCode">School Code:</label>
-          <input v-model="activationData.schoolCode" id="schoolCode" disabled />
+          <div class="activation-form-inputs">
+            <div class="activation-form-group">
+              <input 
+                type="text" 
+                class="activation-form-control" 
+                v-model="activationData.schoolCode" 
+                id="activationSchoolCode" 
+                placeholder="School Code"
+                disabled 
+              />
+              <label for="activationSchoolCode" :class="{ filled: activationData.schoolCode !== '' }">School Code</label>
+            </div>
 
-          <label for="moduleName">Module Name:</label>
-          <input v-model="activationData.moduleName" id="moduleName" required />
+            <div class="activation-form-group">
+              <select 
+                id="activationModuleSelect"
+                v-model="activationData.moduleName"
+                class="activation-form-control"
+                required
+              >
+                <option value="" disabled>Select Module*</option>
+                <option 
+                  v-for="module in modules" 
+                  :key="module.id" 
+                  :value="module.name"
+                >
+                  {{ module.name }}
+                </option>
+              </select>
+              <label for="activationModuleSelect" :class="{ filled: activationData.moduleName !== '' && activationData.moduleName !== null }">Select Module*</label>
+            </div>
 
-          <label for="expiryDate">Expiry Date:</label>
-          <input v-model="activationData.expiryDate" type="date" id="expiryDate" required />
+            <div class="activation-form-group">
+              <input 
+                v-model="activationData.expiryDate" 
+                type="date" 
+                id="activationExpiryDate" 
+                class="activation-form-control"
+                required 
+              />
+              <label for="activationExpiryDate" :class="{ filled: activationData.expiryDate !== '' }">Expiry Date*</label>
+            </div>
 
-          <label for="maintenanceFee">Maintenance Fee:</label>
-          <input v-model="activationData.maintenanceFee" type="number" id="maintenanceFee" required />
+            <div class="activation-form-group">
+              <input 
+                v-model="activationData.maintenanceFee" 
+                type="number" 
+                id="activationMaintenanceFee" 
+                class="activation-form-control"
+                placeholder="Maintenance Fee"
+              />
+              <label for="activationMaintenanceFee" :class="{ filled: activationData.maintenanceFee !== '' && activationData.maintenanceFee !== null }">Maintenance Fee</label>
+            </div>
 
-          <label for="sellingPrice">Selling Price:</label>
-          <input v-model="activationData.sellingPrice" type="number" id="sellingPrice" required />
+            <div class="activation-form-group">
+              <input 
+                v-model="activationData.sellingPrice" 
+                type="number" 
+                id="activationSellingPrice" 
+                class="activation-form-control"
+                placeholder="Selling Price"
+              />
+              <label for="activationSellingPrice" :class="{ filled: activationData.sellingPrice !== '' && activationData.sellingPrice !== null }">Selling Price</label>
+            </div>
 
-          <button type="submit" class="submit-btn">Activate</button>
-          <button @click="closeActivationModal" class="cancel-btn">Cancel</button>
+            <div class="activation-form-group">
+              <select 
+                id="activationMarketerSelect"
+                v-model="activationData.marketerID"
+                class="activation-form-control"
+                required
+              >
+                <option value="" disabled>Select Marketer*</option>
+                <option 
+                  v-for="user in users" 
+                  :key="user.id" 
+                  :value="user.id"
+                >
+                  {{ user.fullname || user.username }}
+                </option>
+              </select>
+              <label for="activationMarketerSelect" :class="{ filled: activationData.marketerID !== '' && activationData.marketerID !== null }">Select Marketer*</label>
+            </div>
+
+            <div class="activation-form-group">
+              <select 
+                id="activationHandledBySelect"
+                v-model="activationData.handledByID"
+                class="activation-form-control"
+                required
+              >
+                <option value="" disabled>Select Handled By*</option>
+                <option 
+                  v-for="user in users" 
+                  :key="user.id" 
+                  :value="user.id"
+                >
+                  {{ user.fullname || user.username }}
+                </option>
+              </select>
+              <label for="activationHandledBySelect" :class="{ filled: activationData.handledByID !== '' && activationData.handledByID !== null }">Select Handled By*</label>
+            </div>
+          </div>
+          <hr />
+          <div class="activation-form-actions">
+            <button type="button" @click="closeActivationModal">Close</button>
+            <button type="submit">Activate</button>
+          </div>
         </form>
       </div>
     </div>
@@ -200,12 +304,16 @@ export default {
       schoolsPerPageOptions: [5, 15, 30, 50, 75, 100],
 
       showActivationModal: false,
+      modules: [], // Store modules list
+      users: [], // Store users list for marketer and handledBy
       activationData: {
         schoolCode: "",
         moduleName: "",
         expiryDate: "",
         maintenanceFee: "",
         sellingPrice: "",
+        marketerID: "",
+        handledByID: "",
       },
     };
   },
@@ -404,6 +512,7 @@ export default {
         'Installation Date',
         'Expiry Date',
         'Registered By',
+        'Handled By',
         'Marketer Name',
         'Selling Price',
         'Maintenance Fee',
@@ -420,6 +529,7 @@ export default {
         school.installationDate || 'N/A',
         school.expiryDate || 'N/A',
         school.registeredByName || 'N/A',
+        school.handledByName || 'N/A',
         school.marketerName || 'N/A',
         school.sellingPrice || 0,
         school.maintenanceFee || 0,
@@ -485,6 +595,7 @@ export default {
         installationDate: school.installationDate || 'N/A',
         expiryDate: school.expiryDate || 'N/A',
         registeredByName: school.registeredByName || 'N/A',
+        handledByName: school.handledByName || 'N/A',
         marketerName: school.marketerName || 'N/A',
         sellingPrice: school.sellingPrice || 0,
         maintenanceFee: school.maintenanceFee || 0,
@@ -534,10 +645,48 @@ export default {
   }
 },
 
-    openActivationModal(school) {
+    async fetchModules() {
+      try {
+        const response = await axios.post('/modules/list');
+        console.log("Fetched Modules:", response.data);
+
+        // Map over the response to get the module names
+        this.modules = response.data.map(module => ({
+          id: module.moduleID,
+          name: module.moduleName
+        }));
+      } catch (error) {
+        console.error('Error fetching modules:', error);
+        this.toast.error('Failed to fetch modules.');
+      }
+    },
+
+    async fetchUsers() {
+      try {
+        const response = await axios.post('/auth/list_users', {});
+        console.log('Users API Response:', response.data);
+        
+        // Map users for dropdown
+        this.users = response.data.map(user => ({
+          id: user.userID,
+          fullname: user.fullname || '',
+          username: user.username || '',
+        }));
+        
+        console.log('Mapped users:', this.users);
+      } catch (error) {
+        console.error('Error fetching users:', error);
+        this.toast.error('Failed to fetch users.');
+      }
+    },
+
+    async openActivationModal(school) {
       this.activationData.schoolCode = school.schoolCode; // Set the school code
       this.showActivationModal = true;
-      console.log("Modal opened for school:", school.schoolCode); // Debugging
+      // Fetch modules and users when modal opens
+      await this.fetchModules();
+      await this.fetchUsers();
+      console.log("Modal opened for school:", school.schoolCode);
     },
 
     closeActivationModal() {
@@ -548,53 +697,71 @@ export default {
         expiryDate: "",
         maintenanceFee: "",
         sellingPrice: "",
+        marketerID: "",
+        handledByID: "",
       }; // Reset form
     },
     async submitActivation() {
-  const toast = useToast();
-  this.Loading = true;
+      const toast = useToast();
+      this.Loading = true;
 
-  // Ensure all fields are filled before proceeding
-  if (!this.activationData.moduleName || !this.activationData.expiryDate || !this.activationData.maintenanceFee || !this.activationData.sellingPrice) {
-    toast.error("All fields are required.");
-    this.Loading = false;
-    return;
-  }
+      // Validate required fields
+      if (!this.activationData.moduleName || !this.activationData.expiryDate) {
+        toast.error("Please select a module and expiry date.");
+        this.Loading = false;
+        return;
+      }
 
-  try {
-    console.log('Submitting activation data:', this.activationData); // Log the data for debuggingI WNAT THE MODULES OF ACTIVATED UNDER THE SAME SCHOOL CODE TO BE ONTHE SAME COLOMNAND ALSO WANT THE BORADERS ONTHE TABLE TO HAVETHE RAWS
+      // Validate mandatory fields: marketerID and handledByID
+      if (!this.activationData.marketerID || !this.activationData.handledByID) {
+        toast.error("Marketer and Handled By are required fields.");
+        this.Loading = false;
+        return;
+      }
 
-    const config = {
-      headers: {
-        'Content-Type': 'application/json', // Ensure the content type is set correctly
-      },
-    };
+      try {
+        console.log('Submitting activation data:', this.activationData);
 
-    // Instead of 'payload', use 'this.activationData'
-    const response = await axios.post('/activations/activate', this.activationData, config);
+        const config = {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        };
 
-    if (response.data) {
-      toast.success("Module activated successfully!");
-      this.fetchSchools(); // Refresh the list of schools
-      this.closeActivationModal(); // Close the modal
-    } else {
-      toast.error("Failed to activate module.");
-    }
-  } catch (error) {
-    console.error("Activation error:", error);
+        // Prepare payload with proper field names
+        const payload = {
+          schoolCode: this.activationData.schoolCode,
+          moduleName: this.activationData.moduleName,
+          expiryDate: this.activationData.expiryDate,
+          maintenanceFee: this.activationData.maintenanceFee || null,
+          sellingPrice: this.activationData.sellingPrice || null,
+          marketerID: this.activationData.marketerID,
+          handledByID: this.activationData.handledByID,
+        };
 
-    if (error.response) {
-      console.error("Backend error:", error.response.data);  // Log backend error details
-      toast.error(`Error: ${error.response.data.message || 'An error occurred'}`);
+        const response = await axios.post('/activations/activate', payload, config);
 
-    } else {
-      console.error("Network error:", error.message);
-      toast.error("Network error: Unable to reach the backend.");
-    }
-  } finally {
-    this.Loading = false;
-  }
-},
+        if (response.data) {
+          toast.success("Module activated successfully!");
+          this.fetchSchools(); // Refresh the list of schools
+          this.closeActivationModal(); // Close the modal
+        } else {
+          toast.error("Failed to activate module.");
+        }
+      } catch (error) {
+        console.error("Activation error:", error);
+
+        if (error.response) {
+          console.error("Backend error:", error.response.data);
+          toast.error(`Error: ${error.response.data.message || 'An error occurred'}`);
+        } else {
+          console.error("Network error:", error.message);
+          toast.error("Network error: Unable to reach the backend.");
+        }
+      } finally {
+        this.Loading = false;
+      }
+    },
   },
   mounted() {
     this.fetchSchools();
@@ -603,61 +770,241 @@ export default {
 </script>  
 <style scoped>
 
-.modal-overlay {
+/* Activation Form Styles - match "Add Module" modal look */
+.activation-form-wrap {
+  background-color: rgba(17, 167, 167, 0.5);
+  width: 100%;
+  height: 100%;
   position: fixed;
   top: 0;
   left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 1001;
   display: flex;
-  justify-content: center;
   align-items: center;
-  z-index: 1000;
+  justify-content: center;
 }
 
-.modal-content {
-  background-color: white;
-  padding: 2rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+.activation-form-content {
+  background-color: #4368b9;
+  border-radius: 5px;
+  padding: 20px;
+  box-shadow: 0px 0px 5px gold;
   width: 90%;
   max-width: 500px;
+  max-height: 90%;
+  overflow-y: auto;
+  position: relative;
 }
 
-.modal-content h3 {
-  margin-bottom: 1rem;
-}
-
-.modal-content label {
-  display: block;
-  margin-bottom: 0.5rem;
-}
-
-.modal-content input {
-  width: 100%;
-  padding: 0.5rem;
-  margin-bottom: 1rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-}
-
-.submit-btn, .cancel-btn {
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 4px;
+.activation-cancel {
+  position: absolute;
+  top: 10px;
+  right: 10px;
   cursor: pointer;
+  color: gold;
+  font-size: 1.3rem;
 }
 
-.submit-btn {
-  background-color: #2b7ab7;
+.activation-form-title {
+  color: gold;
+  text-align: center;
+}
+
+.activation-form-title h2 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.activation-form-inputs {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  padding-top: 10px;
+}
+
+.activation-form-group {
+  position: relative;
+  grid-column: span 1;
+}
+
+.activation-form-group:first-child {
+  grid-column: span 2;
+}
+
+.activation-form-control {
+  border: 1px solid gold;
+  outline: none;
+  padding: 0.3rem;
+  border-radius: 4px;
+  font-size: 1rem;
+  width: 100%;
+  box-sizing: border-box;
+  background-color: #4368b9;
   color: white;
-  margin-right: 0.5rem;
 }
 
-.cancel-btn {
-  background-color: #ddd;
-  color: #333;
+.activation-form-control:disabled {
+  background-color: rgba(67, 104, 185, 0.7);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.activation-form-control::placeholder {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.9rem;
+}
+
+.activation-form-group label {
+  position: absolute;
+  top: 50%;
+  left: 4px;
+  background: #4368b9;
+  padding: 0 5px;
+  transform: translateY(-50%);
+  transition: all 0.3s ease;
+  color: gold;
+  pointer-events: none;
+}
+
+.activation-form-group label.filled {
+  top: -1px;
+  left: 5px;
+  color: gold;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.activation-form-group input:focus + label,
+.activation-form-group input:not(:placeholder-shown) + label,
+.activation-form-group input:disabled + label.filled,
+.activation-form-group select:focus + label,
+.activation-form-group select:not([value=""]) + label {
+  top: -1px;
+  left: 5px;
+  color: gold;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.activation-form-control option {
+  background-color: #4368b9;
+  color: white;
+  padding: 0.5rem;
+}
+
+.activation-form-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0;
+}
+
+.activation-form-actions button {
+  padding: 0.3rem 1rem;
+  border: none;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: medium;
+}
+
+.activation-form-actions button:first-child {
+  background: rgba(245, 56, 56, 1);
+  border: 1px solid rgba(245, 56, 56, 1);
+  color: black;
+}
+
+.activation-form-actions button:first-child:hover {
+  background-color: #4368b9;
+  color: white;
+}
+
+.activation-form-actions button:last-child {
+  background: gold;
+  border: 1px solid gold;
+  color: black;
+}
+
+.activation-form-actions button:last-child:hover {
+  background-color: #4368b9;
+  color: white;
+}
+
+.activation-form-content hr {
+  border: 1px solid gold;
+  margin: 20px 0;
+}
+
+@media only screen and (max-width: 1024px) {
+  .activation-form-content {
+    width: 85%;
+    max-width: 600px;
+  }
+}
+
+@media only screen and (max-width: 768px) {
+  .activation-form-content {
+    width: 95%;
+    max-width: 100%;
+    padding: 15px;
+    max-height: 95vh;
+  }
+
+  .activation-form-inputs {
+    grid-template-columns: 1fr;
+    gap: 0.9rem;
+  }
+
+  .activation-form-group {
+    grid-column: span 1;
+  }
+
+  .activation-form-title h2 {
+    font-size: 1.1rem;
+  }
+}
+
+@media only screen and (max-width: 480px) {
+  .activation-form-wrap {
+    padding: 0.5rem;
+  }
+
+  .activation-form-content {
+    width: 100%;
+    padding: 12px;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+
+  .activation-form-title h2 {
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .activation-form-inputs {
+    gap: 0.75rem;
+    padding-top: 5px;
+  }
+
+  .activation-form-control {
+    padding: 0.4rem;
+    font-size: 0.9rem;
+  }
+
+  .activation-form-actions {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .activation-form-actions button {
+    width: 100%;
+    padding: 0.5rem;
+  }
+
+  .activation-cancel {
+    top: 5px;
+    right: 5px;
+    font-size: 1.2rem;
+  }
 }
   * {
     padding: 0;
@@ -1085,39 +1432,6 @@ export default {
     box-shadow: 0 0 0 2px rgba(43, 122, 183, 0.2);
   }
 
-  /* Modal Responsive Styles */
-  .modal-overlay {
-    padding: 1rem;
-  }
-
-  .modal-content {
-    width: 100%;
-    max-width: min(90vw, 500px);
-    padding: clamp(1rem, 3vw, 2rem);
-    max-height: min(90vh, 600px);
-    overflow-y: auto;
-  }
-
-  .modal-content h3 {
-    font-size: clamp(1.1rem, 2vw, 1.5rem);
-    margin-bottom: clamp(0.75rem, 2vw, 1rem);
-  }
-
-  .modal-content label {
-    font-size: clamp(0.9rem, 1.3vw, 1rem);
-    margin-bottom: clamp(0.3rem, 1vw, 0.5rem);
-  }
-
-  .modal-content input {
-    font-size: clamp(0.9rem, 1.3vw, 1rem);
-    padding: clamp(0.4rem, 1vw, 0.6rem);
-    margin-bottom: clamp(0.75rem, 1.5vw, 1rem);
-  }
-
-  .submit-btn, .cancel-btn {
-    padding: clamp(0.4rem, 1vw, 0.6rem) clamp(0.8rem, 2vw, 1.2rem);
-    font-size: clamp(0.85rem, 1.3vw, 1rem);
-  }
 
   /* Responsive Breakpoints */
   @media only screen and (max-width: 1400px) {
@@ -1425,12 +1739,6 @@ export default {
     .pagination button {
       padding: clamp(0.3rem, 1vw, 0.4rem) clamp(0.5rem, 1.2vw, 0.7rem);
       font-size: clamp(0.75rem, 1vw, 0.85rem);
-    }
-
-    .modal-content {
-      width: 95vw;
-      padding: clamp(0.75rem, 3vw, 1.25rem);
-      border-radius: 6px;
     }
 
     .actions-header {

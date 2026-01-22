@@ -364,37 +364,34 @@ export default {
     },
 
     // Helper method to clean and validate phone number
+    // Backend appears to prefer E.164 (+254...) format; normalize everything to that.
     cleanPhoneNumber(phone) {
       if (!phone) return '';
-      
-      // Convert to string and remove whitespace
       let cleaned = String(phone).trim();
-      
-      // Remove all non-digit characters except +
+      // Keep digits and leading +
       cleaned = cleaned.replace(/[^\d+]/g, '');
-      
-      // Handle Kenyan phone numbers
-      // If starts with +254, convert to 0 format (e.g., +254712345678 -> 0712345678)
-      if (cleaned.startsWith('+254')) {
-        cleaned = '0' + cleaned.substring(4);
+
+      // If already in +254 format and length looks correct, keep as-is
+      if (/^\+254\d{9}$/.test(cleaned)) {
+        return cleaned;
       }
-      // If starts with 254 (without +), convert to 0 format (e.g., 254712345678 -> 0712345678)
-      else if (cleaned.startsWith('254') && cleaned.length === 12) {
-        cleaned = '0' + cleaned.substring(3);
+
+      // If starts with 254 and has 9 remaining digits -> add +
+      if (/^254\d{9}$/.test(cleaned)) {
+        return `+${cleaned}`;
       }
-      // If starts with 0, keep as is (local format like 0712345678)
-      else if (cleaned.startsWith('0')) {
-        // Already in correct format
+
+      // If starts with 0 and has 9 following digits -> convert to +254
+      if (/^0\d{9}$/.test(cleaned)) {
+        return `+254${cleaned.substring(1)}`;
       }
-      // If it's 9 digits, assume it's missing leading 0 (e.g., 712345678 -> 0712345678)
-      else if (cleaned.length === 9 && /^\d+$/.test(cleaned)) {
-        cleaned = '0' + cleaned;
+
+      // If only 9 digits (missing leading 0), assume local and convert
+      if (/^\d{9}$/.test(cleaned)) {
+        return `+254${cleaned}`;
       }
-      // If it's 10 digits and doesn't start with 0, might be valid but check
-      else if (cleaned.length === 10 && /^\d+$/.test(cleaned) && !cleaned.startsWith('0')) {
-        // Keep as is, might be valid format
-      }
-      
+
+      // Fallback: return original cleaned string
       return cleaned;
     },
 
@@ -539,6 +536,12 @@ export default {
         const digitsOnly = finalContact.phoneNo.replace(/\D/g, '');
         if (digitsOnly.length < 9) {
           console.warn('Invalid contact (phone number too short):', finalContact);
+          return null;
+        }
+
+        // Guard: schoolCode should not be the same as phone number; backend expects a real school code
+        if (finalContact.schoolCode.replace(/\D/g, '') === digitsOnly) {
+          console.warn('Invalid contact (schoolCode equals phone number, likely wrong code):', finalContact);
           return null;
         }
 

@@ -38,17 +38,37 @@
           </div>
           <div class="caller-info">
             <div class="caller-name">{{ currentContactDisplay }}</div>
-            <!-- Android-style: Show call duration when connected and call is active -->
-            <div class="call-duration" v-if="callStatus === 'connected' && isInCall">
-              {{ formatCallDuration(callDuration) }}
-            </div>
-            <!-- Android-style: Show status text for all other states -->
-            <div class="call-status-text" v-else>
-              <span v-if="callStatus === 'connecting'" class="status-connecting">CALLING...</span>
-              <span v-else-if="callStatus === 'ringing'" class="status-ringing">RINGING...</span>
-              <span v-else-if="callStatus === 'connected' && !isInCall" class="status-connected">CONNECTING...</span>
-              <span v-else-if="callStatus === 'ended'" class="status-ended">CALL ENDED</span>
-              <span v-else class="status-default">CALLING...</span>
+            
+            <!-- ALWAYS VISIBLE STATUS DISPLAY -->
+            <div style="margin-top: 1rem; text-align: center;">
+              <!-- Show duration when connected and in call - PHONE STYLE -->
+              <div v-if="callStatus === 'connected' && isInCall" 
+                   class="call-duration" 
+                   :key="'duration-' + callDuration"
+                   style="font-size: 2.2rem; color: #ffffff; font-weight: 300; letter-spacing: 4px; font-variant-numeric: tabular-nums; line-height: 1.3; text-shadow: 0 2px 6px rgba(0,0,0,0.5); margin-top: 0.5rem; display: block; min-height: 2.5rem;">
+                <span style="display: inline-block;">{{ formatCallDuration(callDuration) }}</span>
+              </div>
+              <!-- Show status for all other states -->
+              <div v-else 
+                   class="call-status-text" 
+                   :key="'status-' + callStatus"
+                   style="font-size: 1.2rem; font-weight: 700; margin-top: 0.75rem;">
+                <span v-if="callStatus === 'connecting'" 
+                      class="status-connecting" 
+                      style="color: #ff9800; animation: pulse 1.5s ease-in-out infinite;">CALLING...</span>
+                <span v-else-if="callStatus === 'ringing'" 
+                      class="status-ringing" 
+                      style="color: #2196f3; animation: pulse 1.5s ease-in-out infinite;">RINGING...</span>
+                <span v-else-if="callStatus === 'ended'" 
+                      class="status-ended" 
+                      style="color: #f44336; animation: pulse 1s ease-in-out infinite;">CALL ENDED</span>
+                <span v-else-if="callStatus === 'connected' && !isInCall" 
+                      class="status-connected" 
+                      style="color: #4caf50;">CONNECTING...</span>
+                <span v-else 
+                      class="status-default" 
+                      style="color: #999;">{{ callStatus ? callStatus.toUpperCase() : 'CALLING...' }}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -166,7 +186,7 @@
           <input 
             type="text" 
             class="dialed-number" 
-            v-model="dialedNumber" 
+            :value="dialedNumber" 
             placeholder="Enter Number"
             @paste="handlePaste"
             @input="handleNumberInput"
@@ -337,6 +357,8 @@ export default {
       callDuration: 0,
       callDurationTimer: null,
       isInitializingClient: false, // Prevent concurrent client initialization
+      returnToKeypadTimer: null, // Timer to return to keypad after call ends
+      connectionTime: null, // Timestamp when connection was established (to prevent premature ending)
     };
   },
   computed: {
@@ -363,6 +385,25 @@ export default {
     currentContactDisplay() {
       return this.dialedNumber || 'Unknown Contact';
     },
+    shouldShowDuration() {
+      const shouldShow = this.callStatus === 'connected' && this.isInCall;
+      console.log(`📊 shouldShowDuration check: callStatus=${this.callStatus}, isInCall=${this.isInCall}, result=${shouldShow}`);
+      return shouldShow;
+    },
+    currentStatusDisplay() {
+      // Always return a status to display
+      if (this.callStatus === 'connected' && this.isInCall) {
+        return 'DURATION';
+      } else if (this.callStatus === 'ringing') {
+        return 'RINGING';
+      } else if (this.callStatus === 'connecting') {
+        return 'CALLING';
+      } else if (this.callStatus === 'ended') {
+        return 'ENDED';
+      } else {
+        return this.callStatus ? this.callStatus.toUpperCase() : 'CALLING';
+      }
+    },
   },
   watch: {
     callStatus(newStatus, oldStatus) {
@@ -382,10 +423,86 @@ export default {
         return;
       }
       
+      // When status becomes 'connected', ensure timer is running
+      if (newStatus === 'connected' && this.isInCall && !this.callDurationTimer) {
+        console.log('📊 Status changed to connected and isInCall is true - starting timer');
+        this.startCallTimer();
+      }
+      
       // Force UI update when status changes
       this.$nextTick(() => {
         console.log(`✅ UI should now show: ${newStatus}`);
+        // Force another update to ensure duration shows
+        if (newStatus === 'connected' && this.isInCall) {
+          this.$forceUpdate();
+        }
       });
+    },
+    isInCall(newValue, oldValue) {
+      console.log(`📊 isInCall Changed: ${oldValue} → ${newValue}`);
+      console.log(`📊 Current callStatus: ${this.callStatus}`);
+      
+      // When isInCall becomes true, ensure status is 'connected'
+      if (newValue === true && this.callStatus !== 'connected' && this.callStatus !== 'ended') {
+        console.log('📊 isInCall became true - updating status to connected');
+        this.updateCallStatus('connected');
+        // Record connection time to prevent premature ending
+        this.connectionTime = Date.now();
+        console.log('📊 Connection time recorded:', new Date(this.connectionTime).toISOString());
+        // Always start timer when connection is established
+        console.log('📊 Starting call timer via isInCall watcher...');
+        this.startCallTimer();
+      }
+      
+      // Also ensure timer is running if status is already connected
+      if (newValue === true && this.callStatus === 'connected' && !this.callDurationTimer) {
+        console.log('📊 isInCall is true and status is connected but timer not running - starting timer');
+        // Record connection time if not already recorded
+        if (!this.connectionTime) {
+          this.connectionTime = Date.now();
+          console.log('📊 Connection time recorded:', new Date(this.connectionTime).toISOString());
+        }
+        this.startCallTimer();
+      }
+      
+      // When isInCall becomes false and call was actually connected, update to ended
+      // CRITICAL: Only mark as ended if call was connected (not just ringing)
+      // During ringing, isInCall should be false - that's normal!
+      // SAFEGUARD: Prevent premature ending - require at least 2 seconds after connection
+      if (newValue === false && oldValue === true && this.callStatus === 'connected') {
+        const timeSinceConnection = this.connectionTime ? Date.now() - this.connectionTime : Infinity;
+        const minConnectionTime = 2000; // 2 seconds minimum
+        
+        if (timeSinceConnection < minConnectionTime) {
+          console.warn(`⚠️ isInCall became false too soon (${timeSinceConnection}ms) - ignoring (minimum ${minConnectionTime}ms)`);
+          console.warn(`⚠️ This might be a false positive - keeping call connected`);
+          // Force isInCall back to true to prevent premature ending
+          this.$nextTick(() => {
+            if (this.callStatus === 'connected') {
+              this.isInCall = true;
+              console.log('✅ Restored isInCall to true - call is still connected');
+            }
+          });
+          return;
+        }
+        
+        console.log('📊 isInCall became false after call was connected - updating status to ended');
+        console.log(`📊 Call was connected for ${(timeSinceConnection / 1000).toFixed(1)} seconds`);
+        console.log('📊 This means recipient hung up');
+        this.updateCallStatus('ended');
+        this.stopCallTimer();
+        const wasConnected = this.connectionTime !== null;
+        this.connectionTime = null; // Reset connection time
+        
+        // Android-style: After 4 seconds, automatically return to keypad
+        if (wasConnected) {
+          this.scheduleReturnToKeypad();
+        }
+      }
+      // Don't mark as ended if status is 'ringing' - that's normal during ringing phase
+      
+      // Force UI update
+      this.$forceUpdate();
     },
   },
   mounted() {
@@ -393,12 +510,288 @@ export default {
     this.fetchContacts();
     this.loadAfricastalkingScript();
     window.addEventListener('keydown', this.handleKeyPress);
+    
+    // Debug: Log status display state
+    this.$nextTick(() => {
+      console.log('🔍 Status Display Debug:', {
+        tabValue: this.tabValue,
+        callStatus: this.callStatus,
+        isInCall: this.isInCall,
+        shouldShowDuration: this.shouldShowDuration,
+        callDuration: this.callDuration
+      });
+    });
   },
   beforeUnmount() {
     window.removeEventListener('keydown', this.handleKeyPress);
     this.stopCallTimer();
+    // Clean up return to keypad timer
+    if (this.returnToKeypadTimer) {
+      clearTimeout(this.returnToKeypadTimer);
+      this.returnToKeypadTimer = null;
+    }
+    // Clean up polling interval
+    if (this.statusUpdateInterval) {
+      clearInterval(this.statusUpdateInterval);
+      this.statusUpdateInterval = null;
+    }
+    // Clean up client
+    if (this.client) {
+      try {
+        if (typeof this.client.hangup === 'function') {
+          this.client.hangup();
+        }
+        if (typeof this.client.logout === 'function') {
+          this.client.logout();
+        }
+      } catch (err) {
+        console.warn('Error cleaning up client on unmount:', err);
+      }
+    }
   },
   methods: {
+    // Unified method to update call status with proper Vue reactivity
+    updateCallStatus(newStatus) {
+      // CRITICAL: Allow resetting from 'ended' to 'idle' or 'connecting' (new call starting)
+      // Block other transitions from 'ended' to prevent accidental changes
+      if (this.callStatus === 'ended' && newStatus !== 'ended' && newStatus !== 'idle' && newStatus !== 'connecting') {
+        console.warn(`⚠️ Attempted to change status from 'ended' to '${newStatus}' - BLOCKED`);
+        return;
+      }
+      
+      // If we're resetting from 'ended' to start a new call, log it
+      if (this.callStatus === 'ended' && (newStatus === 'idle' || newStatus === 'connecting')) {
+        console.log(`✅ Resetting status from 'ended' to '${newStatus}' (new call starting)`);
+      }
+      
+      // Don't update if status is already the same (unless it's a forced update)
+      if (this.callStatus === newStatus) {
+        console.log(`ℹ️ Status already set to: ${newStatus} - skipping update`);
+        // Still force update to ensure UI is reactive
+        this.$forceUpdate();
+        return;
+      }
+      
+      const oldStatus = this.callStatus;
+      console.log(`🔄 Updating call status: ${oldStatus} → ${newStatus}`);
+      this.callStatus = newStatus;
+      
+      // Force Vue reactivity update immediately
+      this.$forceUpdate();
+      
+      // Use nextTick to ensure UI updates and verify
+      this.$nextTick(() => {
+        console.log(`✅ Call status updated to: ${newStatus} (verified)`);
+        console.log(`📊 Current callStatus value: ${this.callStatus}`);
+        // Verify the status was set correctly
+        if (this.callStatus !== newStatus) {
+          console.error(`❌ Status mismatch! Expected: ${newStatus}, Got: ${this.callStatus} - forcing again`);
+          this.callStatus = newStatus;
+          this.$forceUpdate();
+        } else {
+          console.log(`✅ Status verified: ${this.callStatus}`);
+        }
+      });
+    },
+    // Android-style: Comprehensive call state detection using multiple methods
+    checkActualCallState() {
+      let detectedState = {
+        isConnected: false,
+        isEnded: false,
+        hasRemoteStream: false,
+        hasWebRTCPeer: false,
+        hasActiveTracks: false,
+        clientValid: false
+      };
+      
+      // Method 1: Check if client exists and is valid
+      if (this.client) {
+        detectedState.clientValid = true;
+        try {
+          const hasHangup = typeof this.client.hangup === 'function';
+          const hasCall = typeof this.client.call === 'function';
+          detectedState.clientValid = hasHangup && hasCall;
+        } catch (err) {
+          console.warn('⚠️ Error checking client state:', err);
+        }
+      }
+      
+      // Method 2: Check for WebRTC peer connections (most reliable)
+      try {
+        // Check if RTCPeerConnection exists in window
+        if (window.RTCPeerConnection) {
+          // Try to access peer connections through the client if possible
+          // Note: Africastalking might store peer connections internally
+          const peerConnections = [];
+          
+          // Check all possible ways to access peer connections
+          if (this.client && this.client._peerConnection) {
+            peerConnections.push(this.client._peerConnection);
+          }
+          if (this.client && this.client.peerConnection) {
+            peerConnections.push(this.client.peerConnection);
+          }
+          
+          for (const pc of peerConnections) {
+            if (pc && pc.connectionState) {
+              const state = pc.connectionState;
+              if (state === 'connected' || state === 'connecting') {
+                detectedState.hasWebRTCPeer = true;
+                detectedState.isConnected = true;
+                break;
+              }
+            }
+          }
+        }
+      } catch (err) {
+        // Ignore - WebRTC might not be accessible
+      }
+      
+      // Method 3: Check for remote audio/video streams (primary detection)
+      // This is CRITICAL - Africastalking creates audio elements when call connects
+      try {
+        // Check ALL audio and video elements in the entire document
+        const audioElements = document.querySelectorAll('audio, video');
+        let foundRemoteStream = false;
+        let foundActiveTracks = false;
+        
+        // Also check if any elements were added to body recently
+        const allElements = document.querySelectorAll('*');
+        
+        for (const el of audioElements) {
+          // Method 3a: Check srcObject (modern WebRTC way)
+          if (el.srcObject) {
+            const stream = el.srcObject;
+            if (stream instanceof MediaStream) {
+              const tracks = stream.getTracks();
+              
+              // Check for ANY tracks (even if not live yet)
+              if (tracks.length > 0) {
+                foundActiveTracks = true;
+                
+                // Check for live tracks
+                const liveTracks = tracks.filter(t => t.readyState === 'live');
+                if (liveTracks.length > 0) {
+                  // Check if tracks are enabled (not muted/disabled)
+                  const enabledTracks = liveTracks.filter(t => t.enabled);
+                  if (enabledTracks.length > 0) {
+                    foundRemoteStream = true;
+                    detectedState.isConnected = true;
+                    console.log('📊 Found live enabled tracks:', enabledTracks.length);
+                    break;
+                  }
+                } else {
+                  // Even if not live, having tracks means stream exists
+                  console.log('📊 Found tracks (not live yet):', tracks.length);
+                }
+              }
+            }
+          }
+          
+          // Method 3b: Check src attribute (legacy/blob URLs)
+          // Africastalking uses blob URLs (polyblob:) for call streams
+          // If blob URL exists and element is playing or has been playing, it's likely a call stream
+          if (el.src && (el.src.startsWith('blob:') || el.src.startsWith('polyblob:') || el.src.startsWith('mediastream:') || el.src.includes('webrtc'))) {
+            // If it has srcObject with MediaStream, that's strong evidence
+            if (el.srcObject && el.srcObject instanceof MediaStream) {
+              const stream = el.srcObject;
+              const tracks = stream.getTracks();
+              const liveTracks = tracks.filter(t => t.readyState === 'live' && t.enabled);
+              if (liveTracks.length > 0) {
+                foundRemoteStream = true;
+                detectedState.isConnected = true;
+                console.log('📊 Found stream via blob URL with live MediaStream:', el.src.substring(0, 50));
+                break;
+              }
+            }
+            // If no srcObject but blob URL exists and element is playing, it's likely connected
+            // Ringtones are usually paused, call streams play
+            try {
+              if (!el.paused && el.currentTime > 0 && !el.ended) {
+                foundRemoteStream = true;
+                detectedState.isConnected = true;
+                console.log('📊 Found playing blob URL audio element (likely call stream):', el.src.substring(0, 50));
+                break;
+              }
+            } catch (err) {
+              // Ignore errors checking play state
+            }
+          }
+          
+          // Method 3c: Check if element is playing AND has a MediaStream (not just autoplay)
+          // This ensures it's an actual call stream, not a ringtone
+          try {
+            if (!el.paused && el.currentTime > 0 && !el.ended && el.srcObject) {
+              // Only count as connected if it has a MediaStream with tracks
+              const stream = el.srcObject;
+              if (stream instanceof MediaStream) {
+                const tracks = stream.getTracks();
+                const liveTracks = tracks.filter(t => t.readyState === 'live' && t.enabled);
+                if (liveTracks.length > 0) {
+                  foundRemoteStream = true;
+                  detectedState.isConnected = true;
+                  console.log('📊 Found playing audio/video element with live MediaStream tracks');
+                  break;
+                }
+              }
+            }
+          } catch (err) {
+            // Some elements might throw errors - ignore
+          }
+          
+          // REMOVED: Method 3d - Autoplay detection was too aggressive
+          // Autoplay elements can be created for ringtones, not just call connections
+          // We now only rely on actual MediaStreams with live tracks
+        }
+        
+        // Method 3e: Check if there are ANY MediaStream objects in memory
+        // This is a last resort - check if WebRTC created any streams
+        try {
+          // Check window for any stream references
+          if (window.streams || window.remoteStream || window.localStream) {
+            foundRemoteStream = true;
+            detectedState.isConnected = true;
+            console.log('📊 Found stream in window object');
+          }
+        } catch (err) {
+          // Ignore
+        }
+        
+        detectedState.hasRemoteStream = foundRemoteStream;
+        detectedState.hasActiveTracks = foundActiveTracks;
+        
+        // Log if we found elements but no stream (for debugging - only occasionally)
+        if (audioElements.length > 0 && !foundRemoteStream && !foundActiveTracks && Math.random() < 0.05) {
+          console.log(`📊 Found ${audioElements.length} audio/video elements but no active stream detected`);
+          // Log details of first element for debugging
+          if (audioElements[0]) {
+            const el = audioElements[0];
+            console.log('📊 First element details:', {
+              tagName: el.tagName,
+              hasSrcObject: !!el.srcObject,
+              src: el.src ? el.src.substring(0, 50) : 'none',
+              paused: el.paused,
+              currentTime: el.currentTime,
+              autoplay: el.autoplay
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('⚠️ Error checking for remote streams:', err);
+      }
+      
+      // Method 4: Check MediaStreamTrack.getSources/getUserMedia state
+      try {
+        // Check if there are any active media tracks in the system
+        if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+          // This is indirect but can help confirm media is active
+        }
+      } catch (err) {
+        // Ignore
+      }
+      
+      return detectedState;
+    },
     setTab(value) {
       this.tabValue = value;
     },
@@ -475,6 +868,16 @@ export default {
       }
     },
     async cleanupOldClient() {
+      // CRITICAL: Stop any existing polling interval FIRST
+      if (this.statusUpdateInterval) {
+        console.log('🧹 Stopping existing polling interval in cleanupOldClient');
+        clearInterval(this.statusUpdateInterval);
+        this.statusUpdateInterval = null;
+      }
+      
+      // CRITICAL: Stop any existing call timer
+      this.stopCallTimer();
+      
       // Properly clean up any existing client before creating a new one
       if (this.client) {
         console.log('🧹 Cleaning up previous client...');
@@ -682,11 +1085,7 @@ export default {
       newClient.on('connecting', () => {
         console.log('✅ WebRTC: Connecting to Africastalking...');
         console.log('✅ This happens when call() is invoked - connection is starting!');
-        this.callStatus = 'connecting';
-        this.$forceUpdate();
-        this.$nextTick(() => {
-          console.log('✅ Status updated to: connecting (from initializeClientWithToken)');
-        });
+        this.updateCallStatus('connecting');
       });
       
       newClient.on('connected', () => {
@@ -697,41 +1096,66 @@ export default {
       });
       
       newClient.on('ringing', () => {
+        console.log('📞 ========== RINGING EVENT FIRED ==========');
         console.log('📞 Call is ringing - recipient phone is ringing!');
         console.log('✅ SUCCESS: Call reached the recipient!');
-        this.callStatus = 'ringing';
-        this.$forceUpdate();
-        this.$nextTick(() => {
-          console.log('✅ Status updated to: ringing (from initializeClientWithToken)');
-        });
+        console.log('📞 Current status before update:', this.callStatus);
+        this.updateCallStatus('ringing');
+        console.log('📞 Status after update:', this.callStatus);
+        console.log('📞 ==========================================');
       });
       
       newClient.on('callestablished', () => {
+        console.log('✅ ========== CALL ESTABLISHED EVENT FIRED (initializeClientWithToken) ==========');
         console.log('✅ Call established successfully! Connection is live - recipient answered!');
+        console.log('✅ Current status before update:', this.callStatus);
+        console.log('✅ Current isInCall before update:', this.isInCall);
         
-        // Set status and state BEFORE starting timer
-        console.log('🔄 Setting status to "connected" and isInCall to true');
-        this.callStatus = 'connected';
-        this.isInCall = true;
-        this.loading = false;
-        this.isMuted = false;
-        this.isOnHold = false;
-        this.showKeypadInCall = false;
+        // CRITICAL: Set isInCall to true FIRST, then update status
+        // This ensures the watcher and polling can detect the change
+        console.log('🔄 STEP 1: Setting isInCall to true');
+        this.isInCall = true; // CRITICAL: Set to true when recipient answers
         
-        // Force UI update immediately
+        // Force immediate update
         this.$forceUpdate();
-        console.log('✅ Status set to connected, isInCall=true, UI should show call duration');
         
-        // Initialize audio streams
-        this.initializeCallAudio();
-        // Start call duration timer
-        this.startCallTimer();
-        console.log('✅ Call timer started');
-        
-        // Verify status after a moment
+        // Wait a moment for reactivity
         this.$nextTick(() => {
-          console.log('✅ Verification - callStatus:', this.callStatus, 'isInCall:', this.isInCall, 'callDuration:', this.callDuration);
+          console.log('🔄 STEP 2: Updating status to connected');
+          this.updateCallStatus('connected');
+          
+          this.loading = false;
+          this.isMuted = false;
+          this.isOnHold = false;
+          this.showKeypadInCall = false;
+          
+          console.log('✅ Status after update:', this.callStatus);
+          console.log('✅ isInCall after update:', this.isInCall);
+          
+          // Initialize audio streams
+          this.initializeCallAudio();
+          
+          // Start call duration timer immediately
+          this.startCallTimer();
+          console.log('✅ Call timer started - duration will now display');
+          
+          // Force UI update again to ensure duration shows
+          this.$forceUpdate();
+          
+          // Verify after another tick
+          this.$nextTick(() => {
+            console.log('✅ Final verification - callStatus:', this.callStatus, 'isInCall:', this.isInCall, 'callDuration:', this.callDuration);
+            // Force one more update to be sure
+            if (this.callStatus !== 'connected') {
+              console.error('❌ Status mismatch! Forcing to connected');
+              this.callStatus = 'connected';
+              this.$forceUpdate();
+            }
+          });
         });
+        
+        console.log('✅ Status set to connected, isInCall=true, UI should show call duration');
+        console.log('✅ ===================================================');
       });
       
       newClient.on('callended', () => {
@@ -747,25 +1171,44 @@ export default {
           this.statusUpdateInterval = null;
         }
         
-        // Store state BEFORE any cleanup
-        const wasInCall = this.isInCall || this.callStatus === 'connected' || this.callStatus === 'ringing';
-        console.log('📴 wasInCall (determined from state):', wasInCall);
+        // IMMEDIATELY stop call duration timer
+        this.stopCallTimer();
+        console.log('🛑 Call duration timer stopped');
         
-        // Update status immediately - FORCE it to 'ended'
-        console.log('🔄 FORCING status to "ended" and isInCall to false');
-        this.callStatus = 'ended';
-        this.isInCall = false; // Set to false so UI shows status text instead of duration
+        // CRITICAL: Set isInCall to false FIRST, then update status
+        // This ensures the watcher and polling can detect the change
+        console.log('🔄 STEP 1: Setting isInCall to false');
+        this.isInCall = false; // Set to false so UI shows "CALL ENDED" status text
+        
+        // Force immediate update
         this.$forceUpdate();
+        
+        // Wait a moment for reactivity
+        this.$nextTick(() => {
+          console.log('🔄 STEP 2: Updating status to ended');
+          this.updateCallStatus('ended');
+          this.loading = false;
+          
+          console.log('✅ Status after update:', this.callStatus);
+          console.log('✅ isInCall after update:', this.isInCall);
+          
+          // Force UI update again to ensure "CALL ENDED" shows
+          this.$forceUpdate();
+          
+          // Verify after another tick
+          this.$nextTick(() => {
+            console.log('✅ Final verification - callStatus:', this.callStatus, 'isInCall:', this.isInCall);
+            // Force one more update to be sure
+            if (this.callStatus !== 'ended') {
+              console.error('❌ Status mismatch! Forcing to ended');
+              this.callStatus = 'ended';
+              this.isInCall = false;
+              this.$forceUpdate();
+            }
+          });
+        });
+        
         console.log('✅ Status set to ended, isInCall=false, UI should show "CALL ENDED"');
-        // Double-check it's set
-        setTimeout(() => {
-          if (this.callStatus !== 'ended') {
-            console.error(`❌ Status was reset! Forcing it back to 'ended'`);
-            this.callStatus = 'ended';
-            this.isInCall = false;
-            this.$forceUpdate();
-          }
-        }, 100);
         
         this.$nextTick(() => {
           console.log('✅ Status updated to: ended (from initializeClientWithToken)');
@@ -805,8 +1248,14 @@ export default {
           console.log('⚠️ Not showing notifications - was not in a call');
         }
         
-        // Terminate the call and reset all states
-        this.terminateCall(false); // Don't show alert again (already shown above)
+        // Clean up call resources but KEEP status as 'ended'
+        // Don't call terminateCall as it might reset the status
+        console.log('📴 Cleaning up call resources while preserving ended status');
+        this.cleanupCallAudio();
+        this.stopCallTimer();
+        // Keep status as 'ended' - don't reset it
+        // Keep isInCall as false (already set above)
+        // Don't change tab - keep showing the call ended status
       });
       
       newClient.on('disconnected', () => {
@@ -821,6 +1270,10 @@ export default {
           this.statusUpdateInterval = null;
         }
         
+        // IMMEDIATELY stop call duration timer
+        this.stopCallTimer();
+        console.log('🛑 Call duration timer stopped');
+        
         // Store state BEFORE any cleanup
         const wasInCall = this.isInCall || this.callStatus === 'connected' || this.callStatus === 'ringing';
         console.log('📴 wasInCall (determined from state):', wasInCall);
@@ -833,17 +1286,16 @@ export default {
           
           // Update status immediately - FORCE it to 'ended'
           console.log('🔄 FORCING status to "ended" and isInCall to false');
-          this.callStatus = 'ended';
-          this.isInCall = false; // Set to false so UI shows status text instead of duration
-          this.$forceUpdate();
+          this.updateCallStatus('ended');
+          this.isInCall = false; // Set to false so UI shows "CALL ENDED" status text
+          this.loading = false;
           console.log('✅ Status set to ended, isInCall=false, UI should show "CALL ENDED"');
           // Double-check it's set
           setTimeout(() => {
             if (this.callStatus !== 'ended') {
               console.error(`❌ Status was reset! Forcing it back to 'ended'`);
-              this.callStatus = 'ended';
+              this.updateCallStatus('ended');
               this.isInCall = false;
-              this.$forceUpdate();
             }
           }, 100);
           
@@ -875,7 +1327,13 @@ export default {
           
           console.log('✅ All notifications triggered');
           
-          this.terminateCall(false); // Don't show alert again
+          // Clean up call resources but KEEP status as 'ended'
+          // Don't call terminateCall as it might reset the status
+          console.log('📴 Cleaning up call resources while preserving ended status');
+          this.cleanupCallAudio();
+          // Status already set to 'ended' above - don't reset it
+          // Keep isInCall as false (already set above)
+          // Don't change tab - keep showing the call ended status
         } else {
           console.log('📴 Disconnected but not in call - ignoring');
         }
@@ -970,14 +1428,67 @@ export default {
       });
       
       try {
+        // CRITICAL: Clean up any existing polling interval from previous calls FIRST
+        // Do this multiple times to ensure it's cleared
+        if (this.statusUpdateInterval) {
+          console.log('🧹 Cleaning up existing polling interval from previous call');
+          clearInterval(this.statusUpdateInterval);
+          this.statusUpdateInterval = null;
+        }
+        // Double-check - clear it again after a brief moment
+        setTimeout(() => {
+          if (this.statusUpdateInterval) {
+            console.log('🧹 Force cleaning up polling interval (second attempt)');
+            clearInterval(this.statusUpdateInterval);
+            this.statusUpdateInterval = null;
+          }
+        }, 100);
+        
+        // CRITICAL: Stop any existing call timer
+        this.stopCallTimer();
+        
+        // CRITICAL: Clear any pending return to keypad timer
+        if (this.returnToKeypadTimer) {
+          clearTimeout(this.returnToKeypadTimer);
+          this.returnToKeypadTimer = null;
+        }
+        
+        // CRITICAL: Clean up any existing client
+        if (this.client) {
+          try {
+            if (typeof this.client.hangup === 'function') {
+              this.client.hangup();
+            }
+          } catch (err) {
+            console.warn('Error hanging up previous client:', err);
+          }
+          this.client = null;
+        }
+        
         this.loading = true;
         // Store the number for retry
         this.lastDialedNumber = this.dialedNumber;
         this.tabValue = 'inCall';
+        
+        // CRITICAL: Reset call state at the start of each call
+        this.isInCall = false; // Start with false - will be true only when call is connected
+        this.callDuration = 0; // Reset duration
+        this.isMuted = false;
+        this.isOnHold = false;
+        this.showKeypadInCall = false;
+        
+        // CRITICAL: Reset status properly BEFORE setting up event listeners
+        // This ensures status is correct when events fire immediately after client.call()
+        if (this.callStatus === 'ended') {
+          console.log('🔄 Resetting from ended status - setting to idle first');
+          this.callStatus = 'idle'; // Direct assignment to ensure immediate reset
+        }
+        
         // Set status to connecting and force UI update immediately
-        this.callStatus = 'connecting';
-        this.$forceUpdate();
+        // This will now work because we allow 'connecting' from 'ended' in updateCallStatus
+        this.updateCallStatus('connecting');
         console.log('📞 Call status set to: connecting (UI should show "CALLING...")');
+        console.log('📞 Initial state - isInCall:', this.isInCall, 'callStatus:', this.callStatus);
         
         // Initialize WebRTC client and wait for it to be ready
         console.log('Initializing WebRTC client...');
@@ -1006,102 +1517,461 @@ export default {
           this.statusUpdateInterval = null;
         }
         
-        // Function to force status update (Android-style)
+        // Function to force status update (Android-style) - uses unified method
         const updateStatus = (newStatus) => {
-          // CRITICAL: Never allow status to change from 'ended' to anything else
-          if (this.callStatus === 'ended' && newStatus !== 'ended' && newStatus !== 'idle') {
-            console.warn(`⚠️ Attempted to change status from 'ended' to '${newStatus}' - BLOCKED`);
-            return;
-          }
-          
-          console.log(`🔄 Updating status: ${this.callStatus} → ${newStatus}`);
-          this.callStatus = newStatus;
-          // Force Vue to update immediately
-          this.$forceUpdate();
-          // Also use nextTick to ensure reactivity
-          this.$nextTick(() => {
-            console.log(`✅ Status updated to: ${newStatus} (UI should be updated)`);
-            console.log(`✅ Current callStatus value: ${this.callStatus}`);
-            // Double-check the status was set correctly
-            if (this.callStatus !== newStatus) {
-              console.error(`❌ Status mismatch! Expected: ${newStatus}, Got: ${this.callStatus}`);
-              // Force it again
-              this.callStatus = newStatus;
-              this.$forceUpdate();
-            }
-          });
+          this.updateCallStatus(newStatus);
         };
         
-        // Polling mechanism to check call state if events don't fire (Android-style)
+        // Android-style polling: Simple and reliable
+        // 1. CALLING → RINGING (after 2s fallback)
+        // 2. RINGING → CONNECTED (when audio starts playing OR callestablished event fires)
+        // 3. CONNECTED → ENDED (when callended event fires)
         const startStatusPolling = () => {
+          // CRITICAL: Clean up any existing polling interval FIRST
+          if (this.statusUpdateInterval) {
+            console.log('🧹 Cleaning up existing polling interval before starting new one');
+            clearInterval(this.statusUpdateInterval);
+            this.statusUpdateInterval = null;
+          }
+          
+          // Set up MutationObserver to watch for audio/video elements (Android-style detection)
+          let mutationObserver = null;
+          const audioPlayListeners = new Map(); // Track listeners to avoid duplicates
+          
+          // Function to add play listener to audio/video elements
+          const addPlayListener = (el) => {
+            if (audioPlayListeners.has(el)) return; // Already has listener
+            
+            const playHandler = () => {
+              console.log('📊 ========== Android-style: AUDIO ELEMENT STARTED PLAYING ==========');
+              console.log('📊 Audio element started playing - call is connected!');
+              console.log('📊 Element details:', {
+                src: el.src ? el.src.substring(0, 50) : 'none',
+                hasSrcObject: !!el.srcObject,
+                paused: el.paused,
+                currentTime: el.currentTime
+              });
+              
+              if (this.callStatus === 'ringing' && !this.isInCall) {
+                console.log('📊 Updating to CONNECTED state (audio started playing)');
+                this.isInCall = true;
+                updateStatus('connected');
+                if (this.callDuration === 0) {
+                  this.startCallTimer();
+                }
+              }
+            };
+            
+            el.addEventListener('play', playHandler);
+            audioPlayListeners.set(el, playHandler);
+            console.log('✅ Added play listener to audio/video element');
+          };
+          
+          // Add listeners to existing audio/video elements
+          document.querySelectorAll('audio, video').forEach(addPlayListener);
+          
+          try {
+            mutationObserver = new MutationObserver((mutations) => {
+              // Check if any new audio/video elements were added
+              mutations.forEach((mutation) => {
+                mutation.addedNodes.forEach((node) => {
+                  if (node.nodeType === 1) { // Element node
+                    if (node.tagName === 'AUDIO' || node.tagName === 'VIDEO') {
+                      console.log('📊 ========== Android-style: NEW AUDIO/VIDEO ELEMENT DETECTED ==========');
+                      console.log('📊 Africastalking added audio/video element - adding play listener...');
+                      
+                      // Add play listener to detect when it starts playing
+                      addPlayListener(node);
+                      
+                      // Also check for stream immediately
+                      setTimeout(() => {
+                        const actualState = this.checkActualCallState();
+                        console.log('📊 MutationObserver detection state:', actualState);
+                        
+                        if (actualState.hasRemoteStream || actualState.hasActiveTracks || actualState.hasWebRTCPeer) {
+                          console.log('📊 ✅ CONFIRMED: Remote stream detected via MutationObserver!');
+                          if (this.callStatus === 'ringing' && !this.isInCall) {
+                            console.log('📊 Updating to CONNECTED state');
+                            this.isInCall = true;
+                            updateStatus('connected');
+                            if (this.callDuration === 0) {
+                              this.startCallTimer();
+                            }
+                          }
+                        } else {
+                          console.log('📊 ⚠️ Audio/video element found but no stream detected yet - waiting for play event');
+                        }
+                      }, 200);
+                    }
+                  }
+                });
+              });
+            });
+            
+            // Start observing the document body for new elements
+            mutationObserver.observe(document.body, {
+              childList: true,
+              subtree: true
+            });
+            console.log('✅ MutationObserver started - watching for audio/video elements');
+          } catch (err) {
+            console.warn('⚠️ Could not set up MutationObserver:', err);
+          }
+          
           let pollCount = 0;
-          const maxPolls = 120; // Poll for up to 60 seconds (0.5s intervals)
+          const maxPolls = 600; // Poll for up to 5 minutes (0.5s intervals)
           let lastStatus = this.callStatus;
+          let lastIsInCall = this.isInCall;
           let hasShownRinging = false;
+          
+          console.log('🔄 Starting Android-style status polling');
+          console.log('🔄 Initial status:', this.callStatus, 'isInCall:', this.isInCall);
           
           this.statusUpdateInterval = setInterval(() => {
             pollCount++;
             
-            // CRITICAL: If status is 'ended', stop polling immediately and DO NOT change status
+            // Android-style: Stop if call ended
             if (this.callStatus === 'ended') {
-              console.log('📴 Polling detected: Call has ended - stopping polling immediately');
+              this._connectionConfirmationCount = 0; // Reset confirmation counter
+              if (mutationObserver) mutationObserver.disconnect();
+              // Clean up play listeners
+              if (audioPlayListeners) {
+                audioPlayListeners.forEach((handler, el) => {
+                  try {
+                    el.removeEventListener('play', handler);
+                  } catch (err) {
+                    // Ignore errors
+                  }
+                });
+                audioPlayListeners.clear();
+              }
               clearInterval(this.statusUpdateInterval);
               this.statusUpdateInterval = null;
               return;
             }
             
-            // CRITICAL: If isInCall is false and we're not in idle state, call might have ended
-            // Check if we should set status to 'ended'
-            if (!this.isInCall && (this.callStatus === 'ringing' || this.callStatus === 'connected')) {
-              console.log('📴 Polling detected: isInCall=false but status is not ended - call might have ended');
-              // Don't automatically set to ended here - let the event handlers do it
-              // But stop polling to prevent interference
+            // Android-style: Stop if status is idle (call was reset)
+            if (this.callStatus === 'idle' && !this.isInCall && pollCount > 2) {
+              if (mutationObserver) mutationObserver.disconnect();
               clearInterval(this.statusUpdateInterval);
               this.statusUpdateInterval = null;
               return;
             }
             
-            // Check if call is established by checking isInCall and callDuration
-            if (this.isInCall && this.callDuration > 0 && this.callStatus !== 'connected' && this.callStatus !== 'ended') {
-              console.log('📊 Polling detected: Call is connected (isInCall=true, duration>0)');
-              updateStatus('connected');
-              clearInterval(this.statusUpdateInterval);
-              this.statusUpdateInterval = null;
-              return;
-            }
-            
-            // Check if call is established by checking isInCall (even if duration is 0)
-            if (this.isInCall && this.callStatus !== 'connected' && this.callStatus !== 'ringing' && this.callStatus !== 'ended') {
-              console.log('📊 Polling detected: Call is connected (isInCall=true)');
-              updateStatus('connected');
-              clearInterval(this.statusUpdateInterval);
-              this.statusUpdateInterval = null;
-              return;
-            }
-            
-            // Fallback: If we've been connecting for more than 2 seconds, show "RINGING..."
-            // BUT ONLY if status is still 'connecting' and call hasn't ended
-            if (this.callStatus === 'connecting' && pollCount > 4 && !hasShownRinging && !callRinging && !callEstablished && this.callStatus !== 'ended' && this.isInCall !== false) {
-              console.log('📊 Fallback: Transitioning from "Calling..." to "Ringing..." (after 2 seconds)');
+            // Android-style: CALLING → RINGING (after 2 seconds if event didn't fire)
+            if (this.callStatus === 'connecting' && pollCount > 4 && !hasShownRinging) {
+              console.log('📊 Android-style: CALLING → RINGING (fallback after 2s)');
               updateStatus('ringing');
               hasShownRinging = true;
-              callRinging = true; // Mark as ringing so we don't keep updating
+              return;
             }
             
-            // NEVER set status to 'ringing' if call has ended or isInCall is false
-            if (this.callStatus === 'ringing' && !this.isInCall && this.callStatus !== 'ended') {
-              console.log('⚠️ Polling detected: Status is ringing but isInCall is false - call might have ended');
-              // Don't change status here - let event handlers handle it
+            // Android-style: RINGING → CONNECTED (ONLY when isInCall becomes true)
+            // This means recipient ACTUALLY answered - no time-based assumptions!
+            if (this.isInCall && this.callStatus !== 'connected' && this.callStatus !== 'ended') {
+              console.log('📊 ========== Android-style: RINGING → CONNECTED ==========');
+              console.log('📊 Recipient answered! isInCall changed from', lastIsInCall, 'to', this.isInCall);
+              updateStatus('connected');
+              if (this.callDuration === 0) {
+                this.startCallTimer();
+              }
+              lastIsInCall = this.isInCall;
+              console.log('📊 ===================================================');
+              return;
             }
             
-            // Log status changes for debugging
+            // Android-style: AGGRESSIVE detection - check if recipient answered
+            // Start detecting immediately when ringing (no delay)
+            // This ensures we catch the connection as soon as recipient answers
+            if (this.callStatus === 'ringing' && !callEstablished && !this.isInCall) {
+              // Log every 10 polls (5 seconds) for debugging
+              if (pollCount % 10 === 0) {
+                const audioElements = document.querySelectorAll('audio, video');
+                console.log(`📊 Detection check #${pollCount} (${(pollCount * 0.5).toFixed(1)}s):`, {
+                  audioElementsCount: audioElements.length,
+                  isInCall: this.isInCall,
+                  callEstablished: callEstablished,
+                  status: this.callStatus
+                });
+                if (audioElements.length > 0) {
+                  audioElements.forEach((el, idx) => {
+                    console.log(`📊 Audio element #${idx}:`, {
+                      src: el.src ? el.src.substring(0, 50) : 'none',
+                      hasSrcObject: !!el.srcObject,
+                      paused: el.paused,
+                      currentTime: el.currentTime,
+                      ended: el.ended
+                    });
+                  });
+                }
+              }
+              
+              try {
+                const audioElements = document.querySelectorAll('audio, video');
+                let foundConnection = false;
+                let connectionReason = '';
+                
+                // Log detection attempt every 4 polls (2 seconds) for debugging
+                if (pollCount % 4 === 0 && pollCount >= 4) {
+                  console.log(`📊 🔍 Detection attempt #${pollCount} (${(pollCount * 0.5).toFixed(1)}s) - checking ${audioElements.length} audio/video elements`);
+                }
+                
+                for (const el of audioElements) {
+                  try {
+                    // Android-style: ONLY detect connection when audio is ACTUALLY playing
+                    // This is the most reliable indicator - if audio is playing, recipient answered
+                    // We require BOTH conditions:
+                    // 1. Audio element is playing (not paused, has currentTime > 0)
+                    // 2. Has MediaStream with live tracks
+                    // The 3-second confirmation period (below) ensures it's not a false positive
+                    if (!el.paused && el.currentTime > 0 && !el.ended) {
+                      if (el.srcObject && el.srcObject instanceof MediaStream) {
+                        const tracks = el.srcObject.getTracks();
+                        const liveTracks = tracks.filter(t => t.readyState === 'live' && t.enabled);
+                        if (liveTracks.length > 0) {
+                          // Audio is playing AND has live MediaStream tracks
+                          // The confirmation period (3 seconds) will ensure it's continuous
+                          foundConnection = true;
+                          connectionReason = 'Playing audio with live MediaStream tracks';
+                          console.log(`📊 ✅ Method 1 detected: Playing audio with ${liveTracks.length} live tracks`);
+                          break;
+                        } else {
+                          if (pollCount % 4 === 0) {
+                            console.log(`📊 ⚠️ Method 1: Audio playing but no live tracks (${tracks.length} total tracks)`);
+                          }
+                        }
+                      } else {
+                        if (pollCount % 4 === 0) {
+                          console.log(`📊 ⚠️ Method 1: Audio playing but no MediaStream in srcObject`);
+                        }
+                      }
+                    }
+                    
+                    // Method 2: Check for MediaStream with live tracks (even if not playing)
+                    // AGGRESSIVE: Also detect if MediaStream has live tracks (recipient answered)
+                    // This catches cases where audio element exists but isn't playing yet
+                    // Start checking after 1 second of ringing (pollCount >= 2) for faster detection
+                    if (pollCount >= 2 && el.srcObject && el.srcObject instanceof MediaStream) {
+                      const tracks = el.srcObject.getTracks();
+                      const liveTracks = tracks.filter(t => t.readyState === 'live' && t.enabled);
+                      if (liveTracks.length > 0) {
+                        // MediaStream has live tracks - recipient answered
+                        foundConnection = true;
+                        connectionReason = 'MediaStream with live tracks';
+                        console.log(`📊 ✅ Method 2 detected: ${liveTracks.length} live tracks found (not playing yet)`);
+                        break;
+                      } else {
+                        if (pollCount >= 2 && pollCount % 4 === 0 && tracks.length > 0) {
+                          console.log(`📊 ⚠️ Method 2: MediaStream exists with ${tracks.length} tracks but none are live yet`);
+                        }
+                      }
+                    } else if (pollCount >= 2 && pollCount % 4 === 0) {
+                      if (!el.srcObject) {
+                        console.log(`📊 ⚠️ Method 2: No srcObject on audio element`);
+                      }
+                    }
+                    
+                    // Method 3: Blob URL with MediaStream (strict - requires playing)
+                    // After 10 seconds, check if blob URL is playing with MediaStream
+                    if (pollCount >= 20 && el.src && (el.src.startsWith('blob:') || el.src.startsWith('polyblob:'))) {
+                      if (!el.paused && el.currentTime > 0 && !el.ended) {
+                        if (el.srcObject && el.srcObject instanceof MediaStream) {
+                          const tracks = el.srcObject.getTracks();
+                          const liveTracks = tracks.filter(t => t.readyState === 'live' && t.enabled);
+                          if (liveTracks.length > 0) {
+                            foundConnection = true;
+                            connectionReason = `Playing blob URL audio with live MediaStream tracks after ${(pollCount * 0.5).toFixed(1)} seconds`;
+                            break;
+                          }
+                        }
+                      }
+                    }
+                    
+                    // Method 4: ULTRA AGGRESSIVE FALLBACK - Blob URL exists (even without srcObject)
+                    // Africastalking library creates audio element with blob URL when call is received
+                    // This is the PRIMARY detection method since srcObject often isn't set
+                    // Check IMMEDIATELY when ringing starts (pollCount >= 1 = 0.5 seconds)
+                    // This ensures we catch the connection as soon as blob URL appears
+                    if (pollCount >= 1) {
+                      // Check if blob URL exists
+                      if (el.src && (el.src.startsWith('blob:') || el.src.startsWith('polyblob:'))) {
+                        // Blob URL exists - this indicates Africastalking has set up audio for the call
+                        // If blob URL exists, recipient likely answered (even if srcObject isn't set yet)
+                        foundConnection = true;
+                        connectionReason = `Blob URL audio element exists after ${(pollCount * 0.5).toFixed(1)} seconds (recipient answered)`;
+                        console.log(`📊 ✅ Method 4 detected: Blob URL exists (${el.src.substring(0, 30)}...) - assuming connection`);
+                        console.log(`📊 Method 4 details: pollCount=${pollCount}, paused=${el.paused}, currentTime=${el.currentTime}, hasSrcObject=${!!el.srcObject}`);
+                        break;
+                      } else if (pollCount % 2 === 0) {
+                        // Log every second if no blob URL found yet
+                        console.log(`📊 Method 4 check: No blob URL found yet (pollCount=${pollCount}, src=${el.src ? el.src.substring(0, 30) : 'none'})`);
+                      }
+                    }
+                  } catch (err) {
+                    // Ignore errors
+                  }
+                }
+                
+                // If connection detected, mark as connected
+                // AGGRESSIVE: Fast detection - immediate for playing audio, minimal confirmation for others
+                if (foundConnection) {
+                  // For playing audio (Method 1) - connect immediately (most reliable)
+                  const isPlayingAudio = connectionReason.includes('Playing audio with live MediaStream tracks');
+                  // For blob URL fallback (Method 4) - require 2 polls (1 second) confirmation (less reliable)
+                  const isBlobUrlFallback = connectionReason.includes('Blob URL audio element exists after');
+                  
+                  if (isPlayingAudio) {
+                    // Playing audio is the most reliable - connect immediately
+                    console.log('📊 ========== ✅ CALL CONNECTED (Playing Audio) ==========');
+                    console.log(`📊 Recipient answered! Reason: ${connectionReason}`);
+                    this.isInCall = true;
+                    this.connectionTime = Date.now(); // Record connection time
+                    console.log('📊 Connection time recorded:', new Date(this.connectionTime).toISOString());
+                    this._connectionConfirmationCount = 0;
+                    updateStatus('connected');
+                    this.startCallTimer();
+                    lastIsInCall = this.isInCall;
+                    console.log('📊 Duration timer started - should show in UI now');
+                    console.log('📊 ===================================================');
+                    return;
+                  } else if (isBlobUrlFallback) {
+                    // Blob URL fallback - if we've been ringing for 2+ seconds, connect immediately
+                    // Otherwise require 1 poll (0.5 seconds) confirmation
+                    const secondsRinging = pollCount * 0.5;
+                    if (secondsRinging >= 2.0) {
+                      // Been ringing for 2+ seconds and blob URL exists - connect immediately
+                      console.log('📊 ========== ✅ CALL CONNECTED (Blob URL - Immediate) ==========');
+                      console.log(`📊 Recipient answered! Reason: ${connectionReason}`);
+                      console.log(`📊 Been ringing for ${secondsRinging.toFixed(1)}s - connecting immediately`);
+                      this.isInCall = true;
+                      this.connectionTime = Date.now(); // Record connection time to prevent premature ending
+                      console.log('📊 Connection time recorded:', new Date(this.connectionTime).toISOString());
+                      this._connectionConfirmationCount = 0;
+                      updateStatus('connected');
+                      this.startCallTimer();
+                      lastIsInCall = this.isInCall;
+                      console.log('📊 Duration timer started - should show in UI now');
+                      console.log('📊 ===================================================');
+                      return;
+                    } else {
+                      // Less than 2 seconds - require 1 poll (0.5 seconds) confirmation
+                      if (!this._connectionConfirmationCount) {
+                        // First detection - wait just 0.5 seconds for confirmation
+                        this._connectionConfirmationCount = 1;
+                        console.log(`📊 ✅ Connection detected: ${connectionReason} - confirming in next poll (0.5s)...`);
+                        return;
+                      } else {
+                        // Confirmed - connection detected in 2 consecutive polls (0.5 seconds total)
+                        console.log('📊 ========== ✅ CALL CONNECTED (Blob URL Fallback) ==========');
+                        console.log(`📊 Recipient answered! Reason: ${connectionReason}`);
+                        console.log(`📊 Connection confirmed in 2 polls (0.5 seconds)`);
+                        this.isInCall = true;
+                        this.connectionTime = Date.now(); // Record connection time
+                        console.log('📊 Connection time recorded:', new Date(this.connectionTime).toISOString());
+                        this._connectionConfirmationCount = 0;
+                        updateStatus('connected');
+                        this.startCallTimer();
+                        lastIsInCall = this.isInCall;
+                        console.log('📊 Duration timer started - should show in UI now');
+                        console.log('📊 ===================================================');
+                        return;
+                      }
+                    }
+                  } else {
+                    // For other detections (Method 2, Method 3), require just 1 poll (0.5 seconds) confirmation
+                    if (!this._connectionConfirmationCount) {
+                      // First detection - wait just 0.5 seconds for confirmation
+                      this._connectionConfirmationCount = 1;
+                      console.log(`📊 ✅ Connection detected: ${connectionReason} - confirming in next poll (0.5s)...`);
+                      return;
+                    } else {
+                      // Confirmed - connection detected in 2 consecutive polls (0.5 seconds total)
+                      console.log('📊 ========== ✅ CALL CONNECTED ==========');
+                      console.log(`📊 Recipient answered! Reason: ${connectionReason}`);
+                      console.log(`📊 Connection confirmed in 2 polls (0.5 seconds)`);
+                      this.isInCall = true;
+                      this.connectionTime = Date.now(); // Record connection time
+                      console.log('📊 Connection time recorded:', new Date(this.connectionTime).toISOString());
+                      this._connectionConfirmationCount = 0;
+                      updateStatus('connected');
+                      this.startCallTimer();
+                      lastIsInCall = this.isInCall;
+                      console.log('📊 Duration timer started - should show in UI now');
+                      console.log('📊 ===================================================');
+                      return;
+                    }
+                  }
+                } else {
+                  // Reset confirmation if connection not found
+                  this._connectionConfirmationCount = 0;
+                }
+              } catch (err) {
+                console.warn('⚠️ Error checking for connection:', err);
+              }
+            }
+            
+            // Android-style: Check if audio stopped playing (call ended)
+            if (this.callStatus === 'connected' && this.isInCall && pollCount % 4 === 0) {
+              // Simple check: Is audio still playing?
+              try {
+                const audioElements = document.querySelectorAll('audio, video');
+                let audioStillPlaying = false;
+                
+                for (const el of audioElements) {
+                  try {
+                    if (!el.paused && el.currentTime > 0 && !el.ended) {
+                      audioStillPlaying = true;
+                      break;
+                    }
+                  } catch (err) {
+                    // Ignore errors
+                  }
+                }
+                
+                // If audio stopped playing and we've been connected for a while, call might have ended
+                // But only rely on callended event for this - don't auto-detect end
+                // (This is just for logging/debugging)
+              } catch (err) {
+                // Ignore errors
+              }
+            }
+            
+            // Android-style: CONNECTED → ENDED (when isInCall becomes false)
+            // This means recipient ACTUALLY hung up
+            if (this.callStatus === 'connected' && !this.isInCall && lastIsInCall === true) {
+              console.log('📴 ========== Android-style: CONNECTED → ENDED ==========');
+              console.log('📴 Recipient hung up! isInCall changed from', lastIsInCall, 'to', this.isInCall);
+              updateStatus('ended');
+              this.stopCallTimer();
+              if (mutationObserver) mutationObserver.disconnect();
+              clearInterval(this.statusUpdateInterval);
+              this.statusUpdateInterval = null;
+              console.log('📴 ===================================================');
+              return;
+            }
+            
+            // Android-style: Remote stream detection is handled in the checkActualCallState() method above
+            // This keeps the code clean and follows Android behavior exactly
+            
+            // Track state changes
+            if (this.isInCall !== lastIsInCall) {
+              console.log(`📊 Android-style: isInCall changed ${lastIsInCall} → ${this.isInCall}`);
+              lastIsInCall = this.isInCall;
+            }
+            
             if (this.callStatus !== lastStatus) {
-              console.log(`📊 Status changed during polling: ${lastStatus} → ${this.callStatus}`);
+              console.log(`📊 Android-style: Status changed ${lastStatus} → ${this.callStatus}`);
               lastStatus = this.callStatus;
             }
             
+            // Log every 20 polls (10 seconds) for debugging
+            if (pollCount % 20 === 0) {
+              console.log(`📊 Android polling #${pollCount} - status: ${this.callStatus}, isInCall: ${this.isInCall}, duration: ${this.callDuration}`);
+            }
+            
             if (pollCount >= maxPolls) {
-              console.log('⏱️ Status polling timeout - stopping');
+              console.log('⏱️ Polling timeout - stopping');
+              if (mutationObserver) mutationObserver.disconnect();
               clearInterval(this.statusUpdateInterval);
               this.statusUpdateInterval = null;
             }
@@ -1109,6 +1979,10 @@ export default {
         };
         
         // Monitor connection events
+        console.log('🔧 Setting up event listeners on client...');
+        console.log('🔧 Client type:', typeof client);
+        console.log('🔧 Client has on method:', typeof client.on === 'function');
+        
         client.on('connecting', () => {
           console.log('🔄 WebSocket: Connecting...');
           updateStatus('connecting');
@@ -1122,11 +1996,58 @@ export default {
         });
         
         client.on('ringing', () => {
+          console.log('📞 ========== RINGING EVENT FIRED (handleCall) ==========');
           console.log('📞 Call is ringing - recipient phone is ringing!');
           console.log('✅ SUCCESS: Call reached the recipient despite any library errors!');
+          console.log('📞 Current status before update:', this.callStatus);
           callRinging = true;
           updateStatus('ringing');
+          console.log('📞 Status after update:', this.callStatus);
+          console.log('📞 ======================================================');
           // This event means the call reached the recipient's phone
+        });
+        
+        console.log('✅ Event listeners attached to client');
+        
+        // CATCH-ALL: Listen for additional possible event names that might indicate call state
+        // Some Africastalking library versions might use different event names
+        const additionalEventNames = ['hangup', 'end', 'close', 'statechange'];
+        additionalEventNames.forEach(eventName => {
+          try {
+            // Use once() instead of on() to avoid duplicate handlers
+            const handler = (...args) => {
+              console.log(`🎯 ADDITIONAL EVENT: '${eventName}' fired with args:`, args);
+              // If it's a call end event, handle it
+              if (eventName === 'end' || eventName === 'hangup' || eventName === 'close') {
+                console.log(`📴 Detected possible call end through ${eventName} event`);
+                // CRITICAL: Only end call if it was actually CONNECTED
+                // Don't end during ringing - hangup events can fire for various reasons during ringing
+                // (network issues, caller cancellation, etc.) but we should only mark as ended
+                // if the recipient actually answered and then hung up
+                if (this.callStatus === 'connected') {
+                  console.log(`📴 Confirmed call end - call was connected, recipient hung up`);
+                  if (this.statusUpdateInterval) {
+                    clearInterval(this.statusUpdateInterval);
+                    this.statusUpdateInterval = null;
+                  }
+                  this.stopCallTimer();
+                  this.isInCall = false;
+                  this.updateCallStatus('ended');
+                } else if (this.callStatus === 'ringing') {
+                  console.log(`📴 Hangup event during ringing - ignoring (call never connected)`);
+                  // Don't mark as ended during ringing - the call never actually connected
+                  // This could be a network issue, caller cancellation, or other non-recipient-hangup reason
+                }
+              }
+            };
+            // Try to attach listener - some events might not exist
+            if (typeof client.on === 'function') {
+              client.on(eventName, handler);
+            }
+          } catch (err) {
+            // Some events might not be supported - that's okay, just log it
+            console.log(`ℹ️ Event '${eventName}' not available:`, err.message);
+          }
         });
         
         client.on('callfailed', (e) => {
@@ -1146,39 +2067,65 @@ export default {
         });
         
         client.on('callestablished', () => {
+          console.log('✅ ========== CALL ESTABLISHED EVENT FIRED ==========');
+          console.log('✅ ========== THIS EVENT SHOULD FIRE WHEN RECIPIENT ANSWERS ==========');
           console.log('✅ Call established successfully! Connection is live - recipient answered!');
+          console.log('✅ Current status before update:', this.callStatus);
+          console.log('✅ Current isInCall before update:', this.isInCall);
           callEstablished = true;
-          if (this.statusUpdateInterval) {
-            clearInterval(this.statusUpdateInterval);
-            this.statusUpdateInterval = null;
-          }
           
-          // Set status and state BEFORE starting timer
-          console.log('🔄 Setting status to "connected" and isInCall to true');
-          this.callStatus = 'connected';
+          // CRITICAL: Set isInCall to true FIRST, then update status
+          // This ensures the watcher and polling can detect the change
+          console.log('🔄 STEP 1: Setting isInCall to true');
           this.isInCall = true;
-          this.loading = false;
-          this.isMuted = false;
-          this.isOnHold = false;
-          this.showKeypadInCall = false;
+          this.connectionTime = Date.now(); // Record connection time
+          console.log('📊 Connection time recorded:', new Date(this.connectionTime).toISOString());
           
-          // Force UI update immediately
+          // Force immediate update
           this.$forceUpdate();
-          console.log('✅ Status set to connected, isInCall=true, UI should show call duration');
           
-          // Initialize audio streams
-          this.initializeCallAudio();
-          // Start call duration timer
-          this.startCallTimer();
-          console.log('✅ Call timer started');
-          
-          // Verify status after a moment
+          // Wait a moment for reactivity
           this.$nextTick(() => {
-            console.log('✅ Verification - callStatus:', this.callStatus, 'isInCall:', this.isInCall, 'callDuration:', this.callDuration);
+            console.log('🔄 STEP 2: Updating status to connected');
+            this.updateCallStatus('connected');
+            
+            this.loading = false;
+            this.isMuted = false;
+            this.isOnHold = false;
+            this.showKeypadInCall = false;
+            
+            console.log('✅ Status after update:', this.callStatus);
+            console.log('✅ isInCall after update:', this.isInCall);
+            
+            // Initialize audio streams
+            this.initializeCallAudio();
+            
+            // Start call duration timer immediately
+            this.startCallTimer();
+            console.log('✅ Call timer started - duration will now display');
+            
+            // Force UI update again to ensure duration shows
+            this.$forceUpdate();
+            
+            // Verify after another tick
+            this.$nextTick(() => {
+              console.log('✅ Final verification - callStatus:', this.callStatus, 'isInCall:', this.isInCall, 'callDuration:', this.callDuration);
+              // Force one more update to be sure
+              if (this.callStatus !== 'connected') {
+                console.error('❌ Status mismatch! Forcing to connected');
+                this.callStatus = 'connected';
+                this.$forceUpdate();
+              }
+            });
           });
+          
+          console.log('✅ Status set to connected, isInCall=true, UI should show call duration');
+          console.log('✅ ===================================================');
         });
         
         client.on('callended', () => {
+          console.log('📴 ========== CALL ENDED EVENT FIRED ==========');
+          console.log('📴 ========== THIS EVENT SHOULD FIRE WHEN RECIPIENT HANGS UP ==========');
           console.log('📴 Call ended event received');
           console.log('📴 Call terminated - recipient ended the call');
           console.log('📴 Current isInCall state:', this.isInCall);
@@ -1191,16 +2138,36 @@ export default {
             this.statusUpdateInterval = null;
           }
           
-          // Store state BEFORE any cleanup
-          const wasInCall = this.isInCall || this.callStatus === 'connected' || this.callStatus === 'ringing';
-          console.log('📴 wasInCall (determined from state):', wasInCall);
+          // IMMEDIATELY stop call duration timer
+          this.stopCallTimer();
+          console.log('🛑 Call duration timer stopped');
           
-          // Update status immediately - FORCE it to 'ended'
-          console.log('🔄 FORCING status to "ended" and isInCall to false');
-          this.callStatus = 'ended';
-          this.isInCall = false; // Set to false so UI shows status text instead of duration
+          // CRITICAL: ALWAYS update to 'ended' regardless of current status
+          // Call can end during ringing, connecting, or connected - all should show "CALL ENDED"
+          console.log('🔄 FORCING status to "ended" - call has ended');
+          this.isInCall = false;
+          this.callStatus = 'ended'; // Direct assignment to bypass any protection
+          this.loading = false;
+          
+          // Force immediate UI update
           this.$forceUpdate();
+          
+          // Verify and force again if needed
+          this.$nextTick(() => {
+            if (this.callStatus !== 'ended') {
+              console.error('❌ Status was not set to ended! Forcing again');
+              this.callStatus = 'ended';
+              this.isInCall = false;
+              this.$forceUpdate();
+            }
+            console.log('✅ Status confirmed as ended - UI should show "CALL ENDED"');
+          });
+          
           console.log('✅ Status set to ended, isInCall=false, UI should show "CALL ENDED"');
+          console.log('📴 ===========================================');
+          
+          // Android-style: After 2 seconds, automatically return to keypad
+          this.scheduleReturnToKeypad();
           
           // Set up a guard to prevent status from being reset for 5 seconds
           let statusGuardCount = 0;
@@ -1208,9 +2175,8 @@ export default {
             statusGuardCount++;
             if (this.callStatus !== 'ended') {
               console.error(`❌ Status was reset to '${this.callStatus}'! Forcing it back to 'ended' (attempt ${statusGuardCount})`);
-              this.callStatus = 'ended';
+              this.updateCallStatus('ended');
               this.isInCall = false;
-              this.$forceUpdate();
             }
             // Stop guarding after 5 seconds (10 checks)
             if (statusGuardCount >= 10) {
@@ -1223,9 +2189,8 @@ export default {
           setTimeout(() => {
             if (this.callStatus !== 'ended') {
               console.error(`❌ Status was reset! Forcing it back to 'ended'`);
-              this.callStatus = 'ended';
+              this.updateCallStatus('ended');
               this.isInCall = false;
-              this.$forceUpdate();
             }
           }, 100);
           
@@ -1263,8 +2228,14 @@ export default {
             console.log('⚠️ Not showing notifications - was not in a call');
           }
           
-          // Terminate the call and reset all states
-          this.terminateCall(false); // Don't show alert again (already shown above)
+          // Clean up call resources but KEEP status as 'ended'
+          // Don't call terminateCall as it might reset the status
+          console.log('📴 Cleaning up call resources while preserving ended status');
+          this.cleanupCallAudio();
+          this.stopCallTimer();
+          // Keep status as 'ended' - don't reset it
+          // Keep isInCall as false (already set above)
+          // Don't change tab - keep showing the call ended status
         });
         
         // Also listen for disconnected event in case recipient hangs up
@@ -1280,30 +2251,44 @@ export default {
             this.statusUpdateInterval = null;
           }
           
-          // Store state BEFORE any cleanup
-          const wasInCall = this.isInCall || this.callStatus === 'connected' || this.callStatus === 'ringing';
-          console.log('📴 wasInCall (determined from state):', wasInCall);
+          // IMMEDIATELY stop call duration timer
+          this.stopCallTimer();
+          console.log('🛑 Call duration timer stopped');
           
-          if (wasInCall) {
-            console.log('📴 WebRTC disconnected - recipient may have ended the call');
-            
-            // Update status immediately - FORCE it to 'ended'
-            console.log('🔄 FORCING status to "ended" and isInCall to false');
-            this.callStatus = 'ended';
-            this.isInCall = false; // Set to false so UI shows status text instead of duration
-            this.$forceUpdate();
-            console.log('✅ Status set to ended, isInCall=false, UI should show "CALL ENDED"');
-            // Double-check it's set
-            setTimeout(() => {
-              if (this.callStatus !== 'ended') {
-                console.error(`❌ Status was reset! Forcing it back to 'ended'`);
-                this.callStatus = 'ended';
-                this.isInCall = false;
-                this.$forceUpdate();
-              }
-            }, 100);
+          // CRITICAL: ALWAYS update to 'ended' when disconnected
+          // Call can end during any state (ringing, connecting, connected) - all should show "CALL ENDED"
+          console.log('📴 WebRTC disconnected - call has ended');
+          
+          // Store state BEFORE updating to 'ended' for notifications
+          const wasCallActive = this.callStatus === 'ringing' || this.callStatus === 'connected' || this.isInCall;
+          
+          // Update status immediately - FORCE it to 'ended'
+          console.log('🔄 FORCING status to "ended" and isInCall to false');
+          this.isInCall = false;
+          this.callStatus = 'ended'; // Direct assignment to bypass any protection
+          this.loading = false;
+          
+          // Force immediate UI update
+          this.$forceUpdate();
+          
+          console.log('✅ Status set to ended, isInCall=false, UI should show "CALL ENDED"');
+          
+          // Android-style: Show "CALL ENDED" for 2 seconds, then automatically return to keypad
+          this.scheduleReturnToKeypad();
+          
+          // Double-check it's set
+          this.$nextTick(() => {
+            if (this.callStatus !== 'ended') {
+              console.error(`❌ Status was reset! Forcing it back to 'ended'`);
+              this.callStatus = 'ended';
+              this.isInCall = false;
+              this.$forceUpdate();
+            }
+          });
             
             // Show notification IMMEDIATELY before any cleanup
+          // Show notifications if call was active (ringing or connected)
+          if (wasCallActive) {
             console.log('📴 Showing notifications: Call disconnected');
             
             // Show banner immediately
@@ -1332,12 +2317,15 @@ export default {
             }
             
             console.log('✅ All notifications triggered');
-            
-            // Terminate the call (don't show alert again - already shown above)
-            this.terminateCall(false);
-          } else {
-            console.log('📴 Disconnected but not in call - ignoring');
           }
+          
+          // Clean up call resources but KEEP status as 'ended'
+          // Don't call terminateCall as it might reset the status
+          console.log('📴 Cleaning up call resources while preserving ended status');
+          this.cleanupCallAudio();
+          // Status already set to 'ended' above - don't reset it
+          // Keep isInCall as false (already set above)
+          // Don't change tab - keep showing the call ended status
         });
         
         // Request microphone permission before making the call (non-blocking)
@@ -1377,7 +2365,7 @@ export default {
         });
         
         // Explicitly set status to connecting
-        this.callStatus = 'connecting';
+        this.updateCallStatus('connecting');
         
         // Brief wait to ensure client is ready
         await new Promise(resolve => setTimeout(resolve, 500));
@@ -1511,7 +2499,9 @@ export default {
             throw new Error(`Failed to initiate call: ${errorMsg}`);
           }
         }
-        this.isInCall = true; // Set optimistically
+        // DON'T set isInCall = true here - it should only be true when call is actually connected
+        // isInCall will be set to true when callestablished event fires or when polling detects connection
+        this.isInCall = false; // Keep it false until call is actually connected
         const newCall = {
           contactName: this.dialedNumber,
           time: new Date().toLocaleTimeString(),
@@ -1644,9 +2634,22 @@ export default {
       // This method is called when the recipient ends the call
       // or when the call is terminated for any reason
       // showAlert: if true, shows notification when recipient ends call (default: true)
+      // If showAlert is false, caller manually ended - return to keypad immediately
       console.log('📴 Terminating call and cleaning up...');
       console.log('📴 terminateCall called with showAlert:', showAlert);
       console.log('📴 Current isInCall state:', this.isInCall);
+      
+      // If caller manually ended (showAlert=false), return to keypad immediately
+      if (!showAlert) {
+        console.log('📴 Caller manually ended call - returning to keypad immediately');
+        // Clear any pending return-to-keypad timer (from recipient ending call)
+        if (this.returnToKeypadTimer) {
+          clearTimeout(this.returnToKeypadTimer);
+          this.returnToKeypadTimer = null;
+          console.log('📴 Cleared pending return-to-keypad timer');
+        }
+        this.tabValue = 'keypad';
+      }
       
       // Clean up polling interval
       if (this.statusUpdateInterval) {
@@ -1714,9 +2717,25 @@ export default {
       this.isOnHold = false;
       this.isSpeakerOn = false;
       this.showKeypadInCall = false;
-      this.tabValue = 'keypad';
       this.loading = false;
-      this.callStatus = 'idle'; // Reset call status
+      
+      // CRITICAL: Preserve 'ended' status if it's already set (recipient ended the call)
+      // Only change status if it's not already 'ended'
+      if (this.callStatus === 'ended') {
+        // Status is already 'ended' - don't change it
+        console.log('📴 Status is already ended - preserving it');
+        // Don't change tab - keep showing the call ended status
+      } else if (wasInCall && (this.callStatus === 'connected' || this.callStatus === 'ringing')) {
+        // Recipient ended the call - show "CALL ENDED"
+        console.log('📴 Recipient ended the call - setting status to ended');
+        this.updateCallStatus('ended');
+        // Don't change tab - keep showing the call ended status
+      } else {
+        // User manually ended or call failed - reset to idle and go back to keypad
+        console.log('📴 User ended call or call failed - resetting to idle');
+        this.updateCallStatus('idle');
+        this.tabValue = 'keypad';
+      }
       
       // Clean up audio streams if any
       if (this.localStream) {
@@ -1808,6 +2827,11 @@ export default {
       
       // Update the dialed number
       this.dialedNumber = value;
+      
+      // Ensure the input field shows the cleaned value (in case cleaning removed characters)
+      if (event.target.value !== value) {
+        event.target.value = value;
+      }
     },
     async handleMuteClick() {
       if (!this.client || !this.isInCall) return;
@@ -1994,15 +3018,61 @@ export default {
       return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     },
     startCallTimer() {
-      this.callDuration = 0;
+      console.log('⏱️ Starting call timer...');
+      console.log('⏱️ Current state - isInCall:', this.isInCall, 'callStatus:', this.callStatus);
+      
+      // Clear any existing timer
       if (this.callDurationTimer) {
+        console.log('⏱️ Clearing existing timer');
         clearInterval(this.callDurationTimer);
+        this.callDurationTimer = null;
       }
+      
+      // Reset duration to 0 and show immediately
+      this.callDuration = 0;
+      console.log('⏱️ Duration reset to 0 - should show "00:00" immediately');
+      
+      // Force immediate UI update to show "00:00"
+      this.$forceUpdate();
+      this.$nextTick(() => {
+        this.$forceUpdate();
+      });
+      
+      // Start timer - increment every second
       this.callDurationTimer = setInterval(() => {
-        if (this.isInCall && !this.isOnHold) {
+        if (this.isInCall && !this.isOnHold && this.callStatus === 'connected') {
           this.callDuration++;
+          const formatted = this.formatCallDuration(this.callDuration);
+          console.log(`⏱️ Duration: ${this.callDuration}s (${formatted})`);
+          
+          // Force multiple UI updates to ensure visibility
+          this.$forceUpdate();
+          this.$nextTick(() => {
+            this.$forceUpdate();
+            // Verify the duration is actually displayed
+            const durationEl = document.querySelector('.call-duration');
+            if (durationEl) {
+              console.log(`✅ Duration element found, displaying: ${formatted}`);
+            } else {
+              console.warn(`⚠️ Duration element not found in DOM!`);
+            }
+          });
+        } else {
+          console.log('⏱️ Timer tick skipped - isInCall:', this.isInCall, 'isOnHold:', this.isOnHold, 'status:', this.callStatus);
         }
       }, 1000);
+      
+      console.log('⏱️ Call timer started - will increment every second');
+      console.log('⏱️ Timer ID:', this.callDurationTimer);
+      console.log('⏱️ Duration should now be visible in UI:', this.formatCallDuration(this.callDuration));
+      
+      // Verify conditions for duration display
+      console.log('⏱️ Duration display conditions:', {
+        callStatus: this.callStatus,
+        isInCall: this.isInCall,
+        callDuration: this.callDuration,
+        shouldShow: this.callStatus === 'connected' && this.isInCall
+      });
     },
     stopCallTimer() {
       if (this.callDurationTimer) {
@@ -2010,6 +3080,57 @@ export default {
         this.callDurationTimer = null;
       }
       this.callDuration = 0;
+    },
+    // Android-style: Schedule return to keypad after call ends
+    // Shows "CALL ENDED" for 2 seconds, then returns to keypad
+    scheduleReturnToKeypad() {
+      // Clear any existing timer
+      if (this.returnToKeypadTimer) {
+        console.log('📴 Clearing existing return-to-keypad timer');
+        clearTimeout(this.returnToKeypadTimer);
+        this.returnToKeypadTimer = null;
+      }
+      
+      // Ensure "CALL ENDED" status is visible
+      console.log('📴 Call ended - showing "CALL ENDED" for 2 seconds, then returning to keypad');
+      console.log('📴 Current tabValue:', this.tabValue);
+      console.log('📴 Current callStatus:', this.callStatus);
+      this.$forceUpdate();
+      
+      // Schedule return to keypad after 2 seconds
+      console.log('📴 Setting timer to return to keypad in 2 seconds...');
+      const timerId = setTimeout(() => {
+        console.log('📴 ========== TIMER FIRED - RETURNING TO KEYPAD ==========');
+        console.log('📴 Current tabValue before change:', this.tabValue);
+        console.log('📴 Current callStatus:', this.callStatus);
+        
+        // Check if timer was cleared (defensive check)
+        if (this.returnToKeypadTimer !== timerId) {
+          console.warn('⚠️ Timer ID mismatch - timer may have been cleared');
+        }
+        
+        // Force change to keypad - use Vue.set if needed for reactivity
+        this.tabValue = 'keypad';
+        this.returnToKeypadTimer = null;
+        
+        console.log('📴 tabValue after change:', this.tabValue);
+        
+        // Force multiple UI updates to ensure change is visible
+        this.$forceUpdate();
+        this.$nextTick(() => {
+          // Double-check tabValue was set correctly
+          if (this.tabValue !== 'keypad') {
+            console.error('❌ tabValue was not set correctly! Forcing again...');
+            this.tabValue = 'keypad';
+          }
+          this.$forceUpdate();
+          console.log('📴 Final tabValue:', this.tabValue);
+          console.log('📴 ===================================================');
+        });
+      }, 2000);
+      
+      this.returnToKeypadTimer = timerId;
+      console.log('📴 Timer set with ID:', this.returnToKeypadTimer);
     },
     async handleDTMFTone(digit) {
       // Send DTMF tone during active call
@@ -2282,13 +3403,19 @@ export default {
 }
 
 .call-duration {
-  font-size: 1.3rem;
-  color: #4caf50;
-  font-weight: 700;
+  font-size: 2.2rem;
+  color: #ffffff;
+  font-weight: 300;
   font-variant-numeric: tabular-nums;
-  margin-top: 0.75rem;
+  margin-top: 0.5rem;
   text-align: center;
-  letter-spacing: 1px;
+  letter-spacing: 4px;
+  line-height: 1.3;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+  opacity: 1;
+  display: block;
+  min-height: 2.5rem;
+  transition: opacity 0.1s ease;
 }
 
 .call-status-text {

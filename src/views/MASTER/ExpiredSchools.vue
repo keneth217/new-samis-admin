@@ -22,33 +22,130 @@
     <!-- Schools Table -->
     <div class="table-container">
       <!-- Activation Form Overlay -->
-      <div v-if="showActivationForm" class="activation-form-overlay">
-        <div class="activation-form">
-          <h3>Activate School: {{ selectedSchool.schoolCode }}</h3>
+      <div v-if="showActivationForm" class="activation-form-wrap">
+        <div class="activation-form-content">
+          <div class="activation-cancel" @click="closeActivationForm">
+            <i class="fas fa-times"></i>
+          </div>
+          <div class="activation-form-title">
+            <h2>Activate School: {{ selectedSchool.schoolCode }}</h2>
+          </div>
+          <hr />
           <form @submit.prevent="submitActivationForm">
-            <div class="form-group">
-              <label>School Code</label>
-              <input  class="form-control" v-model="activationForm.schoolCode" type="text" required />
+            <div class="activation-form-inputs">
+              <div class="activation-form-group">
+                <input 
+                  type="text" 
+                  class="activation-form-control" 
+                  v-model="activationForm.schoolCode" 
+                  id="activationSchoolCode" 
+                  placeholder="School Code"
+                  disabled 
+                />
+                <label for="activationSchoolCode" :class="{ filled: activationForm.schoolCode !== '' }">School Code</label>
+              </div>
+
+              <div class="activation-form-group">
+                <input 
+                  type="text" 
+                  class="activation-form-control" 
+                  v-model="activationForm.moduleName" 
+                  id="activationModuleName" 
+                  placeholder="Module Name"
+                  required 
+                />
+                <label for="activationModuleName" :class="{ filled: activationForm.moduleName !== '' }">Module Name*</label>
+              </div>
+
+              <div class="activation-form-group">
+                <input 
+                  v-model="activationForm.expiryDate" 
+                  type="date" 
+                  id="activationExpiryDate" 
+                  class="activation-form-control"
+                  required 
+                />
+                <label for="activationExpiryDate" :class="{ filled: activationForm.expiryDate !== '' }">Expiry Date*</label>
+              </div>
+
+              <div class="activation-form-group">
+                <input 
+                  v-model="activationForm.maintenanceFee" 
+                  type="number" 
+                  id="activationMaintenanceFee" 
+                  class="activation-form-control"
+                  placeholder="Maintenance Fee"
+                  required
+                />
+                <label for="activationMaintenanceFee" :class="{ filled: activationForm.maintenanceFee !== '' && activationForm.maintenanceFee !== null }">Maintenance Fee*</label>
+              </div>
+
+              <div class="activation-form-group">
+                <input 
+                  v-model="activationForm.sellingPrice" 
+                  type="number" 
+                  id="activationSellingPrice" 
+                  class="activation-form-control"
+                  placeholder="Selling Price"
+                  required
+                />
+                <label for="activationSellingPrice" :class="{ filled: activationForm.sellingPrice !== '' && activationForm.sellingPrice !== null }">Selling Price*</label>
+              </div>
+
+              <div class="activation-form-group">
+                <input 
+                  v-model="activationForm.marketerID" 
+                  type="number" 
+                  id="activationMarketerID" 
+                  class="activation-form-control"
+                  placeholder="Marketer ID (Optional)"
+                />
+                <label for="activationMarketerID" :class="{ filled: activationForm.marketerID !== '' && activationForm.marketerID !== null }">Marketer ID (Optional)</label>
+              </div>
+
+              <div class="activation-form-group">
+                <input 
+                  v-model="activationForm.handledByID" 
+                  type="number" 
+                  id="activationHandledByID" 
+                  class="activation-form-control"
+                  placeholder="Handled By ID (Optional)"
+                />
+                <label for="activationHandledByID" :class="{ filled: activationForm.handledByID !== '' && activationForm.handledByID !== null }">Handled By ID (Optional)</label>
+              </div>
+
+              <div class="activation-form-group">
+                <select 
+                  id="activationRegisteredBySelect"
+                  v-model="activationForm.registeredByID"
+                  class="activation-form-control"
+                >
+                  <option value="">Select Registered By (Optional)</option>
+                  <option 
+                    v-for="user in users" 
+                    :key="user.id" 
+                    :value="user.id"
+                  >
+                    {{ user.fullname || user.username }}
+                  </option>
+                </select>
+                <label for="activationRegisteredBySelect" :class="{ filled: activationForm.registeredByID !== '' && activationForm.registeredByID !== null }">Select Registered By (Optional)</label>
+              </div>
+
+              <div class="activation-form-group">
+                <input 
+                  v-model="activationForm.installationDate" 
+                  type="date" 
+                  id="activationInstallationDate" 
+                  class="activation-form-control"
+                />
+                <label for="activationInstallationDate" :class="{ filled: activationForm.installationDate !== '' }">Installation Date (Optional)</label>
+              </div>
             </div>
-            <div class="form-group">
-              <label>Module Name</label>
-              <input class="form-control" v-model="activationForm.moduleName" type="text" required />
-            </div>
-            <div class="form-group">
-              <label>Expiry Date</label>
-              <input class="form-control" v-model="activationForm.expiryDate" type="date" required />
-            </div>
-            <div class="form-group">
-              <label>Maintenance Fee</label>
-              <input class="form-control" v-model="activationForm.maintenanceFee" type="number" required />
-            </div>
-            <div class="form-group">
-              <label>Selling Price</label>
-              <input class="form-control" v-model="activationForm.sellingPrice" type="number" required />
-            </div>
-            <div class="form-actions">
-              <button type="button" @click="closeActivationForm" class="cancel-btn">Cancel</button>
-              <button type="submit" class="submit-btn">Activate</button>
+            <hr />
+            <div class="activation-form-actions">
+              <button type="button" @click="closeActivationForm">Close</button>
+              <button type="submit">Activate</button>
             </div>
           </form>
         </div>
@@ -210,12 +307,17 @@ export default {
       schoolsPerPage: 15,
       schoolsPerPageOptions: [5, 15, 30, 50, 75, 100],
       showActivationForm: false,
+      users: [], // Store users list for registeredByID dropdown
       activationForm: {
         schoolCode: '',
         moduleName: '',
         expiryDate: '',
         maintenanceFee: '',
         sellingPrice: '',
+        marketerID: '',
+        handledByID: '',
+        registeredByID: '', // Optional
+        installationDate: '', // Optional
       },
       selectedSchool: null,
     };
@@ -247,43 +349,91 @@ export default {
     },
   },
   methods: {
-// Fetch the activation status of the school
-async fetchActivationStatus(school) {
-  try {
-    this.Loading = true;
-    const response = await axios.post('/activations/status', {
-      schoolCode: school.schoolCode,
-      // Pass the actual module associated with the school
-      moduleName: school.moduleName || '', // Use the school’s module name or empty string if not available
-    });
+    async fetchUsers() {
+      try {
+        const response = await axios.post('/auth/list_users', {});
+        console.log('Users API Response:', response.data);
+        
+        // Map users for dropdown
+        this.users = response.data.map(user => ({
+          id: user.userID,
+          fullname: user.fullname || '',
+          username: user.username || '',
+        }));
+        
+        console.log('Mapped users:', this.users);
+      } catch (error) {
+        console.error('Error fetching users:', error);
+        this.toast.error('Failed to fetch users.');
+      }
+    },
 
-    const activationData = response.data;
+    // Fetch the activation status of the school
+    async fetchActivationStatus(school) {
+      try {
+        this.Loading = true;
+        const response = await axios.post('/activations/status', {
+          schoolCode: school.schoolCode,
+          // Pass the actual module associated with the school
+          moduleName: school.moduleName || '', // Use the school's module name or empty string if not available
+        });
 
-    // Populate the activation form with the correct data, including the correct module name
-    this.activationForm = {
-      schoolCode: activationData.schoolCode || '',
-      moduleName: activationData.moduleName || '', // Make sure the module name is set correctly
-      expiryDate: activationData.expiryDate || '',
-      maintenanceFee: activationData.maintenanceFee || '',
-      sellingPrice: activationData.sellingPrice || '',
-    };
+        const activationData = response.data;
 
-    // Assign the selected school and show the activation form
-    this.selectedSchool = school;
-    this.showActivationForm = true;
-  } catch (error) {
-    console.error('Error fetching activation status:', error);
-    this.toast.error('Failed to retrieve activation status');
-  } finally {
-    this.Loading = false;
-  }
-},
+        // Populate the activation form with the correct data, including the correct module name
+        this.activationForm = {
+          schoolCode: activationData.schoolCode || '',
+          moduleName: activationData.moduleName || '', // Make sure the module name is set correctly
+          expiryDate: activationData.expiryDate || '',
+          maintenanceFee: activationData.maintenanceFee || '',
+          sellingPrice: activationData.sellingPrice || '',
+          marketerID: activationData.marketerID || '',
+          handledByID: activationData.handledByID || '',
+          registeredByID: activationData.registeredByID || '',
+          installationDate: activationData.installationDate || '',
+        };
+
+        // Fetch users if not already fetched
+        if (this.users.length === 0) {
+          await this.fetchUsers();
+        }
+
+        // Assign the selected school and show the activation form
+        this.selectedSchool = school;
+        this.showActivationForm = true;
+      } catch (error) {
+        console.error('Error fetching activation status:', error);
+        this.toast.error('Failed to retrieve activation status');
+      } finally {
+        this.Loading = false;
+      }
+    },
 
 
     // Submit the activation form
     async submitActivationForm() {
+      this.Loading = true;
       try {
-        const payload = { ...this.activationForm };
+        // Validate mandatory fields
+        if (!this.activationForm.moduleName || !this.activationForm.expiryDate) {
+          this.toast.error('Please enter module name and expiry date.');
+          this.Loading = false;
+          return;
+        }
+
+        // Prepare payload matching API structure exactly
+        // All optional fields (marketerID, handledByID, registeredByID, installationDate) can be null
+        const payload = {
+          schoolCode: this.activationForm.schoolCode,
+          moduleName: this.activationForm.moduleName,
+          expiryDate: this.activationForm.expiryDate,
+          maintenanceFee: this.activationForm.maintenanceFee ? parseFloat(this.activationForm.maintenanceFee) : null,
+          sellingPrice: this.activationForm.sellingPrice ? parseFloat(this.activationForm.sellingPrice) : null,
+          marketerID: this.activationForm.marketerID && !isNaN(parseInt(this.activationForm.marketerID)) ? parseInt(this.activationForm.marketerID) : null,
+          handledByID: this.activationForm.handledByID && !isNaN(parseInt(this.activationForm.handledByID)) ? parseInt(this.activationForm.handledByID) : null,
+          registeredByID: this.activationForm.registeredByID && !isNaN(parseInt(this.activationForm.registeredByID)) ? parseInt(this.activationForm.registeredByID) : null,
+          installationDate: this.activationForm.installationDate || null,
+        };
 
         const response = await axios.post('/activations/activate', payload);
         if (response.data && response.data.activationID) {
@@ -295,7 +445,13 @@ async fetchActivationStatus(school) {
         }
       } catch (error) {
         console.error('Error activating school:', error);
-        this.toast.error('An error occurred while activating the school.');
+        if (error.response) {
+          this.toast.error(`Error: ${error.response.data.message || 'An error occurred while activating the school.'}`);
+        } else {
+          this.toast.error('An error occurred while activating the school.');
+        }
+      } finally {
+        this.Loading = false;
       }
     },
 
@@ -309,6 +465,10 @@ async fetchActivationStatus(school) {
         expiryDate: '',
         maintenanceFee: '',
         sellingPrice: '',
+        marketerID: '',
+        handledByID: '',
+        registeredByID: '',
+        installationDate: '',
       };
     },
 
@@ -819,8 +979,8 @@ async fetchActivationStatus(school) {
 
 
 
-/* Activation Form Styles */
-.activation-form-overlay {
+/* Activation Form Styles - match "Add Module" modal look */
+.activation-form-wrap {
   background-color: rgba(17, 167, 167, 0.5);
   width: 100%;
   height: 100%;
@@ -833,7 +993,7 @@ async fetchActivationStatus(school) {
   justify-content: center;
 }
 
-.activation-form {
+.activation-form-content {
   background-color: #4368b9;
   border-radius: 5px;
   padding: 20px;
@@ -845,70 +1005,215 @@ async fetchActivationStatus(school) {
   position: relative;
 }
 
-.activation-form h3 {
-  margin-bottom: 15px;
+.activation-cancel {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  cursor: pointer;
+  color: gold;
+  font-size: 1.3rem;
+}
+
+.activation-form-title {
+  color: gold;
   text-align: center;
-  color: gold;
 }
 
-.form-group {
+.activation-form-title h2 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.activation-form-inputs {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  padding-top: 10px;
+}
+
+.activation-form-group {
   position: relative;
-  margin-bottom: 1rem;
+  grid-column: span 1;
 }
 
-.form-group label {
-  color: gold;
+.activation-form-group:first-child {
+  grid-column: span 2;
+}
+
+.activation-form-control {
+  border: 1px solid gold;
   outline: none;
-  padding: 4px;
-  margin-bottom: 4px;
+  padding: 0.3rem;
+  border-radius: 4px;
+  font-size: 1rem;
   width: 100%;
   box-sizing: border-box;
   background-color: #4368b9;
-  display: block;
+  color: white;
 }
 
-.form-group input {
-  width: 100%;
-  padding: 8px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  box-sizing: border-box;
+.activation-form-control:disabled {
+  background-color: rgba(67, 104, 185, 0.7);
+  cursor: not-allowed;
+  opacity: 0.7;
 }
 
-.form-actions {
+.activation-form-control::placeholder {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.9rem;
+}
+
+.activation-form-group label {
+  position: absolute;
+  top: 50%;
+  left: 4px;
+  background: #4368b9;
+  padding: 0 5px;
+  transform: translateY(-50%);
+  transition: all 0.3s ease;
+  color: gold;
+  pointer-events: none;
+}
+
+.activation-form-group label.filled {
+  top: -1px;
+  left: 5px;
+  color: gold;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.activation-form-group input:focus + label,
+.activation-form-group input:not(:placeholder-shown) + label,
+.activation-form-group input:disabled + label.filled,
+.activation-form-group select:focus + label,
+.activation-form-group select:not([value=""]) + label {
+  top: -1px;
+  left: 5px;
+  color: gold;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.activation-form-control option {
+  background-color: #4368b9;
+  color: white;
+  padding: 0.5rem;
+}
+
+.activation-form-actions {
   display: flex;
   justify-content: space-between;
-  margin-top: 10px;
   gap: 0.5rem;
+  margin-top: 0;
 }
 
-.form-actions button {
+.activation-form-actions button {
   padding: 0.3rem 1rem;
   border: none;
   cursor: pointer;
   border-radius: 4px;
   font-size: medium;
-  flex: 1;
 }
 
-.form-actions button:first-child {
+.activation-form-actions button:first-child {
   background: rgba(245, 56, 56, 1);
   border: 1px solid rgba(245, 56, 56, 1);
+  color: black;
+}
+
+.activation-form-actions button:first-child:hover {
+  background-color: #4368b9;
   color: white;
 }
 
-.form-actions button:first-child:hover {
-  background-color: #d32f2f;
-}
-
-.form-actions button:last-child {
+.activation-form-actions button:last-child {
   background: gold;
   border: 1px solid gold;
   color: black;
 }
 
-.form-actions button:last-child:hover {
-  background-color: #ffc107;
+.activation-form-actions button:last-child:hover {
+  background-color: #4368b9;
+  color: white;
+}
+
+.activation-form-content hr {
+  border: 1px solid gold;
+  margin: 20px 0;
+}
+
+@media only screen and (max-width: 1024px) {
+  .activation-form-content {
+    width: 85%;
+    max-width: 600px;
+  }
+}
+
+@media only screen and (max-width: 768px) {
+  .activation-form-content {
+    width: 95%;
+    max-width: 100%;
+    padding: 15px;
+    max-height: 95vh;
+  }
+
+  .activation-form-inputs {
+    grid-template-columns: 1fr;
+    gap: 0.9rem;
+  }
+
+  .activation-form-group {
+    grid-column: span 1;
+  }
+
+  .activation-form-title h2 {
+    font-size: 1.1rem;
+  }
+}
+
+@media only screen and (max-width: 480px) {
+  .activation-form-wrap {
+    padding: 0.5rem;
+  }
+
+  .activation-form-content {
+    width: 100%;
+    padding: 12px;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+
+  .activation-form-title h2 {
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .activation-form-inputs {
+    gap: 0.75rem;
+    padding-top: 5px;
+  }
+
+  .activation-form-control {
+    padding: 0.4rem;
+    font-size: 0.9rem;
+  }
+
+  .activation-form-actions {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .activation-form-actions button {
+    width: 100%;
+    padding: 0.5rem;
+  }
+
+  .activation-cancel {
+    top: 5px;
+    right: 5px;
+    font-size: 1.2rem;
+  }
 }
 
 /* Modal Styles */
