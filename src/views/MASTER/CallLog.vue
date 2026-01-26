@@ -225,50 +225,58 @@
           <div v-else>
             <div v-for="day in groupedRecentsKeys" :key="day" class="group-block">
               <div class="group-title">{{ day }}</div>
-              <div class="table-list">
-                <div class="table-row table-head">
-                  <div class="col name">Contact</div>
-                  <div class="col time">Time</div>
-                  <div class="col type">Type</div>
-                  <div class="col action">Action</div>
-                </div>
-                <div
-                  v-for="(call, idx) in groupedRecents[day]"
-                  :key="idx"
-                  class="table-row"
-                >
-                  <div class="col name">{{ call.contactName || 'Unknown' }}</div>
-                  <div class="col time">{{ call.time }}</div>
-                  <div class="col type">{{ call.type }}</div>
-                  <div class="col action">
-                    <button class="link-btn" @click="callFromRecent(call)">Call</button>
-                  </div>
-                </div>
-              </div>
+              <table class="students-table desktop-table recents-table">
+                <thead>
+                  <tr>
+                    <th>Contact</th>
+                    <th>Time</th>
+                    <th>Type</th>
+                    <th class="actions-header">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr
+                    v-for="(call, idx) in groupedRecents[day]"
+                    :key="idx"
+                    :class="{ 'even-row': idx % 2 !== 0 }"
+                  >
+                    <td>{{ call.contactName || 'Unknown' }}</td>
+                    <td>{{ call.time }}</td>
+                    <td>{{ call.type }}</td>
+                    <td class="actions">
+                      <button class="link-btn" @click="callFromRecent(call)">Call</button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
 
         <div v-if="tabValue === 'contacts'" class="list-pane">
           <div v-if="filteredContacts.length === 0" class="empty-state">No contacts found.</div>
-          <div class="table-list" v-else>
-            <div class="table-row table-head">
-              <div class="col name">Name</div>
-              <div class="col number">Phone</div>
-              <div class="col action">Action</div>
-            </div>
-            <div
-              v-for="(contact, idx) in filteredContacts"
-              :key="idx"
-              class="table-row"
-            >
-              <div class="col name">{{ contact.contactName || contact.fullname || 'Unknown' }}</div>
-              <div class="col number">{{ contact.phoneNo || contact.phone || 'N/A' }}</div>
-              <div class="col action">
-                <button class="link-btn" @click="startFromContact(contact)">Call</button>
-              </div>
-            </div>
-          </div>
+          <table class="students-table desktop-table recents-table" v-else>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Phone</th>
+                <th class="actions-header">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="(contact, idx) in filteredContacts"
+                :key="idx"
+                :class="{ 'even-row': idx % 2 !== 0 }"
+              >
+                <td>{{ contact.contactName || contact.fullname || 'Unknown' }}</td>
+                <td>{{ contact.phoneNo || contact.phone || 'N/A' }}</td>
+                <td class="actions">
+                  <button class="link-btn" @click="startFromContact(contact)">Call</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -3755,30 +3763,46 @@ export default {
 .list-pane {
   margin-top: 0.5rem;
 }
-.table-list {
-  border: 1px solid #e1e4ea;
-  border-radius: 8px;
-  overflow: hidden;
+/* Recents Table - Using Contacts table styling */
+.recents-table {
+  display: table !important;
+  width: 100%;
+  border-collapse: collapse;
+  border-spacing: 0;
+  border: 1px solid #ddd;
+  font-size: clamp(0.8rem, 1.2vw, 1rem);
+  margin-bottom: 0.75rem;
 }
-.table-row {
-  display: grid;
-  grid-template-columns: 2fr 1.5fr 1fr 1fr;
-  border-bottom: 1px solid #e1e4ea;
-  padding: 0.65rem 0.75rem;
+.recents-table th,
+.recents-table td {
+  padding: clamp(0.5rem, 1.5vw, 1rem);
+  text-align: left;
+  border-bottom: 1px solid #ddd;
+  vertical-align: middle;
+  border: 1px solid #ddd;
+  word-break: break-word;
+}
+.recents-table thead th {
+  background-color: #f1f1f1;
+  font-weight: 600;
+  border-bottom: 2px solid #ddd;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.recents-table .even-row {
+  background-color: #f7f9fc;
+}
+.recents-table .actions-header {
+  text-align: center;
+  padding: clamp(0.5rem, 1vw, 1rem);
+}
+.recents-table .actions {
+  display: flex;
+  justify-content: flex-start;
+  gap: clamp(0.3rem, 1vw, 1rem);
+  flex-wrap: wrap;
   align-items: center;
-}
-.table-row:last-child {
-  border-bottom: none;
-}
-.table-head {
-  background: #f6f7fb;
-  font-weight: 700;
-}
-.col {
-  font-size: 0.95rem;
-}
-.col.action {
-  text-align: right;
 }
 .link-btn {
   border: none;
@@ -3786,6 +3810,14 @@ export default {
   color: #1a73e8;
   cursor: pointer;
   font-weight: 600;
+  font-size: clamp(0.75rem, 1.2vw, 0.9rem);
+  padding: clamp(0.3rem, 1vw, 0.5rem) clamp(0.6rem, 1.5vw, 0.9rem);
+  transition: all 0.3s ease;
+}
+.link-btn:hover {
+  background-color: #e0e7ff;
+  border-radius: 4px;
+  color: #4f46e5;
 }
 .empty-state {
   text-align: center;
@@ -3798,6 +3830,8 @@ export default {
 .group-title {
   font-weight: 700;
   margin-bottom: 0.35rem;
+  font-size: clamp(0.9rem, 1.3vw, 1.1rem);
+  color: #333;
 }
 @media (max-width: 768px) {
   .table-row {
@@ -4003,6 +4037,27 @@ export default {
   
   .error-dialog-btn {
     width: 100%;
+  }
+  
+  /* Recents table responsive */
+  .recents-table th,
+  .recents-table td {
+    padding: clamp(0.5rem, 1vw, 0.75rem);
+    font-size: clamp(0.85rem, 1.1vw, 0.95rem);
+  }
+}
+
+@media (max-width: 1024px) {
+  .recents-table th,
+  .recents-table td {
+    padding: clamp(0.6rem, 1vw, 0.9rem);
+  }
+}
+
+@media (max-width: 1400px) {
+  .recents-table th,
+  .recents-table td {
+    padding: clamp(0.6rem, 1vw, 0.9rem);
   }
 }
 </style>
