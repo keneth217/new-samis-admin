@@ -319,6 +319,7 @@
 import axios from '../../axios';
 import LoadingSpinner from '../../components/LoadingSpinner.vue';
 import { useToast } from 'vue-toastification';
+import { saveCallHistory, getCallHistory } from '../../services/callHistoryApi';
 
 export default {
   name: 'CallLog',
@@ -367,6 +368,8 @@ export default {
       isInitializingClient: false, // Prevent concurrent client initialization
       returnToKeypadTimer: null, // Timer to return to keypad after call ends
       connectionTime: null, // Timestamp when connection was established (to prevent premature ending)
+      callStartTime: null, // Track when call started for duration calculation
+      currentCallReceiver: null, // Track receiver phone number for call history
     };
   },
   computed: {
@@ -821,10 +824,47 @@ export default {
         this.loading = false;
       }
     },
-    loadRecents() {
+    async loadRecents() {
+      // Load from localStorage first (for immediate display)
       const stored = localStorage.getItem('recentCalls');
       if (stored) {
         this.recents = JSON.parse(stored);
+      }
+      
+      // Then fetch from API and merge
+      try {
+        const response = await getCallHistory({ limit: 50 });
+        const apiRecents = Array.isArray(response.data) ? response.data : response.data?.data || [];
+        
+        // Transform API data to match local format
+        const transformedRecents = apiRecents.map(call => ({
+          contactName: call.receiverPhoneNo || call.receiverName || 'Unknown',
+          time: call.timestamp ? new Date(call.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString(),
+          type: call.callType || 'Outgoing',
+          day: call.timestamp ? new Date(call.timestamp).toLocaleDateString('en-US', { weekday: 'long' }) : new Date().toLocaleDateString('en-US', { weekday: 'long' }),
+          duration: call.duration || 0,
+          status: call.status || 'completed',
+          callerName: call.callerName || '',
+          receiverName: call.receiverName || '',
+          callerPhoneNo: call.callerPhoneNo || '',
+          receiverPhoneNo: call.receiverPhoneNo || '',
+        }));
+        
+        // Merge with localStorage data, removing duplicates
+        const merged = [...transformedRecents, ...this.recents];
+        const unique = merged.filter((call, index, self) => 
+          index === self.findIndex(c => 
+            c.contactName === call.contactName && 
+            c.time === call.time && 
+            c.type === call.type
+          )
+        );
+        
+        this.recents = unique.slice(0, 50); // Keep latest 50
+        this.saveRecents();
+      } catch (error) {
+        console.warn('Could not load call history from API:', error);
+        // Continue with localStorage data only
       }
     },
     saveRecents() {
@@ -1477,6 +1517,10 @@ export default {
         // Store the number for retry
         this.lastDialedNumber = this.dialedNumber;
         this.tabValue = 'inCall';
+        
+        // Track call start for history
+        this.currentCallReceiver = this.dialedNumber;
+        this.callStartTime = Date.now();
         
         // CRITICAL: Reset call state at the start of each call
         this.isInCall = false; // Start with false - will be true only when call is connected
@@ -2718,6 +2762,44 @@ export default {
       
       // Stop call timer
       this.stopCallTimer();
+      
+      // Save call history to API
+      if (this.currentCallReceiver && this.callStartTime) {
+        const callDuration = Math.floor((Date.now() - this.callStartTime) / 1000);
+        const userData = JSON.parse(localStorage.getItem('user') || '{}');
+        const callerPhoneNo = localStorage.getItem('phoneNo') || userData.phoneNo || '';
+        const callerName = localStorage.getItem('fullname') || userData.fullname || localStorage.getItem('username') || userData.username || '';
+        
+        // Find receiver name from contacts if available
+        const receiverContact = this.contacts.find(c => 
+          (c.phoneNo || c.phone) === this.currentCallReceiver
+        );
+        const receiverName = receiverContact ? (receiverContact.contactName || receiverContact.name || '') : '';
+        
+        const callHistoryData = {
+          callerPhoneNo: callerPhoneNo,
+          callerName: callerName,
+          receiverPhoneNo: this.currentCallReceiver,
+          receiverName: receiverName,
+          callType: 'Outgoing',
+          duration: callDuration,
+          status: wasInCall ? 'completed' : 'failed',
+          timestamp: new Date(this.callStartTime).toISOString(),
+        };
+        
+        // Save to API (non-blocking)
+        saveCallHistory(callHistoryData).then(() => {
+          console.log('✅ Call history saved to API');
+          // Reload recents to show updated history
+          this.loadRecents();
+        }).catch(err => {
+          console.warn('Could not save call history to API:', err);
+        });
+      }
+      
+      // Reset call tracking
+      this.currentCallReceiver = null;
+      this.callStartTime = null;
       
       // Reset all call states
       this.isInCall = false;

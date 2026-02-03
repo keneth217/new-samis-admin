@@ -60,6 +60,11 @@ export const useAuthStore = defineStore("auth", () => {
         localStorage.removeItem("accountNo");
         localStorage.removeItem("username");
         localStorage.removeItem("roles");
+        localStorage.removeItem("phoneNo");
+        localStorage.removeItem("fullname");
+        localStorage.removeItem("userId");
+        localStorage.removeItem("user");
+        localStorage.removeItem("schoolCode");
         // localStorage.removeItem("schoolID");
         // localStorage.removeItem("isMasterAdmin"); 
         // clearSchoolDetails();
@@ -73,7 +78,14 @@ export const useAuthStore = defineStore("auth", () => {
         
 
 
+        // Clear axios default headers to prevent old token from being sent on next login
+        // Clear both the imported axios instance and any default headers
+        if (axios && axios.defaults && axios.defaults.headers) {
+          delete axios.defaults.headers.common.Authorization;
+        }
+        
         setAuthenticated(false);
+        console.log("Logout completed - all tokens and axios headers cleared");
         resolve();
       }, 2000); // Simulate delay
     });
@@ -172,14 +184,45 @@ export const useAuthStore = defineStore("auth", () => {
         throw new Error("Network Error: Unable to connect to the server. Please check your internet connection and ensure the API server is running.");
       }
     
-      // Extract the error message directly from the response data
-      const errorMessage = error.response && error.response.data 
-        ? (typeof error.response.data === 'object' && error.response.data.message 
-            ? error.response.data.message // Use the specific message field if it exists
-            : error.response.data) // Fallback to the entire response data
-        : error.message || "AN ERROR OCCURRED!!";
+      // Handle 500 Internal Server Error – use server message if available
+      if (error.response?.status === 500) {
+        const serverMsg = error.serverMessage || error.response?.data;
+        let errorMessage = "Server error (500). The login API is failing — fix this on the backend (officeapi.samis.co.ke).";
+        if (serverMsg) {
+          if (typeof serverMsg === "string") {
+            errorMessage = serverMsg;
+          } else if (serverMsg.message) {
+            errorMessage = serverMsg.message;
+          } else if (serverMsg.error) {
+            errorMessage = serverMsg.error;
+          } else {
+            errorMessage = `Server error: ${JSON.stringify(serverMsg)}`;
+          }
+        }
+        throw new Error(errorMessage);
+      }
     
-      // Throw the specific error message
+      // Extract the error message directly from the response data
+      let errorMessage = "AN ERROR OCCURRED!!";
+      
+      if (error.response && error.response.data) {
+        const errorData = error.response.data;
+        if (typeof errorData === 'string') {
+          errorMessage = errorData;
+        } else if (typeof errorData === 'object') {
+          if (errorData.message) {
+            errorMessage = errorData.message;
+          } else if (errorData.error) {
+            errorMessage = errorData.error;
+          } else {
+            errorMessage = JSON.stringify(errorData);
+          }
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+    
+      // Throw the specific error message (always as a string)
       throw new Error(errorMessage);
     }
   }

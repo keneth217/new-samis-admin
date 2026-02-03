@@ -285,6 +285,7 @@ export default {
             schoolName: school.schoolName || school.school_name || 'N/A',
             email: school.email || '',
             principalPhoneNo: school.principalPhoneNo || school.principal_phone_no || '',
+            phoneNo: school.phoneNo || school.phone_no || '',
             principalName: school.principalName || school.principal_name || '',
             county: school.county || '',
             deleted: school.deleted || false,
@@ -553,6 +554,8 @@ export default {
         return;
       }
 
+      // Payload matches MessageController POST /api/messages/sendbulk: { message, contacts }
+      // Each contact: contactName, phoneNo, designation, email, schoolCode (contactID optional)
       const payload = {
         message: messageText,
         contacts: finalContacts,

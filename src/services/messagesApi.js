@@ -1,15 +1,16 @@
 import axios from '../axios';
 
 /**
- * Messages API Service
- * All endpoints for message management
+ * Messages API Service (MessageController)
+ * Base URL: /api/messages
+ * Handles SMS: single send, bulk send (list or contacts), resend, list, delete, balance.
  */
 
 /**
  * Send Single Message
  * POST /api/messages/send
  * @param {Object} messageData - { messageID (optional), message, phoneNo, fullname (optional) }
- * @returns {Promise} Response with message details
+ * @returns {Promise<{ messageID, message, phoneNo, fullname, sentOn, status, contact }>}
  */
 export const sendSingleMessage = async (messageData) => {
   const payload = {
@@ -43,43 +44,37 @@ export const sendManyMessages = async (messagesList) => {
 /**
  * Send Bulk Messages (Contacts)
  * POST /api/messages/sendbulk
- * If only one contact, uses /messages/send endpoint for better reliability
- * @param {Object} bulkData - { message, contacts: [{ contactID (optional), contactName, phoneNo, designation, email, schoolCode }] }
- * @returns {Promise} Response with array of message details
+ * Request body aligns with MessageController: { message, contacts } where each contact has:
+ *   contactID? (optional), contactName, phoneNo, designation, email, schoolCode
+ * Message may contain newlines (e.g. "TEST\n\nTEST"). All contact fields required except contactID.
+ * @param {Object} bulkData - { message: string, contacts: Array<{ contactID?, contactName, phoneNo, designation?, email?, schoolCode }> }
+ * @returns {Promise<Array<{ messageID, message, phoneNo, fullname, sentOn, status, contact }>>}
  */
 export const sendBulkMessages = async (bulkData) => {
-  // Ensure contacts is an array
   if (!Array.isArray(bulkData.contacts)) {
     throw new Error('contacts must be an array');
   }
-
   if (bulkData.contacts.length === 0) {
     throw new Error('At least one contact is required');
   }
 
-  // Always use the bulk endpoint to ensure schoolCode is included
-  // The backend requires schoolCode for proper message processing
-  // Build payload for bulk messages (works for 1+ contacts)
-  // API expects: { message, contacts: [{ contactID?, contactName, phoneNo, designation, email, schoolCode }] }
+  // Preserve message as-is (including newlines); only trim leading/trailing whitespace
+  const message = typeof bulkData.message === 'string' ? bulkData.message.trim() : String(bulkData.message || '').trim();
+
+  // Build request body exactly as MessageController POST /api/messages/sendbulk expects
   const payload = {
-    message: String(bulkData.message || '').trim(),
+    message,
     contacts: bulkData.contacts.map(contact => {
-      // Build contact object matching API specification exactly
-      // Field order matches API documentation: contactID?, contactName, phoneNo, designation, email, schoolCode
-      const contactObj = {};
-      
-      // Add contactID first if provided (optional field)
+      const contactObj = {
+        contactName: String(contact.contactName || '').trim(),
+        phoneNo: String(contact.phoneNo || '').trim(),
+        designation: String(contact.designation || '').trim(),
+        email: String(contact.email || '').trim(),
+        schoolCode: String(contact.schoolCode || '').trim(),
+      };
       if (contact.contactID !== undefined && contact.contactID !== null) {
         contactObj.contactID = contact.contactID;
       }
-      
-      // Required fields in API documentation order
-      contactObj.contactName = String(contact.contactName || '').trim();
-      contactObj.phoneNo = String(contact.phoneNo || '').trim();
-      contactObj.designation = String(contact.designation || '').trim();
-      contactObj.email = String(contact.email || '').trim();
-      contactObj.schoolCode = String(contact.schoolCode || '').trim();
-
       return contactObj;
     }),
   };
@@ -190,10 +185,10 @@ export const resendMessage = async (messageID) => {
   }
 };
 
-/**-
+/**
  * List All Messages
  * POST /api/messages/list
- * @returns {Promise} Response with array of all messages
+ * @returns {Promise<Array<{ messageID, message, phoneNo, fullname, sentOn, status, contact }>>}
  */
 export const listMessages = async () => {
   return await axios.post('/messages/list');

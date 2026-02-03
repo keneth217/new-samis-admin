@@ -249,8 +249,10 @@
               id="activationMaintenanceFee" 
               class="activation-form-control"
               placeholder="Maintenance Fee"
+              step="0.01"
+              required
             />
-            <label for="activationMaintenanceFee" :class="{ filled: activationData.maintenanceFee !== '' && activationData.maintenanceFee !== null }">Maintenance Fee</label>
+            <label for="activationMaintenanceFee" :class="{ filled: activationData.maintenanceFee !== '' && activationData.maintenanceFee !== null }">Maintenance Fee*</label>
           </div>
 
           <div class="activation-form-group">
@@ -260,8 +262,10 @@
               id="activationSellingPrice" 
               class="activation-form-control"
               placeholder="Selling Price"
+              step="0.01"
+              required
             />
-            <label for="activationSellingPrice" :class="{ filled: activationData.sellingPrice !== '' && activationData.sellingPrice !== null }">Selling Price</label>
+            <label for="activationSellingPrice" :class="{ filled: activationData.sellingPrice !== '' && activationData.sellingPrice !== null }">Selling Price*</label>
           </div>
 
           <div class="activation-form-group">
@@ -270,10 +274,9 @@
               type="number" 
               id="activationMarketerID" 
               class="activation-form-control"
-              placeholder="Marketer ID"
-              required
+              placeholder="Marketer ID (Optional)"
             />
-            <label for="activationMarketerID" :class="{ filled: activationData.marketerID !== '' && activationData.marketerID !== null }">Marketer ID*</label>
+            <label for="activationMarketerID" :class="{ filled: activationData.marketerID !== '' && activationData.marketerID !== null }">Marketer ID (Optional)</label>
           </div>
 
           <div class="activation-form-group">
@@ -282,10 +285,9 @@
               type="number" 
               id="activationHandledByID" 
               class="activation-form-control"
-              placeholder="Handled By ID"
-              required
+              placeholder="Handled By ID (Optional)"
             />
-            <label for="activationHandledByID" :class="{ filled: activationData.handledByID !== '' && activationData.handledByID !== null }">Handled By ID*</label>
+            <label for="activationHandledByID" :class="{ filled: activationData.handledByID !== '' && activationData.handledByID !== null }">Handled By ID (Optional)</label>
           </div>
 
           <div class="activation-form-group">
@@ -297,8 +299,8 @@
               <option value="">Select Registered By (Optional)</option>
               <option 
                 v-for="user in users" 
-                :key="user.id" 
-                :value="user.id"
+                :key="user.id || user.userID" 
+                :value="user.id || user.userID || user.idNumber"
               >
                 {{ user.fullname || user.username }}
               </option>
@@ -434,29 +436,41 @@ export default {
       const headers = [
         'School Name',
         'School Code',
+        'School Level',
         'Principal Name',
         'Principal Phone',
+        'Bursar Phone',
+        'Dean Phone',
         'Email',
+        'Phone No',
         'County',
         'Subcounty',
-        'Registered On',
-        'Students',
-        'Phone',
         'Address',
+        'Registered On',
+        'Registered By',
+        'Marketer',
+        'School Motto',
+        'Students',
         'Status',
       ];
       const rows = this.filteredSchools.map((school) => [
         school.schoolName || '',
         school.schoolCode || '',
+        school.schoolLevel || '',
         school.principalName || '',
         school.principalPhoneNo || '',
+        school.bursarPhoneNo || '',
+        school.deanPhoneNo || '',
         school.email || '',
+        school.phoneNo || '',
         school.county || '',
         school.subcounty || '',
-        this.formatDateForExcel(school.registeredOn),
-        school.students || '',
-        school.phoneNo || '',
         school.address || '',
+        this.formatDateForExcel(school.registeredOn),
+        school.registeredByName || 'N/A',
+        school.marketerName || 'N/A',
+        school.schoolMotto || '',
+        school.students || '',
         school.deleted ? 'DELETED' : 'ACTIVE',
       ]);
 
@@ -571,54 +585,72 @@ export default {
         }
         
         this.schools = response.data.map(school => {
-          // Check ALL possible field names for registered by info
-          const registeredByID = school.registeredByID || school.registeredById || school.registered_by_id || school.registeredBy;
-          let registeredByName = school.registeredByName || school.registered_by_name || school.registeredBy || null;
+          // Map registeredByID and registeredByName from API response
+          const registeredByID = school.registeredByID || null;
+          let registeredByName = school.registeredByName || null;
           
-          // If we have a registeredByID but no name, try to map it
+          // If we have a registeredByID but no name, try to map it from users list
           if (!registeredByName && registeredByID !== null && registeredByID !== undefined && registeredByID !== '') {
-            // Try multiple lookups with different type conversions
             registeredByName = userMap.get(registeredByID) || 
                              userMap.get(String(registeredByID)) || 
                              userMap.get(Number(registeredByID)) ||
                              null;
-            
-            if (registeredByName) {
-              console.log(`✅ Found name for registeredByID ${registeredByID}:`, registeredByName);
-            } else {
-              console.log(`❌ No name found for registeredByID ${registeredByID} (type: ${typeof registeredByID})`);
-            }
           }
           
-          console.log('🔍 School:', {
-            schoolCode: school.schoolCode,
-            registeredByName: registeredByName,
-            registeredByID: registeredByID,
-            registeredByIDType: typeof registeredByID,
-            allRegisteredByFields: {
-              registeredByName: school.registeredByName,
-              registeredByID: school.registeredByID,
-              registeredBy: school.registeredBy,
-              registeredById: school.registeredById,
-            }
-          });
+          // Map marketerID and marketerName from API response
+          const marketerID = school.marketerID || null;
+          let marketerName = school.marketerName || null;
+          
+          // If we have a marketerID but no name, try to map it from users list
+          if (!marketerName && marketerID !== null && marketerID !== undefined && marketerID !== '') {
+            marketerName = userMap.get(marketerID) || 
+                          userMap.get(String(marketerID)) || 
+                          userMap.get(Number(marketerID)) ||
+                          null;
+          }
           
           return {
-            schoolCode: school.schoolCode,
-            schoolName: school.schoolName,
-            email: school.email,
-            principalPhoneNo: school.principalPhoneNo,
-            principalName: school.principalName,
-            students: school.students,
-            county: school.county,
-            subcounty: school.subcounty,
-            registeredByName: registeredByName || school.registeredBy || 'N/A',
-            registeredOn: school.registeredOn,
-            phoneNo: school.phoneNo,
-            address: school.address,
-            deleted: school.deleted,
-            modules: school.modules || (school.moduleName ? [school.moduleName] : []), // Initialize modules array
-            moduleName: school.moduleName || (school.modules ? school.modules.join(', ') : ''), // For backward compatibility
+            // Core fields
+            schoolCode: school.schoolCode || '',
+            schoolName: school.schoolName || '',
+            schoolLevel: school.schoolLevel || '',
+            
+            // Contact information
+            email: school.email || '',
+            phoneNo: school.phoneNo || '',
+            address: school.address || '',
+            
+            // Principal information
+            principalName: school.principalName || '',
+            principalPhoneNo: school.principalPhoneNo || '',
+            
+            // Additional contact information (from new API)
+            bursarPhoneNo: school.bursarPhoneNo || '',
+            deanPhoneNo: school.deanPhoneNo || '',
+            
+            // Location information
+            county: school.county || '',
+            subcounty: school.subcounty || '',
+            
+            // Registration information
+            registeredByID: registeredByID,
+            registeredByName: registeredByName || 'N/A',
+            registeredOn: school.registeredOn || null,
+            
+            // Marketer information (from new API)
+            marketerID: marketerID,
+            marketerName: marketerName || null,
+            
+            // Additional fields
+            schoolMotto: school.schoolMotto || '',
+            deleted: school.deleted || false,
+            
+            // Module information (if present)
+            modules: school.modules || (school.moduleName ? [school.moduleName] : []),
+            moduleName: school.moduleName || (school.modules ? school.modules.join(', ') : ''),
+            
+            // Additional fields that might be present
+            students: school.students || null,
           };
         });
         
@@ -750,6 +782,16 @@ export default {
       if (this.users.length === 0) {
         await this.fetchUsers();
       }
+      
+      // Auto-populate handledByID with logged-in user's ID if not set
+      // This ensures we know who handled the activation even if API doesn't return it
+      if (!this.activationData.handledByID) {
+        const loggedInUserId = localStorage.getItem('userId') || localStorage.getItem('userID');
+        if (loggedInUserId) {
+          this.activationData.handledByID = parseInt(loggedInUserId);
+          console.log('Auto-populated handledByID with logged-in user:', loggedInUserId);
+        }
+      }
     },
 
     closeActivationModal() {
@@ -770,22 +812,34 @@ export default {
       const toast = useToast();
       this.Loading = true;
 
-      // Ensure the key fields are filled before proceeding
-      if (!this.activationData.moduleName || !this.activationData.expiryDate) {
-        toast.error("Please select a module and expiry date.");
+      // Validate required fields according to API documentation
+      if (!this.activationData.schoolCode) {
+        toast.error("School Code is required.");
         this.Loading = false;
         return;
       }
 
-      // Validate mandatory fields: marketerID and handledByID must be valid numbers
-      if (!this.activationData.marketerID || isNaN(parseInt(this.activationData.marketerID))) {
-        toast.error("Please enter a valid Marketer ID.");
+      if (!this.activationData.moduleName) {
+        toast.error("Please select a module.");
         this.Loading = false;
         return;
       }
 
-      if (!this.activationData.handledByID || isNaN(parseInt(this.activationData.handledByID))) {
-        toast.error("Please enter a valid Handled By ID.");
+      if (!this.activationData.expiryDate) {
+        toast.error("Expiry Date is required.");
+        this.Loading = false;
+        return;
+      }
+
+      // Validate maintenanceFee and sellingPrice are required (as per API)
+      if (!this.activationData.maintenanceFee || isNaN(parseFloat(this.activationData.maintenanceFee))) {
+        toast.error("Please enter a valid Maintenance Fee.");
+        this.Loading = false;
+        return;
+      }
+
+      if (!this.activationData.sellingPrice || isNaN(parseFloat(this.activationData.sellingPrice))) {
+        toast.error("Please enter a valid Selling Price.");
         this.Loading = false;
         return;
       }
@@ -793,110 +847,296 @@ export default {
       try {
         console.log('Submitting activation data:', this.activationData);
 
-        const config = {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        };
+        // Get logged-in user ID as fallback for handledByID
+        const loggedInUserId = localStorage.getItem('userId') || localStorage.getItem('userID');
+        let handledByID = this.activationData.handledByID;
+        
+        // Convert to number if it's a string (from dropdown)
+        if (handledByID && typeof handledByID === 'string') {
+          handledByID = handledByID.trim() === '' ? null : parseInt(handledByID);
+        }
+        
+        // If handledByID is not provided or invalid, use logged-in user's ID
+        if (!handledByID || isNaN(handledByID)) {
+          if (loggedInUserId) {
+            handledByID = parseInt(loggedInUserId);
+            console.log('✅ Using logged-in user ID for handledByID:', handledByID);
+          } else {
+            handledByID = null;
+            console.warn('⚠️ No handledByID provided and no logged-in user ID found');
+          }
+        } else {
+          handledByID = parseInt(handledByID);
+        }
 
-        // Prepare payload matching API structure exactly
+        // Look up handler name from users list (for display even if API doesn't return it)
+        let handledByName = null;
+        if (handledByID) {
+          const handlerUser = this.users.find(u => {
+            const userId = u.id || u.userID || u.idNumber;
+            const userIdNum = userId ? parseInt(userId) : null;
+            return userIdNum === handledByID || userId === handledByID;
+          });
+          if (handlerUser) {
+            handledByName = handlerUser.fullname || handlerUser.username || null;
+            console.log('✅ Found handler name:', handledByName, 'for ID:', handledByID);
+          } else {
+            console.warn('⚠️ Handler user not found in users list for ID:', handledByID);
+          }
+        }
+
+        // Prepare payload matching API structure exactly as per documentation
+        // Required: schoolCode, moduleName, expiryDate, maintenanceFee, sellingPrice
+        // Optional: marketerID, registeredByID, handledByID, installationDate
         const payload = {
           schoolCode: this.activationData.schoolCode,
           moduleName: this.activationData.moduleName,
           expiryDate: this.activationData.expiryDate,
-          maintenanceFee: this.activationData.maintenanceFee ? parseFloat(this.activationData.maintenanceFee) : null,
-          sellingPrice: this.activationData.sellingPrice ? parseFloat(this.activationData.sellingPrice) : null,
-          marketerID: this.activationData.marketerID ? parseInt(this.activationData.marketerID) : null,
-          handledByID: this.activationData.handledByID ? parseInt(this.activationData.handledByID) : null,
-          registeredByID: this.activationData.registeredByID ? parseInt(this.activationData.registeredByID) : null,
-          installationDate: this.activationData.installationDate || null,
+          maintenanceFee: parseFloat(this.activationData.maintenanceFee),
+          sellingPrice: parseFloat(this.activationData.sellingPrice),
         };
 
-        const response = await axios.post('/activations/activate', payload, config);
+        // Add optional fields only if they have values
+        if (this.activationData.marketerID && !isNaN(parseInt(this.activationData.marketerID))) {
+          payload.marketerID = parseInt(this.activationData.marketerID);
+        }
 
-    if (response.data) {
-      toast.success("Module activated successfully!");
+        if (this.activationData.registeredByID && !isNaN(parseInt(this.activationData.registeredByID))) {
+          payload.registeredByID = parseInt(this.activationData.registeredByID);
+        }
 
-      // Update the existing school entry instead of duplicating it
-      const idx = this.schools.findIndex(s => s.schoolCode === response.data.schoolCode);
-      if (idx !== -1) {
-        // Initialize modules array if it doesn't exist
-        if (!this.schools[idx].modules) {
-          // If moduleName exists and is a string, split it or create array
-          if (this.schools[idx].moduleName) {
-            const existingModule = this.schools[idx].moduleName;
-            // Check if it's already a comma-separated string
-            this.schools[idx].modules = existingModule.includes(',') 
-              ? existingModule.split(',').map(m => m.trim()).filter(m => m)
-              : [existingModule];
-          } else {
-            this.schools[idx].modules = [];
+        // Always include handledByID (either from form or logged-in user)
+        if (handledByID) {
+          payload.handledByID = handledByID;
+        }
+
+        if (this.activationData.installationDate) {
+          payload.installationDate = this.activationData.installationDate;
+        }
+
+        console.log('Activation payload:', payload);
+
+        // Call the API endpoint as per documentation: POST /api/activations/activate
+        const response = await axios.post('/activations/activate', payload);
+
+        // Handle response according to actual API response structure
+        // Actual response includes: activationID, moduleName, schoolName, schoolCode, installationDate, 
+        // expiryDate, registeredByID, registeredByName, marketerID, marketerName, sellingPrice, 
+        // maintenanceFee, lastLogin, students, receipts, vouchers
+        // Note: handledByID and handledByName are not in actual response (despite being in docs)
+        if (response.status === 200 && response.data) {
+          const activationResponse = response.data;
+          
+          console.log('✅ Activation successful! Full response:', activationResponse);
+          
+          // Display success message with activation details
+          const schoolDisplayName = activationResponse.schoolName || activationResponse.schoolCode;
+          toast.success(`Module "${activationResponse.moduleName}" activated successfully for ${schoolDisplayName}!`);
+          
+          // Get handler information (API doesn't return it, but we sent it and looked it up)
+          // Use the handledByID and handledByName we determined earlier
+          const finalHandledByID = handledByID || null;
+          const finalHandledByName = handledByName || null;
+          
+          // Log handler information for debugging
+          console.log('👤 Handler Information Captured:', {
+            handledByID: finalHandledByID,
+            handledByName: finalHandledByName,
+            note: 'This information is stored locally since API response does not include it',
+            willBeStoredInSchool: true
+          });
+          
+          // Log the response matching actual API structure + handler info we added
+          console.log('📋 Activation Response (Actual API Format + Handler Info):', {
+            activationID: activationResponse.activationID,
+            schoolCode: activationResponse.schoolCode,
+            schoolName: activationResponse.schoolName,
+            moduleName: activationResponse.moduleName,
+            expiryDate: activationResponse.expiryDate,
+            maintenanceFee: activationResponse.maintenanceFee,
+            sellingPrice: activationResponse.sellingPrice,
+            installationDate: activationResponse.installationDate,
+            marketerID: activationResponse.marketerID,
+            marketerName: activationResponse.marketerName,
+            registeredByID: activationResponse.registeredByID,
+            registeredByName: activationResponse.registeredByName,
+            // Handler info (not in API response, but we looked it up and will display it)
+            handledByID: finalHandledByID,
+            handledByName: finalHandledByName,
+            lastLogin: activationResponse.lastLogin,
+            students: activationResponse.students,
+            receipts: activationResponse.receipts,
+            vouchers: activationResponse.vouchers,
+          });
+
+          // Format expiryDate if it's in ISO format (remove timezone info for display)
+          // Actual format: "2026-07-15T00:00:00.000+00:00" -> "2026-07-15"
+          let formattedExpiryDate = activationResponse.expiryDate;
+          if (formattedExpiryDate && typeof formattedExpiryDate === 'string' && formattedExpiryDate.includes('T')) {
+            formattedExpiryDate = formattedExpiryDate.split('T')[0];
           }
+          
+          // Format installationDate if needed (should already be in YYYY-MM-DD format)
+          let formattedInstallationDate = activationResponse.installationDate;
+          if (formattedInstallationDate && typeof formattedInstallationDate === 'string' && formattedInstallationDate.includes('T')) {
+            formattedInstallationDate = formattedInstallationDate.split('T')[0];
+          }
+
+          // Update the existing school entry in the list
+          const schoolIndex = this.schools.findIndex(s => s.schoolCode === activationResponse.schoolCode);
+          if (schoolIndex !== -1) {
+            // Initialize modules array if it doesn't exist
+            if (!this.schools[schoolIndex].modules) {
+              if (this.schools[schoolIndex].moduleName) {
+                const existingModule = this.schools[schoolIndex].moduleName;
+                this.schools[schoolIndex].modules = existingModule.includes(',') 
+                  ? existingModule.split(',').map(m => m.trim()).filter(m => m)
+                  : [existingModule];
+              } else {
+                this.schools[schoolIndex].modules = [];
+              }
+            }
+            
+            // Add the new module to the array if it's not already there
+            const newModuleName = activationResponse.moduleName;
+            if (newModuleName && !this.schools[schoolIndex].modules.includes(newModuleName)) {
+              this.schools[schoolIndex].modules.push(newModuleName);
+            }
+            
+            // Update the school entry with activation response data (matching actual API response structure)
+            // Include handler information even though API doesn't return it
+            const updatedModules = this.schools[schoolIndex].modules;
+            this.schools[schoolIndex] = {
+              ...this.schools[schoolIndex],
+              // Core activation fields (from actual API response)
+              activationID: activationResponse.activationID,
+              schoolCode: activationResponse.schoolCode,
+              schoolName: activationResponse.schoolName || this.schools[schoolIndex].schoolName,
+              moduleName: updatedModules.length > 0 ? updatedModules.join(', ') : '',
+              modules: updatedModules,
+              
+              // Date fields (formatted for display)
+              installationDate: formattedInstallationDate || activationResponse.installationDate || null,
+              expiryDate: formattedExpiryDate || activationResponse.expiryDate || null,
+              
+              // Financial fields
+              maintenanceFee: activationResponse.maintenanceFee !== null && activationResponse.maintenanceFee !== undefined 
+                ? parseFloat(activationResponse.maintenanceFee) : null,
+              sellingPrice: activationResponse.sellingPrice !== null && activationResponse.sellingPrice !== undefined 
+                ? parseFloat(activationResponse.sellingPrice) : null,
+              
+              // User/Personnel fields (can be null in actual response)
+              registeredByID: activationResponse.registeredByID !== null && activationResponse.registeredByID !== undefined 
+                ? activationResponse.registeredByID : null,
+              registeredByName: activationResponse.registeredByName || null,
+              marketerID: activationResponse.marketerID !== null && activationResponse.marketerID !== undefined 
+                ? activationResponse.marketerID : null,
+              marketerName: activationResponse.marketerName || null,
+              
+              // Handler information (not in API response, but we looked it up and sent it)
+              handledByID: finalHandledByID,
+              handledByName: finalHandledByName,
+              
+              // Additional fields from actual response (not in docs but present)
+              lastLogin: activationResponse.lastLogin || null,
+              students: activationResponse.students !== null && activationResponse.students !== undefined 
+                ? activationResponse.students : null,
+              receipts: activationResponse.receipts !== null && activationResponse.receipts !== undefined 
+                ? activationResponse.receipts : null,
+              vouchers: activationResponse.vouchers !== null && activationResponse.vouchers !== undefined 
+                ? activationResponse.vouchers : null,
+            };
+          } else {
+            // If school not found in list, add it with activation data
+            console.log('⚠️ School not found in list, adding new entry');
+            this.schools.push({
+              // Core fields
+              activationID: activationResponse.activationID,
+              schoolCode: activationResponse.schoolCode,
+              schoolName: activationResponse.schoolName || null,
+              moduleName: activationResponse.moduleName || '',
+              modules: activationResponse.moduleName ? [activationResponse.moduleName] : [],
+              
+              // Date fields (formatted)
+              installationDate: formattedInstallationDate || activationResponse.installationDate || null,
+              expiryDate: formattedExpiryDate || activationResponse.expiryDate || null,
+              
+              // Financial fields
+              maintenanceFee: activationResponse.maintenanceFee !== null && activationResponse.maintenanceFee !== undefined 
+                ? parseFloat(activationResponse.maintenanceFee) : null,
+              sellingPrice: activationResponse.sellingPrice !== null && activationResponse.sellingPrice !== undefined 
+                ? parseFloat(activationResponse.sellingPrice) : null,
+              
+              // User/Personnel fields
+              registeredByID: activationResponse.registeredByID !== null && activationResponse.registeredByID !== undefined 
+                ? activationResponse.registeredByID : null,
+              registeredByName: activationResponse.registeredByName || null,
+              marketerID: activationResponse.marketerID !== null && activationResponse.marketerID !== undefined 
+                ? activationResponse.marketerID : null,
+              marketerName: activationResponse.marketerName || null,
+              
+              // Handler information (not in API response, but we looked it up and sent it)
+              handledByID: finalHandledByID,
+              handledByName: finalHandledByName,
+              
+              // Additional fields from actual response
+              lastLogin: activationResponse.lastLogin || null,
+              students: activationResponse.students !== null && activationResponse.students !== undefined 
+                ? activationResponse.students : null,
+              receipts: activationResponse.receipts !== null && activationResponse.receipts !== undefined 
+                ? activationResponse.receipts : null,
+              vouchers: activationResponse.vouchers !== null && activationResponse.vouchers !== undefined 
+                ? activationResponse.vouchers : null,
+            });
+          }
+
+          // Refresh the schools list to get updated data
+          await this.fetchSchools();
+
+          this.closeActivationModal(); // Close the modal
+        } else {
+          toast.error("Failed to activate module. Invalid response from server.");
         }
-        
-        // Add the new module to the array if it's not already there
-        const newModuleName = response.data.moduleName;
-        if (newModuleName && !this.schools[idx].modules.includes(newModuleName)) {
-          this.schools[idx].modules.push(newModuleName);
+      } catch (error) {
+        console.error("Activation error:", error);
+
+        // Handle errors according to API documentation
+        // API returns 500 Internal Server Error if module or school is not set
+        if (error.response) {
+          const status = error.response.status;
+          const errorData = error.response.data;
+          
+          console.error("Backend error response:", {
+            status: status,
+            data: errorData
+          });
+
+          if (status === 500) {
+            // 500 Internal Server Error - module or school is not set
+            toast.error("Activation failed: Module or school is not set. Please verify the school code and module name.");
+          } else if (status === 400) {
+            // Bad Request - validation error
+            toast.error(`Validation error: ${errorData.message || 'Invalid request data'}`);
+          } else if (status === 404) {
+            // Not Found
+            toast.error("Resource not found. Please check the school code and module name.");
+          } else {
+            // Other server errors
+            toast.error(`Server error: ${errorData.message || `Error ${status} occurred`}`);
+          }
+        } else if (error.request) {
+          // Network error - no response received
+          console.error("Network error:", error.message);
+          toast.error("Network error: Unable to reach the server. Please check your connection.");
+        } else {
+          // Request setup error
+          console.error("Request setup error:", error.message);
+          toast.error(`Error: ${error.message || 'An unexpected error occurred'}`);
         }
-        
-        // Update the school entry with joined module names for display
-        const updatedModules = this.schools[idx].modules;
-        this.schools[idx] = {
-          ...this.schools[idx],
-          activationID: response.data.activationID,
-          modules: updatedModules, // Keep the array
-          moduleName: updatedModules.length > 0 ? updatedModules.join(', ') : '', // Join all modules for display
-          installationDate: response.data.installationDate,
-          expiryDate: response.data.expiryDate,
-          registeredByName: response.data.registeredByName,
-          marketerName: response.data.marketerName,
-          sellingPrice: response.data.sellingPrice,
-          maintenanceFee: response.data.maintenanceFee,
-          lastLogin: response.data.lastLogin,
-          students: response.data.students,
-          receipts: response.data.receipts,
-          vouchers: response.data.vouchers,
-        };
-      } else {
-        // Fallback: if not found, append once
-        this.schools.push({
-          activationID: response.data.activationID,
-          schoolName: response.data.schoolName,
-          schoolCode: response.data.schoolCode,
-          modules: response.data.moduleName ? [response.data.moduleName] : [],
-          moduleName: response.data.moduleName,
-          installationDate: response.data.installationDate,
-          expiryDate: response.data.expiryDate,
-          registeredByName: response.data.registeredByName,
-          marketerName: response.data.marketerName,
-          sellingPrice: response.data.sellingPrice,
-          maintenanceFee: response.data.maintenanceFee,
-          lastLogin: response.data.lastLogin,
-          students: response.data.students,
-          receipts: response.data.receipts,
-          vouchers: response.data.vouchers,
-        });
+      } finally {
+        this.Loading = false;
       }
-
-      this.closeActivationModal(); // Close the modal
-    } else {
-      toast.error("Failed to activate module.");
-    }
-  } catch (error) {
-    console.error("Activation error:", error);
-
-    if (error.response) {
-      console.error("Backend error:", error.response.data);  // Log backend error details
-      toast.error(`Error: ${error.response.data.message || 'An error occurred'}`);
-    } else {
-      console.error("Network error:", error.message);
-      toast.error("Network error: Unable to reach the backend.");
-    }
-  } finally {
-    this.Loading = false;
-  }
-}
+    },
 
 
   },

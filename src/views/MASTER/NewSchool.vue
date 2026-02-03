@@ -16,26 +16,50 @@
           <label for="schoolName" :class="{ filled: schoolName !== '' }">School Name*</label>
         </div>
         <div class="form-group">
-          <input type="text" class="form-control" v-model="schoolCode" placeholder="School Code" required />
+          <input 
+            type="text" 
+            class="form-control" 
+            v-model="schoolCode" 
+            placeholder="School Code" 
+            required 
+            :disabled="editMode"
+          />
           <label for="schoolCode" :class="{ filled: schoolCode !== '' }">School Code*</label>
         </div>
         <div class="form-group">
-          <input type="email" class="form-control" v-model="email" placeholder="School Email" required />
-          <label for="email" :class="{ filled: email !== '' }">School Email*</label>
+          <select class="form-control" v-model="schoolLevel" required>
+            <option value="" disabled>Select School Level*</option>
+            <option value="Primary">Primary</option>
+            <option value="Secondary">Secondary</option>
+            <option value="Mixed">Mixed</option>
+          </select>
+          <label for="schoolLevel" :class="{ filled: schoolLevel !== '' }">School Level*</label>
         </div>
         <div class="form-group">
-          <input type="text" class="form-control" v-model="phoneNo" placeholder="Phone No" required />
-          <label for="phoneNo" :class="{ filled: phoneNo !== '' }">Phone No*</label>
+          <input type="text" class="form-control" v-model="principalName" placeholder="Principal's Name" required />
+          <label for="principalName" :class="{ filled: principalName !== '' }">Principal's Name*</label>
+        </div>
+        <div class="form-group">
+          <input type="text" class="form-control" v-model="principalPhoneNo" placeholder="Principal's Phone" required />
+          <label for="principalPhoneNo" :class="{ filled: principalPhoneNo !== '' }">Principal's Phone*</label>
+        </div>
+        <div class="form-group">
+          <input type="text" class="form-control" v-model="bursarPhoneNo" placeholder="Bursar's Phone" />
+          <label for="bursarPhoneNo" :class="{ filled: bursarPhoneNo !== '' }">Bursar's Phone</label>
+        </div>
+        <div class="form-group">
+          <input type="text" class="form-control" v-model="deanPhoneNo" placeholder="Dean's Phone" />
+          <label for="deanPhoneNo" :class="{ filled: deanPhoneNo !== '' }">Dean's Phone</label>
         </div>
 
-  <!-- County Selection -->
-<div class="form-group">
-  <select class="form-control" v-model="county" @change="updateSubcounties" required id="county">
-    <option value="" disabled>Select County*</option>
-    <option v-for="county in counties" :key="county" :value="county">{{ county }}</option>
-  </select>
-  <label for="county" :class="{ filled: county !== '' }">County*</label>
-</div>
+        <!-- County Selection -->
+        <div class="form-group">
+          <select class="form-control" v-model="county" @change="updateSubcounties" required id="county">
+            <option value="" disabled>Select County*</option>
+            <option v-for="county in counties" :key="county" :value="county">{{ county }}</option>
+          </select>
+          <label for="county" :class="{ filled: county !== '' }">County*</label>
+        </div>
 
         <!-- Subcounty Selection (Dynamic) -->
         <div class="form-group">
@@ -46,82 +70,80 @@
           <label for="subcounty" :class="{ filled: subcounty !== '' }">Subcounty*</label>
         </div>
 
-        <!-- Optional Fields -->
-        <!-- <div class="form-group">
-  <input 
-    type="text" 
-    class="form-control" 
-    v-model="registeredByName" 
-    placeholder="Registered By Name" 
-    id="registeredByName"
-  />
-  <label 
-    for="registeredByName" 
-    :class="{ filled: registeredByName !== '' }"
-  >
-    Registered By Name
-  </label>
-</div> -->
         <div class="form-group">
-          <input type="text" class="form-control" v-model="principalName" placeholder="Principal's Name" />
-          <label for="principalName" :class="{ filled: principalName !== '' }">Principal's Name</label>
+          <input type="email" class="form-control" v-model="email" placeholder="School Email" required />
+          <label for="email" :class="{ filled: email !== '' }">School Email*</label>
         </div>
         <div class="form-group">
-          <input type="text" class="form-control" v-model="principalPhoneNo" placeholder="Principal's Phone" />
-          <label for="principalPhoneNo" :class="{ filled: principalPhoneNo !== '' }">Principal's Phone</label>
-        </div>
-        <div class="form-group">
-  <input 
-    type="text" 
-    class="form-control" 
-    v-model="address" 
-    placeholder="address" 
-    id="address"
-  />
-  <label 
-    for="address" 
-    :class="{ filled: registeredOn !== '' }"
-  >
-   Address
-  </label>
-</div>
-<!-- <div class="form-group">
-  <input 
-    type="text" 
-    class="form-control" 
-    v-model="tenantID" 
-    placeholder="Tenant ID" 
-    id="tenantID"
-  />
-  <label 
-    for="tenantID" 
-    :class="{ filled: tenantID !== '' }"
-  >
-    Tenant ID
-  </label>
-</div> -->
-
-        <div class="form-group">
-          <select class="form-control" v-model="schoolLevel">
-            <option value="" disabled>Select School Level</option>
-            <option value="Primary">Primary</option>
-            <option value="Secondary">Secondary</option>
-            <option value="Mixed">Mixed</option>
-          </select>
-          <label for="schoolLevel" :class="{ filled: schoolLevel !== '' }">School Level</label>
+          <input type="text" class="form-control" v-model="phoneNo" placeholder="Phone No" required />
+          <label for="phoneNo" :class="{ filled: phoneNo !== '' }">Phone No*</label>
         </div>
 
+        <div class="form-group">
+          <input 
+            type="text" 
+            class="form-control" 
+            v-model="address" 
+            placeholder="Address" 
+            required
+            id="address"
+          />
+          <label 
+            for="address" 
+            :class="{ filled: address !== '' }"
+          >
+            Address*
+          </label>
+        </div>
 
+        <!-- Registered By - Auto-populated with logged-in user, read-only -->
+        <div class="form-group">
+          <input 
+            type="text" 
+            class="form-control" 
+            v-model="registeredByName" 
+            placeholder="Registered By" 
+            id="registeredByName"
+            readonly
+          />
+          <label 
+            for="registeredByName" 
+            :class="{ filled: registeredByName !== '' }"
+          >
+            Registered By
+          </label>
+        </div>
 
+        <div class="form-group">
+          <input 
+            type="number" 
+            class="form-control" 
+            v-model="marketerID" 
+            placeholder="Marketer ID" 
+            id="marketerID"
+          />
+          <label 
+            for="marketerID" 
+            :class="{ filled: marketerID !== null && marketerID !== '' }"
+          >
+            Marketer ID
+          </label>
+        </div>
 
+        <!-- School Motto -->
+        <div class="form-group">
+          <input type="text" class="form-control" v-model="schoolMotto" placeholder="School Motto" />
+          <label for="schoolMotto" :class="{ filled: schoolMotto !== '' }">School Motto</label>
+        </div>
 
-        <!-- <div v-if="editMode" class="form-group">
+        <!-- Status (Only in edit mode) -->
+        <div v-if="editMode" class="form-group">
           <select v-model="deleted" class="form-control">
             <option :value="false">Active</option>
             <option :value="true">Inactive</option>
           </select>
           <label>Status</label>
-        </div> -->
+        </div>
       </div>
       <hr />
       <div class="form-actions">
@@ -152,77 +174,89 @@ export default {
   },
   data() {
     return {
-      isMounted: true,  // Track if the component is mounte
+      isMounted: true,
+      // Required fields
       schoolName: '',
       schoolCode: '',
       schoolLevel: '',
-      address: '',
-      email: '',
-      phoneNo: '',
       principalName: '',
       principalPhoneNo: '',
-      county: '', // Selected county
-      subcounty: '', // Selected subcounty
+      county: '',
+      subcounty: '',
+      email: '',
+      phoneNo: '',
+      address: '',
+      
+      // Optional fields
+      bursarPhoneNo: '',
+      deanPhoneNo: '',
+      registeredByID: null, // Store the logged-in user's ID
+      registeredByName: '', // Display name of logged-in user (read-only)
+      marketerID: '', // Empty string for select dropdown
+      schoolMotto: '',
+      
       deleted: false,
       editMode: false,
       counties: ['Mombasa', 'Kwale', 'Kilifi', 'Tana River', 'Lamu', 'Taita-Taveta',
-  'Garissa', 'Wajir', 'Mandera', 'Marsabit', 'Isiolo', 'Meru',
-  'Tharaka-Nithi', 'Embu', 'Kitui', 'Machakos', 'Makueni', 'Nyandarua',
-  'Nyeri', 'Kirinyaga', 'Murang’a', 'Kiambu', 'Turkana', 'West Pokot',
-  'Samburu', 'Trans Nzoia', 'Uasin Gishu', 'Elgeyo-Marakwet', 'Nandi',
-  'Baringo', 'Laikipia', 'Nakuru', 'Narok', 'Kajiado', 'Kericho', 'Bomet',
-  'Kakamega', 'Vihiga', 'Bungoma', 'Busia', 'Siaya', 'Kisumu', 'Homa Bay',
-  'Migori', 'Kisii', 'Nyamira', 'Nairobi City'], // Example counties
-      subcountyOptions: [], // Available subcounties based on selected county
-      subcountyData: { // Subcounties for each county with real names
+        'Garissa', 'Wajir', 'Mandera', 'Marsabit', 'Isiolo', 'Meru',
+        'Tharaka-Nithi', 'Embu', 'Kitui', 'Machakos', 'Makueni', 'Nyandarua',
+        'Nyeri', 'Kirinyaga', 'Murang\'a', 'Kiambu', 'Turkana', 'West Pokot',
+        'Samburu', 'Trans Nzoia', 'Uasin Gishu', 'Elgeyo-Marakwet', 'Nandi',
+        'Baringo', 'Laikipia', 'Nakuru', 'Narok', 'Kajiado', 'Kericho', 'Bomet',
+        'Kakamega', 'Vihiga', 'Bungoma', 'Busia', 'Siaya', 'Kisumu', 'Homa Bay',
+        'Migori', 'Kisii', 'Nyamira', 'Nairobi City'
+      ],
+      subcountyOptions: [],
+      users: [], // Store users list for registeredByID dropdown
+      marketers: [], // Store marketers list for marketerID dropdown
+      subcountyData: {
         Baringo: ['Baringo Central', 'Baringo North', 'Baringo South', 'Eldama Ravine', 'Mogotio', 'Tiaty'],
-  Bomet: ['Bomet Central', 'Bomet East', 'Chepalungu', 'Konoin', 'Sotik'],
-  Bungoma: ['Bumula', 'Kabuchai', 'Kanduyi', 'Kimilili', 'Mt. Elgon', 'Tongaren', 'Webuye East', 'Webuye West'],
-  Busia: ['Budalang’i', 'Butula', 'Funyula', 'Nambale', 'Teso North', 'Teso South'],
-  "Elgeyo Marakwet": ['Keiyo North', 'Keiyo South', 'Marakwet East', 'Marakwet West'],
-  Embu: ['Manyatta', 'Mbeere North', 'Mbeere South', 'Runyenjes'],
-  Garissa: ['Balambala', 'Dadaab', 'Fafi', 'Garissa Township', 'Hulugho', 'Ijara', 'Lagdera'],
-  "Homa Bay": ['Homa Bay Town', 'Kabondo Kasipul', 'Karachuonyo', 'Mbita', 'Ndhiwa', 'Rangwe', 'Suba North', 'Suba South'],
-  Isiolo: ['Garbatulla', 'Isiolo', 'Merti'],
-  Kajiado: ['Isinya', 'Kajiado Central', 'Kajiado East', 'Kajiado North', 'Kajiado South'],
-  Kakamega: ['Butere', 'Ikolomani', 'Khwisero', 'Lugari', 'Lurambi', 'Malava', 'Mumias East', 'Mumias West', 'Navakholo', 'Shinyalu'],
-  Kericho: ['Ainamoi', 'Belgut', 'Bureti', 'Kipkelion East', 'Kipkelion West', 'Soin Sigowet'],
-  Kiambu: ['Thika Town', 'Ruiru', 'Githunguri', 'Kiambu Town', 'Juja', 'Gatundu North', 'Gatundu South', 'Limuru', 'Kabete', 'Kikuyu', 'Lari'],
-  Kilifi: ['Ganze', 'Kaloleni', 'Kilifi North', 'Kilifi South', 'Magarini', 'Malindi', 'Rabai'],
-  Kirinyaga: ['Gichugu', 'Kirinyaga Central', 'Kirinyaga East', 'Kirinyaga West'],
-  Kisii: ['Bomachoge Borabu', 'Bomachoge Chache', 'Bobasi', 'Kitutu Chache North', 'Kitutu Chache South', 'Nyaribari Chache', 'Nyaribari Masaba', 'South Mugirango'],
-  Kisumu: ['Kisumu East', 'Kisumu West', 'Kisumu Central', 'Muhoroni', 'Nyakach', 'Nyando', 'Seme'],
-  Kitui: ['Kitui Central', 'Kitui East', 'Kitui Rural', 'Kitui South', 'Kitui West', 'Mumoni', 'Mutitu', 'Mutomo', 'Nzambani'],
-  Kwale: ['Kinango', 'Lunga Lunga', 'Matuga', 'Msambweni'],
-  Laikipia: ['Laikipia Central', 'Laikipia East', 'Laikipia North', 'Laikipia West'],
-  Lamu: ['Lamu East', 'Lamu West'],
-  Machakos: ['Machakos Town', 'Mavoko', 'Masinga', 'Yatta', 'Kangundo', 'Matungulu', 'Kathiani', 'Mwala'],
-  Makueni: ['Kaiti', 'Kibwezi East', 'Kibwezi West', 'Makueni', 'Mbooni'],
-  Mandera: ['Banisa', 'Lafey', 'Mandera East', 'Mandera North', 'Mandera South', 'Mandera West'],
-  Marsabit: ['Laisamis', 'Moyale', 'North Horr', 'Saku'],
-  Meru: ['Buuri', 'Central Imenti', 'Igembe Central', 'Igembe North', 'Igembe South', 'North Imenti', 'South Imenti', 'Tigania East', 'Tigania West'],
-  Migori: ['Awendo', 'Kuria East', 'Kuria West', 'Migori', 'Nyatike', 'Rongo', 'Suna East', 'Suna West', 'Uriri'],
-  Mombasa: ['Changamwe', 'Jomvu', 'Kisauni', 'Likoni', 'Mvita', 'Nyali'],
-  Muranga: ['Gatanga', 'Kahuro', 'Kandara', 'Kangema', 'Kigumo', 'Kiharu', 'Mathioya', 'Murang’a South'],
-  Nairobi: ['Dagoretti North', 'Dagoretti South', 'Embakasi Central', 'Embakasi East', 'Embakasi North', 'Embakasi South', 'Embakasi West', 'Kamukunji', 'Kasarani', 'Kibra', 'Lang’ata', 'Makadara', 'Mathare', 'Roysambu', 'Ruaraka', 'Starehe', 'Westlands'],
-  Nakuru: ['Nakuru Town East', 'Nakuru Town West', 'Molo', 'Naivasha', 'Gilgil', 'Kuresoi North', 'Kuresoi South', 'Njoro', 'Rongai', 'Subukia'],
-  Nandi: ['Aldai', 'Chesumei', 'Emgwen', 'Mosop', 'Nandi Hills', 'Tinderet'],
-  Narok: ['Narok East', 'Narok North', 'Narok South', 'Narok West', 'Trans Mara East', 'Trans Mara West'],
-  Nyamira: ['Borabu', 'Manga', 'Masaba North', 'Nyamira North', 'Nyamira South'],
-  Nyandarua: ['Kinangop', 'Kipipiri', 'Ndaragwa', 'Ol Jorok', 'Ol Kalou'],
-  Nyeri: ['Nyeri Town', 'Kieni East', 'Kieni West', 'Mathira East', 'Mathira West', 'Mukurweini', 'Othaya', 'Tetu'],
-  Samburu: ['Samburu Central', 'Samburu East', 'Samburu North'],
-  Siaya: ['Alego Usonga', 'Bondo', 'Gem', 'Rarieda', 'Ugenya', 'Ugunja'],
-  "Taita Taveta": ['Mwatate', 'Taveta', 'Voi', 'Wundanyi'],
-  "Tana River": ['Bura', 'Galole', 'Garsen'],
-  "Tharaka Nithi": ['Chuka/Igambang’ombe', 'Maara', 'Tharaka'],
-  "Trans Nzoia": ['Cherang’any', 'Endebess', 'Kiminini', 'Kwanza', 'Saboti'],
-  Turkana: ['Loima', 'Turkana Central', 'Turkana East', 'Turkana North', 'Turkana South', 'Turkana West'],
-  "Uasin Gishu": ['Ainabkoi', 'Kapseret', 'Kesses', 'Moiben', 'Soy', 'Turbo'],
-  Vihiga: ['Emuhaya', 'Hamisi', 'Luanda', 'Sabatia', 'Vihiga'],
-  Wajir: ['Buna', 'Eldas', 'Habaswein', 'Tarbaj', 'Wajir East', 'Wajir North', 'Wajir South', 'Wajir West'],
-  "West Pokot": ['Kacheliba', 'Kapenguria', 'Pokot South', 'Sigor']
-  
+        Bomet: ['Bomet Central', 'Bomet East', 'Chepalungu', 'Konoin', 'Sotik'],
+        Bungoma: ['Bumula', 'Kabuchai', 'Kanduyi', 'Kimilili', 'Mt. Elgon', 'Tongaren', 'Webuye East', 'Webuye West'],
+        Busia: ['Budalang\'i', 'Butula', 'Funyula', 'Nambale', 'Teso North', 'Teso South'],
+        "Elgeyo Marakwet": ['Keiyo North', 'Keiyo South', 'Marakwet East', 'Marakwet West'],
+        Embu: ['Manyatta', 'Mbeere North', 'Mbeere South', 'Runyenjes'],
+        Garissa: ['Balambala', 'Dadaab', 'Fafi', 'Garissa Township', 'Hulugho', 'Ijara', 'Lagdera'],
+        "Homa Bay": ['Homa Bay Town', 'Kabondo Kasipul', 'Karachuonyo', 'Mbita', 'Ndhiwa', 'Rangwe', 'Suba North', 'Suba South'],
+        Isiolo: ['Garbatulla', 'Isiolo', 'Merti'],
+        Kajiado: ['Isinya', 'Kajiado Central', 'Kajiado East', 'Kajiado North', 'Kajiado South'],
+        Kakamega: ['Butere', 'Ikolomani', 'Khwisero', 'Lugari', 'Lurambi', 'Malava', 'Mumias East', 'Mumias West', 'Navakholo', 'Shinyalu'],
+        Kericho: ['Ainamoi', 'Belgut', 'Bureti', 'Kipkelion East', 'Kipkelion West', 'Soin Sigowet'],
+        Kiambu: ['Thika Town', 'Ruiru', 'Githunguri', 'Kiambu Town', 'Juja', 'Gatundu North', 'Gatundu South', 'Limuru', 'Kabete', 'Kikuyu', 'Lari'],
+        Kilifi: ['Ganze', 'Kaloleni', 'Kilifi North', 'Kilifi South', 'Magarini', 'Malindi', 'Rabai'],
+        Kirinyaga: ['Gichugu', 'Kirinyaga Central', 'Kirinyaga East', 'Kirinyaga West'],
+        Kisii: ['Bomachoge Borabu', 'Bomachoge Chache', 'Bobasi', 'Kitutu Chache North', 'Kitutu Chache South', 'Nyaribari Chache', 'Nyaribari Masaba', 'South Mugirango'],
+        Kisumu: ['Kisumu East', 'Kisumu West', 'Kisumu Central', 'Muhoroni', 'Nyakach', 'Nyando', 'Seme'],
+        Kitui: ['Kitui Central', 'Kitui East', 'Kitui Rural', 'Kitui South', 'Kitui West', 'Mumoni', 'Mutitu', 'Mutomo', 'Nzambani'],
+        Kwale: ['Kinango', 'Lunga Lunga', 'Matuga', 'Msambweni'],
+        Laikipia: ['Laikipia Central', 'Laikipia East', 'Laikipia North', 'Laikipia West'],
+        Lamu: ['Lamu East', 'Lamu West'],
+        Machakos: ['Machakos Town', 'Mavoko', 'Masinga', 'Yatta', 'Kangundo', 'Matungulu', 'Kathiani', 'Mwala'],
+        Makueni: ['Kaiti', 'Kibwezi East', 'Kibwezi West', 'Makueni', 'Mbooni'],
+        Mandera: ['Banisa', 'Lafey', 'Mandera East', 'Mandera North', 'Mandera South', 'Mandera West'],
+        Marsabit: ['Laisamis', 'Moyale', 'North Horr', 'Saku'],
+        Meru: ['Buuri', 'Central Imenti', 'Igembe Central', 'Igembe North', 'Igembe South', 'North Imenti', 'South Imenti', 'Tigania East', 'Tigania West'],
+        Migori: ['Awendo', 'Kuria East', 'Kuria West', 'Migori', 'Nyatike', 'Rongo', 'Suna East', 'Suna West', 'Uriri'],
+        Mombasa: ['Changamwe', 'Jomvu', 'Kisauni', 'Likoni', 'Mvita', 'Nyali'],
+        Muranga: ['Gatanga', 'Kahuro', 'Kandara', 'Kangema', 'Kigumo', 'Kiharu', 'Mathioya', 'Murang\'a South'],
+        Nairobi: ['Dagoretti North', 'Dagoretti South', 'Embakasi Central', 'Embakasi East', 'Embakasi North', 'Embakasi South', 'Embakasi West', 'Kamukunji', 'Kasarani', 'Kibra', 'Lang\'ata', 'Makadara', 'Mathare', 'Roysambu', 'Ruaraka', 'Starehe', 'Westlands'],
+        Nakuru: ['Nakuru Town East', 'Nakuru Town West', 'Molo', 'Naivasha', 'Gilgil', 'Kuresoi North', 'Kuresoi South', 'Njoro', 'Rongai', 'Subukia'],
+        Nandi: ['Aldai', 'Chesumei', 'Emgwen', 'Mosop', 'Nandi Hills', 'Tinderet'],
+        Narok: ['Narok East', 'Narok North', 'Narok South', 'Narok West', 'Trans Mara East', 'Trans Mara West'],
+        Nyamira: ['Borabu', 'Manga', 'Masaba North', 'Nyamira North', 'Nyamira South'],
+        Nyandarua: ['Kinangop', 'Kipipiri', 'Ndaragwa', 'Ol Jorok', 'Ol Kalou'],
+        Nyeri: ['Nyeri Town', 'Kieni East', 'Kieni West', 'Mathira East', 'Mathira West', 'Mukurweini', 'Othaya', 'Tetu'],
+        Samburu: ['Samburu Central', 'Samburu East', 'Samburu North'],
+        Siaya: ['Alego Usonga', 'Bondo', 'Gem', 'Rarieda', 'Ugenya', 'Ugunja'],
+        "Taita Taveta": ['Mwatate', 'Taveta', 'Voi', 'Wundanyi'],
+        "Tana River": ['Bura', 'Galole', 'Garsen'],
+        "Tharaka Nithi": ['Chuka/Igambang\'ombe', 'Maara', 'Tharaka'],
+        "Trans Nzoia": ['Cherang\'any', 'Endebess', 'Kiminini', 'Kwanza', 'Saboti'],
+        Turkana: ['Loima', 'Turkana Central', 'Turkana East', 'Turkana North', 'Turkana South', 'Turkana West'],
+        "Uasin Gishu": ['Ainabkoi', 'Kapseret', 'Kesses', 'Moiben', 'Soy', 'Turbo'],
+        Vihiga: ['Emuhaya', 'Hamisi', 'Luanda', 'Sabatia', 'Vihiga'],
+        Wajir: ['Buna', 'Eldas', 'Habaswein', 'Tarbaj', 'Wajir East', 'Wajir North', 'Wajir South', 'Wajir West'],
+        "West Pokot": ['Kacheliba', 'Kapenguria', 'Pokot South', 'Sigor']
       },
       Loading: false,
     };
@@ -241,50 +275,49 @@ export default {
           this.editMode = true;
           
           // Map all fields explicitly to ensure proper assignment
-          this.schoolName = String(newSchool.schoolName || newSchool.school_name || '').trim();
-          this.schoolCode = String(newSchool.schoolCode || newSchool.school_code || '').trim();
-          this.email = String(newSchool.email || '').trim();
-          this.phoneNo = String(newSchool.phoneNo || newSchool.phone_no || newSchool.phone || '').trim();
-          // Try multiple variations for principal name
-          this.principalName = String(
-            newSchool.principalName || 
-            newSchool.principal_name || 
-            newSchool.principalName1 || 
-            newSchool.principal || 
-            ''
-          ).trim();
-          // Try multiple variations for principal phone
-          this.principalPhoneNo = String(
-            newSchool.principalPhoneNo || 
-            newSchool.principal_phone_no || 
-            newSchool.principalPhone || 
-            newSchool.principalPhoneNumber || 
-            newSchool.principal_phone || 
-            ''
-          ).trim();
-          this.address = String(newSchool.address || '').trim();
-          this.schoolLevel = String(newSchool.schoolLevel || newSchool.school_level || '').trim();
-          this.county = String(newSchool.county || '').trim();
-          this.subcounty = String(newSchool.subcounty || newSchool.sub_county || '').trim();
-          
-          console.log('Principal fields after mapping:', {
-            principalName: this.principalName,
-            principalPhoneNo: this.principalPhoneNo,
-            'newSchool.principalName': newSchool.principalName,
-            'newSchool.principal_phone_no': newSchool.principal_phone_no,
-          });
+          // Handle null values properly - convert null to empty string for form display
+          this.schoolName = newSchool.schoolName ? String(newSchool.schoolName).trim() : '';
+          this.schoolCode = newSchool.schoolCode ? String(newSchool.schoolCode).trim() : '';
+          // schoolLevel can be null in API response, convert to empty string for form
+          this.schoolLevel = (newSchool.schoolLevel !== null && newSchool.schoolLevel !== undefined) ? String(newSchool.schoolLevel).trim() : '';
+          this.principalName = newSchool.principalName ? String(newSchool.principalName).trim() : '';
+          this.principalPhoneNo = newSchool.principalPhoneNo ? String(newSchool.principalPhoneNo).trim() : '';
+          // Optional fields - handle null/undefined
+          this.bursarPhoneNo = (newSchool.bursarPhoneNo !== null && newSchool.bursarPhoneNo !== undefined) ? String(newSchool.bursarPhoneNo).trim() : '';
+          this.deanPhoneNo = (newSchool.deanPhoneNo !== null && newSchool.deanPhoneNo !== undefined) ? String(newSchool.deanPhoneNo).trim() : '';
+          this.county = newSchool.county ? String(newSchool.county).trim() : '';
+          this.subcounty = newSchool.subcounty ? String(newSchool.subcounty).trim() : '';
+          this.email = newSchool.email ? String(newSchool.email).trim() : '';
+          this.phoneNo = newSchool.phoneNo ? String(newSchool.phoneNo).trim() : '';
+          this.address = newSchool.address ? String(newSchool.address).trim() : '';
+          // Handle registeredByID - store as number
+          this.registeredByID = (newSchool.registeredByID !== null && newSchool.registeredByID !== undefined) ? newSchool.registeredByID : null;
+          // Handle registeredByName - display name from API or lookup
+          this.registeredByName = newSchool.registeredByName || '';
+          // Handle marketerID - convert to string for select dropdown
+          this.marketerID = (newSchool.marketerID !== null && newSchool.marketerID !== undefined) ? String(newSchool.marketerID) : '';
+          // Optional field - handle null/undefined
+          this.schoolMotto = (newSchool.schoolMotto !== null && newSchool.schoolMotto !== undefined) ? String(newSchool.schoolMotto).trim() : '';
+          this.deleted = newSchool.deleted || false;
           
           console.log('✅ Mapped fields in NewSchool:', {
             schoolName: this.schoolName,
             schoolCode: this.schoolCode,
-            email: this.email,
-            phoneNo: this.phoneNo,
+            schoolLevel: this.schoolLevel,
             principalName: this.principalName,
             principalPhoneNo: this.principalPhoneNo,
-            address: this.address,
+            bursarPhoneNo: this.bursarPhoneNo,
+            deanPhoneNo: this.deanPhoneNo,
             county: this.county,
             subcounty: this.subcounty,
-            schoolLevel: this.schoolLevel,
+            email: this.email,
+            phoneNo: this.phoneNo,
+            address: this.address,
+            registeredByID: this.registeredByID,
+            registeredByName: this.registeredByName,
+            marketerID: this.marketerID,
+            schoolMotto: this.schoolMotto,
+            deleted: this.deleted
           });
           
           // Update subcounties based on selected county - use nextTick to ensure DOM is ready
@@ -303,31 +336,54 @@ export default {
   },
 
   methods: {
-    // Update subcounties based on selected county
+    async fetchUsers() {
+      try {
+        const response = await axios.post('/auth/list_users', {});
+        // Filter users - marketers are typically users with specific roles
+        // For now, use all users for both dropdowns, but you can filter if needed
+        this.users = response.data.map((user) => ({
+          id: user.userID,
+          userID: user.userID,
+          idNumber: user.userID,
+          fullname: user.fullname || '',
+          username: user.username || '',
+        }));
+        // Marketers can be filtered by role if needed, for now use all users
+        this.marketers = this.users;
+      } catch (error) {
+        console.error('Error fetching users:', error);
+        // Don't show error toast - users fetch is optional
+      }
+    },
+
     updateSubcounties() {
       if (this.county) {
         this.subcountyOptions = this.subcountyData[this.county] || [];
-        this.subcounty = this.subcountyOptions.length ? this.subcountyOptions[0] : '';
-
+        if (!this.subcountyOptions.includes(this.subcounty)) {
+          this.subcounty = '';
+        }
       }
     },
+
     async saveSchool() {
       const toast = useToast();
 
-      // Enhanced validation
+      // Validation for required fields
       const requiredFields = {
         'School Name': this.schoolName,
-        'Phone Number': this.phoneNo,
-
-        // 'Email': this.email,
-        // 'Address': this.address,
-        // 'Principal Name': this.principalName,
-        // 'Subcounty': this.subcounty,
-        // 'County': this.county
+        'School Code': this.schoolCode,
+        'School Level': this.schoolLevel,
+        'Principal Name': this.principalName,
+        'Principal Phone': this.principalPhoneNo,
+        'County': this.county,
+        'Subcounty': this.subcounty,
+        'Email': this.email,
+        'Phone No': this.phoneNo,
+        'Address': this.address
       };
 
       const missingFields = Object.entries(requiredFields)
-        .filter(([_, value]) => !value)
+        .filter(([_, value]) => !value || value.trim() === '')
         .map(([name]) => name);
 
       if (missingFields.length > 0) {
@@ -335,35 +391,42 @@ export default {
         return;
       }
 
-      // Prepare form data with type conversion if needed
+      // Prepare form data according to API specification
+      // Always include required fields
       const formData = {
-        schoolCode: String(this.schoolCode || ''),
-        schoolName: String(this.schoolName),
-        schoolLevel: String(this.schoolLevel || ''),
-        county: String(this.county),
-        subcounty: String(this.subcounty),
-        principalName: String(this.principalName),
-        principalPhoneNo: String(this.principalPhoneNo || ''),
-        email: String(this.email),
-        phoneNo: String(this.phoneNo),
-        address: String(this.address),
+        schoolCode: this.schoolCode,
+        schoolName: this.schoolName,
+        schoolLevel: this.schoolLevel || '', // Always send schoolLevel (required field)
+        principalName: this.principalName,
+        principalPhoneNo: this.principalPhoneNo,
+        county: this.county,
+        subcounty: this.subcounty,
+        email: this.email,
+        phoneNo: this.phoneNo,
+        address: this.address,
       };
+
+      // Always include optional fields (send empty string for strings, null for numbers if no value)
+      // This ensures they appear in the API response
+      formData.bursarPhoneNo = (this.bursarPhoneNo && this.bursarPhoneNo.trim() !== '') ? this.bursarPhoneNo.trim() : '';
+      formData.deanPhoneNo = (this.deanPhoneNo && this.deanPhoneNo.trim() !== '') ? this.deanPhoneNo.trim() : '';
+      formData.schoolMotto = (this.schoolMotto && this.schoolMotto.trim() !== '') ? this.schoolMotto.trim() : '';
+      
+      // Include registeredByID - always use the logged-in user's ID
+      formData.registeredByID = this.registeredByID || null;
+      
+      // Include marketerID - send null if empty (numbers can be null)
+      formData.marketerID = (this.marketerID && this.marketerID !== '') ? parseInt(this.marketerID) : null;
 
       console.log("🚀 Submitting form data:", JSON.stringify(formData, null, 2));
 
       try {
         this.Loading = true;
         
-        const response = await axios.post('/schools/create', formData, {
-          // headers: {
-          //   'Content-Type': 'application/json',
-          //   // Add authorization if needed:
-          //   // 'Authorization': `Bearer ${yourToken}`
-          // },
-          // validateStatus: (status) => status >= 200 && status < 500
-        });
+        // Use the exact API endpoint from documentation
+        const response = await axios.post('/schools/create', formData);
 
-        if (response.status === 200 || response.status === 201) {
+        if (response.status === 200) {
           toast.success('School added successfully');
           this.$emit('fetchSchools');
           this.clearForm();
@@ -372,42 +435,92 @@ export default {
           throw new Error(`Server responded with status ${response.status}`);
         }
       } catch (error) {
-        // Enhanced error handling as shown above
+        this.handleError(error, toast);
       } finally {
         this.Loading = false;
       }
     },
 
-// beforeDestroy() {
-//     this.isMounted = false; 
-//   },
-
     async updateSchool() {
       const toast = useToast();
 
-      // No front-end required-field validation for updates – always attempt update
+      // Basic validation - schoolLevel can be empty/null for updates
+      if (!this.schoolCode || !this.schoolName || !this.principalName || !this.principalPhoneNo) {
+        toast.warning('Please fill in all required fields');
+        this.Loading = false;
+        return;
+      }
+
       try {
         this.Loading = true;
+        // Prepare form data according to API specification
+        // Always include required fields
         const formData = {
           schoolCode: this.schoolCode,
           schoolName: this.schoolName,
-          schoolLevel: this.schoolLevel,
-          county: this.county,
-          subcounty: this.subcounty,
+          // schoolLevel: send null if empty, otherwise send the value
+          schoolLevel: (this.schoolLevel && this.schoolLevel.trim() !== '') ? this.schoolLevel.trim() : null,
           principalName: this.principalName,
           principalPhoneNo: this.principalPhoneNo,
+          county: this.county,
+          subcounty: this.subcounty,
           email: this.email,
           phoneNo: this.phoneNo,
           address: this.address,
         };
 
+        // Always include optional fields explicitly
+        // Send empty string for string fields, null for number fields if no value
+        // This ensures they appear in the API response
+        formData.bursarPhoneNo = (this.bursarPhoneNo && this.bursarPhoneNo.trim() !== '') ? this.bursarPhoneNo.trim() : '';
+        formData.deanPhoneNo = (this.deanPhoneNo && this.deanPhoneNo.trim() !== '') ? this.deanPhoneNo.trim() : '';
+        formData.schoolMotto = (this.schoolMotto && this.schoolMotto.trim() !== '') ? this.schoolMotto.trim() : '';
+        
+        // Include registeredByID - always use the logged-in user's ID (or existing value in edit mode)
+        formData.registeredByID = this.registeredByID || this.school?.registeredByID || null;
+        
+        // Include marketerID - send null if empty (numbers can be null)
+        if (this.marketerID && this.marketerID !== '') {
+          formData.marketerID = parseInt(this.marketerID);
+        } else {
+          // If not set in form, use the existing value from the school object if available
+          formData.marketerID = this.school?.marketerID || null;
+        }
+
+        console.log("🔄 Updating school with data:", JSON.stringify(formData, null, 2));
+        console.log("📋 Form values before update:", {
+          bursarPhoneNo: this.bursarPhoneNo,
+          deanPhoneNo: this.deanPhoneNo,
+          schoolMotto: this.schoolMotto,
+          registeredByID: this.registeredByID,
+          registeredByName: this.registeredByName,
+          marketerID: this.marketerID,
+          schoolObject: this.school
+        });
+
+        // Use the exact API endpoint from documentation
         let response = await axios.post(`/schools/update/${this.schoolCode}`, formData);
+
+        console.log("✅ Update response:", JSON.stringify(response.data, null, 2));
+        console.log("⚠️ Missing fields check:", {
+          hasBursarPhoneNo: 'bursarPhoneNo' in (response.data || {}),
+          hasDeanPhoneNo: 'deanPhoneNo' in (response.data || {}),
+          hasMarketerID: 'marketerID' in (response.data || {}),
+          hasMarketerName: 'marketerName' in (response.data || {}),
+          hasSchoolMotto: 'schoolMotto' in (response.data || {})
+        });
+        
+        // NOTE: If optional fields (bursarPhoneNo, deanPhoneNo, marketerID, marketerName, schoolMotto)
+        // are missing from the response even though they were sent in the request, this is a BACKEND issue.
+        // The backend API should return all fields as per the API documentation, even if they're null/empty.
+        // The frontend is correctly sending these fields in the request payload.
 
         if (response.status === 200) {
           toast.success('School updated successfully');
+          // Refresh the schools list to get updated data
           this.$emit('fetchSchools');
           this.$emit('closeForm');
-          this.editMode = false; // ✅ Reset edit mode after updating
+          this.editMode = false;
         } else {
           toast.error(`Unexpected response status: ${response.status}`);
         }
@@ -421,15 +534,34 @@ export default {
     handleError(error, toast) {
       if (error.response && error.response.data) {
         const serverResponse = error.response.data;
-        if (error.response.status === 208) {
+        const status = error.response.status;
+        
+        if (status === 400) {
+          // API returns: { "message": "Error: School code in use!" }
+          if (serverResponse.message && serverResponse.message.includes('School code in use')) {
+            toast.error('School code is already in use. Please use a different code.');
+          } else {
+            toast.error(serverResponse.message || 'Invalid request. Please check your input.');
+          }
+        } else if (status === 208) {
           toast.error(`Email has already been used: ${serverResponse.message}`);
-        } else if (error.response.status === 500 && serverResponse.message.includes('Duplicate entry') && serverResponse.message.includes('email')) {
-          toast.error('School with the given email already exists!');
+        } else if (status === 500) {
+          if (serverResponse.message && serverResponse.message.includes('Duplicate entry')) {
+            if (serverResponse.message.includes('email')) {
+              toast.error('School with the given email already exists!');
+            } else {
+              toast.error('A duplicate entry was detected. Please check your input.');
+            }
+          } else {
+            toast.error(`Server error: ${serverResponse.message || 'An unexpected error occurred'}`);
+          }
         } else {
           toast.error(`ERROR: ${serverResponse.message || 'An unexpected error occurred'}`);
         }
+      } else if (error.request) {
+        toast.error('No response from server. Please check your connection.');
       } else {
-        toast.error('ERROR PROCESSING REQUEST!');
+        toast.error(`ERROR: ${error.message || 'An unexpected error occurred'}`);
       }
       console.error('Error:', error);
     },
@@ -438,38 +570,62 @@ export default {
       this.schoolName = '';
       this.schoolCode = '';
       this.schoolLevel = '';
-      this.address = '';
-      this.email = '';
-      this.phoneNo = '';
       this.principalName = '';
       this.principalPhoneNo = '';
-      this.county = ''; // Reset county here as well
+      this.bursarPhoneNo = '';
+      this.deanPhoneNo = '';
+      this.county = '';
       this.subcounty = '';
+      this.email = '';
+      this.phoneNo = '';
+      this.address = '';
+      this.registeredByID = null;
+      this.registeredByName = '';
+      this.marketerID = ''; // Empty string for select dropdown
+      this.schoolMotto = '';
       this.deleted = false;
       this.editMode = false;
     },
   },
 
-  mounted() {
+  async mounted() {
+    // Fetch users for dropdowns (for marketer selection)
+    await this.fetchUsers();
+    
+    // Auto-populate registeredByID and registeredByName from logged-in user
+    const userData = JSON.parse(localStorage.getItem('user') || '{}');
+    const userId = userData.id || userData.userId || userData.userID || localStorage.getItem('userId') || localStorage.getItem('userID');
+    const userFullname = localStorage.getItem('fullname') || userData.fullname || userData.username || '';
+    
+    if (userId) {
+      // Store the logged-in user's ID
+      this.registeredByID = parseInt(userId) || userId;
+      // Display the logged-in user's name
+      this.registeredByName = userFullname || 'Logged-in User';
+    }
+    
+    // In edit mode, if registeredByName is not set, try to get it from the school object or lookup
+    if (this.editMode && this.school && !this.registeredByName) {
+      this.registeredByName = this.school.registeredByName || '';
+      // If we have registeredByID but no name, try to find it in users list
+      if (this.registeredByID && !this.registeredByName && this.users.length > 0) {
+        const foundUser = this.users.find(u => 
+          (u.id || u.userID) == this.registeredByID || 
+          String(u.id || u.userID) === String(this.registeredByID)
+        );
+        if (foundUser) {
+          this.registeredByName = foundUser.fullname || foundUser.username || '';
+        }
+      }
+    }
+    
     if (this.school) {
       this.editMode = true;
-      Object.assign(this, this.school);
-      this.county = this.school.county || '';
-      this.updateSubcounties(); // Update subcounties after loading
+      this.updateSubcounties();
     }
-
-
   },
-
-  
-  // beforeDestroy() {
-  //   this.isMounted = false;  // Set the flag to false when the component is about to be destroyed
-  // },
-
 };
 </script>
-
-
 
 <style scoped>
 * {
@@ -540,9 +696,27 @@ export default {
   color: white;
 }
 
+.form-control:disabled {
+  background-color: #35548f;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.form-control[readonly] {
+  background-color: rgba(67, 104, 185, 0.6);
+  cursor: default;
+  opacity: 0.9;
+}
+
 .form-control::placeholder {
   color: rgba(255, 255, 255, 0.7);
   font-size: 0.9rem;
+}
+
+.form-control option {
+  background-color: #4368b9;
+  color: white;
+  padding: 0.5rem;
 }
 
 label {
@@ -692,4 +866,3 @@ hr {
   }
 }
 </style>
-    

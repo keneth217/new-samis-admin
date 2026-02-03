@@ -17,13 +17,12 @@
             <div class="view-label">School Name:</div>
             <div class="view-value">{{ invoice?.schoolName || schoolName || 'N/A' }}</div>
           </div>
-          <!-- Edit/Create Mode: Show dropdown -->
-          <select 
+          <!-- Edit/Create Mode: Dropdown -->
+          <select
             v-else
-            class="form-control" 
-            v-model="schoolCode" 
+            class="form-control"
+            v-model="schoolCode"
             required
-            :disabled="editMode"
             id="schoolCode"
           >
             <option value="" disabled>{{ schools.length > 0 ? 'Select School*' : 'Loading schools...' }}</option>
@@ -39,7 +38,9 @@
         <div class="form-group" v-if="viewMode">
           <div class="view-mode-text-display">
             <div class="view-label">School Code:</div>
-            <div class="view-value school-code-text">{{ invoice?.schoolCode || schoolCode || 'N/A' }}</div>
+            <div class="view-value school-code-text">
+              {{ invoice?.schoolCode || schoolCode || 'N/A' }}
+            </div>
           </div>
         </div>
 
@@ -102,7 +103,7 @@
             class="form-control"
             v-model="description"
             placeholder="Description"
-            rows="3"
+            rows="2"
             :disabled="viewMode"
           ></textarea>
           <label for="description" :class="{ filled: description !== '' }">Description*</label>
@@ -203,6 +204,10 @@ export default {
     };
   },
   computed: {
+    selectedSchoolName() {
+      const s = this.schools.find(sch => sch.schoolCode === this.schoolCode);
+      return s ? (s.schoolName || '') : (this.schoolName || '');
+    },
     schoolDisplayText() {
       if (this.viewMode) {
         // In view mode, always show from invoice prop first, then fallback to data
@@ -451,8 +456,8 @@ export default {
 .form-inputs {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 1rem;
-  padding-top: 10px;
+  gap: 0.65rem;
+  padding-top: 6px;
 }
 
 .form-group {
@@ -495,6 +500,7 @@ label {
   transform: translateY(-50%);
   transition: all 0.3s ease;
   color: gold;
+  pointer-events: none;
 }
 
 label.filled {
@@ -556,6 +562,28 @@ label.filled {
   color: white;
   font-weight: 500;
   padding-top: 0.25rem;
+}
+
+.selected-school-reflect {
+  margin-top: 0.35rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.85rem;
+  background: rgba(255, 215, 0, 0.15);
+  border-radius: 4px;
+  border: 1px solid rgba(255, 215, 0, 0.4);
+  line-height: 1.3;
+  color: rgba(255, 255, 255, 0.95);
+}
+.selected-school-reflect .reflect-label {
+  color: gold;
+  font-weight: 600;
+}
+.selected-school-reflect .reflect-value {
+  color: white;
+  font-weight: 700;
+}
+.selected-school-reflect .reflect-name {
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .school-code-text {

@@ -128,10 +128,37 @@ export default {
         // } else {
           this.router.push('/FinanceModule'); // Redirect to normal dashboard
         // }
-      } catch (err) {        
-        const errorMessage = err.message || "AN ERROR OCCURRED!!";
+      } catch (err) {
+        // Extract error message properly
+        let errorMessage = "AN ERROR OCCURRED!!";
+        
+        if (err) {
+          if (typeof err === 'string') {
+            errorMessage = err;
+          } else if (err.message) {
+            errorMessage = err.message;
+          } else if (err.response && err.response.data) {
+            const errorData = err.response.data;
+            if (typeof errorData === 'string') {
+              errorMessage = errorData;
+            } else if (errorData.message) {
+              errorMessage = errorData.message;
+            } else if (errorData.error) {
+              errorMessage = errorData.error;
+            } else {
+              errorMessage = JSON.stringify(errorData);
+            }
+          } else {
+            errorMessage = String(err);
+          }
+        }
+        
         console.error("Login error:", errorMessage);
-        this.toast.error(errorMessage);  
+        console.error("Full error object:", err);
+        
+        // Show error message (split by newlines if it contains them)
+        const displayMessage = errorMessage.split('\n')[0]; // Show first line only in toast
+        this.toast.error(displayMessage);
       } finally {
         this.Loading = false;
       }
