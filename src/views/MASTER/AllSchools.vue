@@ -1809,17 +1809,17 @@ export default {
     color: #666;
     font-size: clamp(0.9rem, 1.3vw, 1.1rem);
   }
-  
-  .students-table th,
-  .students-table td {
-    padding: clamp(0.5rem, 1.2vw, 0.75rem);
-    text-align: left;
-    border-bottom: 1px solid #ddd;
-    vertical-align: middle;
-    border: 1px solid #ddd;
-    word-break: break-word;
-    line-height: 1.4;
-  }
+.students-table th,
+.students-table td {
+  white-space: nowrap;                /* forces content to stay on one line */
+  padding: clamp(0.4rem, 1.2vw, 0.7rem); /* reduced from 0.5rem/1.5vw/1rem */
+  line-height: 1.2;                   /* reduced from 1.4 */
+  text-align: left;
+  border-bottom: 1px solid #ddd;
+  vertical-align: middle;
+  border: 1px solid #ddd;
+  /* word-break: break-word; — no longer needed, removed */
+}
 
   .students-table tbody tr {
     height: auto;
@@ -1861,6 +1861,7 @@ export default {
     gap: clamp(0.3rem, 1vw, 1rem);
     flex-wrap: wrap;
     align-items: center;
+    flex-wrap: nowrap;  
   }
   
   .manage-btn,

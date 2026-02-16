@@ -181,7 +181,7 @@
 import axios from '../../axios';
 import { useToast } from 'vue-toastification';
 import LoadingSpinner from '../../components/LoadingSpinner.vue';
-import { sendBulkMessages, getAccountBalance } from '../../services/messagesApi';
+import { sendSingleMessage, sendBulkMessages, getAccountBalance } from '../../services/messagesApi';
 
 export default {
   name: 'NewMessageForm',
@@ -506,11 +506,7 @@ export default {
         : this.messageBody.trim();
 
       // Final validation: ensure each contact has all required fields as non-empty strings
-      // Create a clean contact object with ONLY the fields the API expects (no extra fields)
       const finalContacts = validContacts.map(contact => {
-        // Ensure all fields are present and are strings (no null/undefined values)
-        // Convert everything to string explicitly, defaulting to empty string if falsy
-        // Only include the exact fields the API expects (according to API docs)
         const finalContact = {
           contactName: (contact.contactName != null ? String(contact.contactName) : '').trim(),
           phoneNo: (contact.phoneNo != null ? String(contact.phoneNo) : '').trim(),
@@ -519,7 +515,7 @@ export default {
           schoolCode: (contact.schoolCode != null ? String(contact.schoolCode) : '').trim(),
         };
 
-        // Validate required fields (contactName, phoneNo, schoolCode must not be empty)
+        // Validate required fields
         if (!finalContact.contactName || finalContact.contactName.length === 0) {
           console.warn('Invalid contact (missing contactName):', finalContact);
           return null;
@@ -540,12 +536,6 @@ export default {
           return null;
         }
 
-        // Guard: schoolCode should not be the same as phone number; backend expects a real school code
-        if (finalContact.schoolCode.replace(/\D/g, '') === digitsOnly) {
-          console.warn('Invalid contact (schoolCode equals phone number, likely wrong code):', finalContact);
-          return null;
-        }
-
         return finalContact;
       }).filter(Boolean);
 
@@ -554,170 +544,148 @@ export default {
         return;
       }
 
-      // Payload matches MessageController POST /api/messages/sendbulk: { message, contacts }
-      // Each contact: contactName, phoneNo, designation, email, schoolCode (contactID optional)
-      const payload = {
-        message: messageText,
-        contacts: finalContacts,
-      };
-
-      // Log complete payload for debugging - SHOW EXACT JSON
-      console.log('=== COMPLETE PAYLOAD BEING SENT ===');
-      console.log('Full JSON payload:', JSON.stringify(payload, null, 2));
-      console.log('Message:', payload.message);
-      console.log('Contacts count:', payload.contacts.length);
-      console.log('\n=== DETAILED CONTACT INFORMATION ===');
-      payload.contacts.forEach((contact, index) => {
-        console.log(`\nContact ${index + 1}:`);
-        console.log('  contactName:', contact.contactName, '(type:', typeof contact.contactName, ', length:', contact.contactName?.length, ')');
-        console.log('  phoneNo:', contact.phoneNo, '(type:', typeof contact.phoneNo, ', length:', contact.phoneNo?.length, ')');
-        console.log('  designation:', contact.designation, '(type:', typeof contact.designation, ', length:', contact.designation?.length, ')');
-        console.log('  email:', contact.email, '(type:', typeof contact.email, ', length:', contact.email?.length, ')');
-        console.log('  schoolCode:', contact.schoolCode, '(type:', typeof contact.schoolCode, ', length:', contact.schoolCode?.length, ')');
-        console.log('  Full contact object:', JSON.stringify(contact, null, 2));
-      });
-      console.log('\n=== END OF PAYLOAD LOG ===\n');
-
-      // Validate payload structure before sending
-      if (!payload.message || typeof payload.message !== 'string' || payload.message.trim().length === 0) {
-        toast.error('Message cannot be empty.');
-        return;
-      }
-
-      if (!Array.isArray(payload.contacts) || payload.contacts.length === 0) {
-        toast.error('At least one contact is required.');
-        return;
-      }
-
-      // Final check: Verify each contact has ALL required fields
-      const missingFields = [];
-      payload.contacts.forEach((contact, index) => {
-        const requiredFields = ['contactName', 'phoneNo', 'schoolCode'];
-        requiredFields.forEach(field => {
-          if (!contact[field] || (typeof contact[field] === 'string' && contact[field].trim().length === 0)) {
-            missingFields.push(`Contact ${index + 1} missing ${field}`);
-          }
-        });
-      });
-
-      if (missingFields.length > 0) {
-        console.error('Validation failed - missing required fields:', missingFields);
-        toast.error(`Validation error: ${missingFields.join(', ')}`);
-        return;
-      }
-
-      console.log('✅ Payload validation passed - all required fields present');
-      
-      // CRITICAL: Double-check schoolCode is present in every contact before sending
-      console.log('\n🔍 FINAL PRE-SEND CHECK - Verifying schoolCode in each contact:');
-      const contactsWithMissingSchoolCode = payload.contacts.filter((contact, index) => {
-        const hasSchoolCode = contact.schoolCode && contact.schoolCode.trim().length > 0;
-        if (!hasSchoolCode) {
-          console.error(`❌ Contact ${index + 1} MISSING schoolCode!`, contact);
-        } else {
-          console.log(`✅ Contact ${index + 1} has schoolCode: "${contact.schoolCode}"`);
-        }
-        return !hasSchoolCode;
-      });
-      
-      if (contactsWithMissingSchoolCode.length > 0) {
-        toast.error(`Cannot send: ${contactsWithMissingSchoolCode.length} contact(s) are missing schoolCode. Check console for details.`);
-        console.error('BLOCKED: Request cancelled due to missing schoolCode');
-        return;
-      }
-      
-      console.log('✅ All contacts have schoolCode - proceeding with API call\n');
-      
-      // Final log right before sending - show exact JSON
-      console.log('🚀 ABOUT TO SEND REQUEST TO /messages/sendbulk');
-      console.log('📦 Final payload (JSON):', JSON.stringify(payload, null, 2));
-      console.log('📦 Payload structure check:');
-      console.log('  - message type:', typeof payload.message, ', length:', payload.message?.length);
-      console.log('  - contacts is array:', Array.isArray(payload.contacts));
-      console.log('  - contacts length:', payload.contacts?.length);
-      payload.contacts.forEach((c, i) => {
-        console.log(`\n  Contact ${i + 1}:`);
-        console.log(`    Keys:`, Object.keys(c));
-        console.log(`    contactName: "${c.contactName}" (type: ${typeof c.contactName}, length: ${c.contactName?.length})`);
-        console.log(`    phoneNo: "${c.phoneNo}" (type: ${typeof c.phoneNo}, length: ${c.phoneNo?.length})`);
-        console.log(`    schoolCode: "${c.schoolCode}" (type: ${typeof c.schoolCode}, length: ${c.schoolCode?.length})`);
-        console.log(`    designation: "${c.designation}" (type: ${typeof c.designation}, length: ${c.designation?.length})`);
-        console.log(`    email: "${c.email}" (type: ${typeof c.email}, length: ${c.email?.length})`);
-        console.log(`    Full object:`, JSON.stringify(c, null, 2));
-      });
-      
       this.Loading = true;
 
       try {
-        const response = await sendBulkMessages(payload);
-
-        if (response.status === 200 || response.status === 201) {
-          toast.success(`Message sent successfully to ${finalContacts.length} school(s)!`);
-          this.$emit('fetchMessages');
-          this.$emit('closeForm');
-          this.clearForm();
+        // Route to appropriate endpoint based on number of contacts
+        if (finalContacts.length === 1) {
+          // Single school selected - use /messages/send endpoint
+          const singleContact = finalContacts[0];
+          console.log('📤 Sending SINGLE message to:', singleContact.contactName);
+          console.log('📤 Using endpoint: /messages/send');
+          
+          // Format phone number - some backends prefer digits only (without +)
+          // Try both formats: with + (E.164) and without (digits only)
+          let phoneNo = singleContact.phoneNo;
+          const phoneNoDigitsOnly = phoneNo.replace(/\D/g, '');
+          
+          console.log('📱 Phone number formatting:');
+          console.log('  - Original:', phoneNo);
+          console.log('  - Digits only:', phoneNoDigitsOnly);
+          console.log('  - Has + sign:', phoneNo.startsWith('+'));
+          
+          // Use the phone number as-is (E.164 format with +)
+          // If backend fails, we can try digits-only format
+          const singlePayload = {
+            message: messageText,
+            phoneNo: phoneNo, // Keep E.164 format (+254...)
+            fullname: singleContact.contactName,
+          };
+          
+          console.log('📦 Single message payload:', JSON.stringify(singlePayload, null, 2));
+          console.log('📋 Payload validation:');
+          console.log('  - Message exists:', !!singlePayload.message);
+          console.log('  - Message length:', singlePayload.message?.length);
+          console.log('  - PhoneNo exists:', !!singlePayload.phoneNo);
+          console.log('  - PhoneNo length:', singlePayload.phoneNo?.length);
+          console.log('  - PhoneNo format:', singlePayload.phoneNo);
+          console.log('  - Fullname exists:', !!singlePayload.fullname);
+          console.log('  - Fullname length:', singlePayload.fullname?.length);
+          
+          const response = await sendSingleMessage(singlePayload);
+          
+          if (response.status === 200 || response.status === 201) {
+            toast.success(`Message sent successfully to ${singleContact.contactName}!`);
+            this.$emit('fetchMessages');
+            this.$emit('closeForm');
+            this.clearForm();
+          } else {
+            toast.error(`Unexpected response status: ${response.status}`);
+          }
         } else {
-          toast.error(`Unexpected response status: ${response.status}`);
+          // Multiple schools selected - use /messages/sendbulk endpoint
+          console.log(`📤 Sending BULK message to ${finalContacts.length} schools`);
+          console.log('📤 Using endpoint: /messages/sendbulk');
+          
+          const bulkPayload = {
+            message: messageText,
+            contacts: finalContacts.map(contact => ({
+              contactName: contact.contactName,
+              phoneNo: contact.phoneNo,
+              designation: contact.designation,
+              email: contact.email,
+              schoolCode: contact.schoolCode,
+            })),
+          };
+          
+          console.log('📦 Bulk message payload:', JSON.stringify(bulkPayload, null, 2));
+          
+          const response = await sendBulkMessages(bulkPayload);
+          
+          if (response.status === 200 || response.status === 201) {
+            toast.success(`Message sent successfully to ${finalContacts.length} school(s)!`);
+            this.$emit('fetchMessages');
+            this.$emit('closeForm');
+            this.clearForm();
+          } else {
+            toast.error(`Unexpected response status: ${response.status}`);
+          }
         }
       } catch (error) {
         console.error('\n❌❌❌ ERROR SENDING MESSAGE ❌❌❌');
         console.error('Full error object:', error);
         console.error('Error response:', error.response);
         console.error('Error response status:', error.response?.status);
+        console.error('Error response status text:', error.response?.statusText);
         console.error('Error response headers:', error.response?.headers);
-        console.error('Error response data:', error.response?.data);
+        console.error('Error response data (raw):', error.response?.data);
         console.error('Error response data (stringified):', JSON.stringify(error.response?.data, null, 2));
         
-        // Log the EXACT payload that was sent
-        console.error('\n📤 EXACT PAYLOAD THAT WAS SENT:');
-        console.error(JSON.stringify(payload, null, 2));
-        console.error('\n📋 Payload breakdown:');
-        console.error('  Message:', payload.message);
-        console.error('  Message length:', payload.message?.length);
-        console.error('  Contacts count:', payload.contacts.length);
-        payload.contacts.forEach((contact, idx) => {
-          console.error(`\n  Contact ${idx + 1}:`);
-          console.error('    Keys:', Object.keys(contact));
-          console.error('    Full object:', JSON.stringify(contact, null, 2));
-          console.error('    contactName:', contact.contactName, '| Type:', typeof contact.contactName, '| Length:', contact.contactName?.length);
-          console.error('    phoneNo:', contact.phoneNo, '| Type:', typeof contact.phoneNo, '| Length:', contact.phoneNo?.length);
-          console.error('    schoolCode:', contact.schoolCode, '| Type:', typeof contact.schoolCode, '| Length:', contact.schoolCode?.length);
-          console.error('    designation:', contact.designation, '| Type:', typeof contact.designation);
-          console.error('    email:', contact.email, '| Type:', typeof contact.email);
-        });
+        // Log the exact payload that failed
+        if (finalContacts.length === 1) {
+          console.error('\n📤 SINGLE MESSAGE PAYLOAD THAT FAILED:');
+          console.error(JSON.stringify({
+            message: messageText,
+            phoneNo: finalContacts[0].phoneNo,
+            fullname: finalContacts[0].contactName,
+          }, null, 2));
+        } else {
+          console.error('\n📤 BULK MESSAGE PAYLOAD THAT FAILED:');
+          console.error(JSON.stringify({
+            message: messageText,
+            contacts: finalContacts.map(c => ({
+              contactName: c.contactName,
+              phoneNo: c.phoneNo,
+              designation: c.designation,
+              email: c.email,
+              schoolCode: c.schoolCode,
+            })),
+          }, null, 2));
+        }
         
         // Handle different error types
         if (error.response) {
-          // Server responded with error status
           const status = error.response.status;
           const errorData = error.response.data;
+          const isSingleMessage = finalContacts.length === 1;
           
-          let errorMessage = 'Failed to send message. ';
+          let errorMessage = `Failed to send ${isSingleMessage ? 'message' : 'bulk messages'}. `;
           
           if (status === 500) {
-            errorMessage += 'Server error (500). ';
+            errorMessage += `Server error (500) - ${isSingleMessage ? 'Single' : 'Bulk'} Message Failed\n\n`;
             
-            // Check if it might be a balance issue (common cause of 500 errors)
+            if (error.serverMessage && error.serverMessage !== 'Internal Server Error') {
+              errorMessage += `Server Message: ${error.serverMessage}\n\n`;
+            }
+            
             const errorString = JSON.stringify(errorData || {}).toLowerCase();
             if (errorString.includes('balance') || errorString.includes('insufficient') || errorString.includes('fund') || errorString.includes('credit')) {
-              errorMessage += '\n\n⚠️ INSUFFICIENT SMS BALANCE!\n';
+              errorMessage += '⚠️ INSUFFICIENT SMS BALANCE!\n';
               errorMessage += 'This error is likely caused by insufficient SMS credits in your account.\n';
               errorMessage += 'Please top up your SMS balance and try again.';
             } else {
-              // Try to extract any useful error information
               if (errorData) {
-                // Check for nested error messages
                 const possibleErrorFields = ['message', 'error', 'exception', 'trace', 'details', 'cause', 'path'];
                 let foundError = false;
                 
                 for (const field of possibleErrorFields) {
                   if (errorData[field]) {
                     if (typeof errorData[field] === 'string') {
-                      errorMessage += `${field}: ${errorData[field]}`;
+                      errorMessage += `Server ${field}: ${errorData[field]}\n\n`;
                       foundError = true;
                       break;
                     } else if (typeof errorData[field] === 'object') {
-                      errorMessage += `${field}: ${JSON.stringify(errorData[field])}`;
+                      errorMessage += `Server ${field}: ${JSON.stringify(errorData[field])}\n\n`;
                       foundError = true;
                       break;
                     }
@@ -726,29 +694,34 @@ export default {
                 
                 if (!foundError) {
                   if (typeof errorData === 'string') {
-                    errorMessage += errorData;
+                    errorMessage += `Server Response: ${errorData}\n\n`;
                   } else {
-                    // Show the full error object for debugging
-                    errorMessage += 'Check browser console for detailed error. Server response: ' + JSON.stringify(errorData, null, 2);
+                    errorMessage += 'Server Response:\n' + JSON.stringify(errorData, null, 2) + '\n\n';
                   }
                 }
               } else {
-                errorMessage += 'No error details provided. The server encountered an internal error.';
+                errorMessage += 'No error details provided. The server encountered an internal error.\n\n';
               }
               
-              errorMessage += '\n\nPossible causes:\n';
-              errorMessage += '⚠️ INSUFFICIENT SMS BALANCE (most likely)\n';
-              errorMessage += '- Invalid phone number format\n';
-              errorMessage += '- School code doesn\'t exist in database\n';
-              errorMessage += '- Backend validation failed\n';
-              errorMessage += '- Check browser console for payload details';
+              if (!isSingleMessage) {
+                errorMessage += '💡 TIP: Try sending to one school at a time (single messages work better).\n\n';
+              }
+              errorMessage += 'Possible causes:\n';
+              errorMessage += '1. ⚠️ INSUFFICIENT SMS BALANCE (most common)\n';
+              errorMessage += '2. ⚠️ Invalid phone number format\n';
+              errorMessage += '3. ⚠️ School code doesn\'t exist in database\n';
+              errorMessage += '4. ⚠️ Backend validation failed\n';
+              errorMessage += '5. ⚠️ External SMS API unavailable\n\n';
+              errorMessage += 'Check browser console (F12) for detailed error information.';
             }
           } else if (status === 400) {
-            errorMessage += 'Invalid request (400). ';
+            errorMessage += 'Invalid request (400).\n\n';
             if (errorData && errorData.message) {
-              errorMessage += errorData.message;
+              errorMessage += `Server Message: ${errorData.message}`;
             } else if (errorData && typeof errorData === 'string') {
-              errorMessage += errorData;
+              errorMessage += `Server Response: ${errorData}`;
+            } else if (errorData) {
+              errorMessage += `Server Response:\n${JSON.stringify(errorData, null, 2)}`;
             } else {
               errorMessage += 'Please check your message content and contact information.';
             }
@@ -757,15 +730,14 @@ export default {
           } else if (status === 403) {
             errorMessage += 'You do not have permission to send messages.';
           } else {
-            errorMessage += errorData?.message || errorData?.error || `Server returned status ${status}`;
+            const serverMsg = errorData?.message || errorData?.error || error.serverMessage || `Server returned status ${status}`;
+            errorMessage += serverMsg;
           }
           
-          toast.error(errorMessage, { timeout: 8000 });
+          toast.error(errorMessage, { timeout: 10000 });
         } else if (error.request) {
-          // Request was made but no response received
           toast.error('Network error: Unable to reach the server. Please check your internet connection.');
         } else {
-          // Something else happened (validation error, etc.)
           toast.error(`Error: ${error.message || 'An unexpected error occurred'}`);
         }
       } finally {

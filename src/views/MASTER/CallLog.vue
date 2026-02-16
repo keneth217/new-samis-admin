@@ -53,7 +53,7 @@
                    class="call-status-text" 
                    :key="'status-' + callStatus"
                    style="font-size: 1.2rem; font-weight: 700; margin-top: 0.75rem;">
-                <span v-if="callStatus === 'connecting'" 
+                <span v-if="callStatus === 'connecting'"  
                       class="status-connecting" 
                       style="color: #ff9800; animation: pulse 1.5s ease-in-out infinite;">CALLING...</span>
                 <span v-else-if="callStatus === 'ringing'" 
