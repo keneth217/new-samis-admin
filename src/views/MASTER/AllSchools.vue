@@ -546,122 +546,135 @@ export default {
         // Don't show error toast - users fetch is optional for mapping
       }
     },
-
     async fetchSchools() {
-      this.Loading = true;
-      const toast = useToast();
-      try {
-        // Fetch users first to get the mapping
-        await this.fetchUsers();
-        
-        // Create a map of user ID to fullname (try both string and number keys)
-        const userMap = new Map();
-        this.users.forEach(user => {
-          if (user.id !== null && user.id !== undefined) {
-            // Add both string and number keys to handle type mismatches
-            userMap.set(String(user.id), user.fullname);
-            userMap.set(Number(user.id), user.fullname);
-            userMap.set(user.id, user.fullname);
-          }
-        });
-        console.log('🗺️ User ID to Name Map (size:', userMap.size, '):', Array.from(userMap.entries()).slice(0, 5));
-        
-        const response = await axios.post('/schools/list', {});
-        
-        console.log('📋 Schools API Response (first 2):', response.data?.slice(0, 2));
-        if (response.data && response.data.length > 0) {
-          const firstSchool = response.data[0];
-          console.log('📋 First school ALL FIELDS:', firstSchool);
-          console.log('📋 First school keys:', Object.keys(firstSchool));
-          console.log('📋 First school - registeredBy fields:', {
-            registeredByName: firstSchool.registeredByName,
-            registeredByID: firstSchool.registeredByID,
-            registeredBy: firstSchool.registeredBy,
-            registeredById: firstSchool.registeredById,
-            registered_by_id: firstSchool.registered_by_id,
-            registered_by_name: firstSchool.registered_by_name,
-            registered_by: firstSchool.registered_by,
-          });
-        }
-        
-        this.schools = response.data.map(school => {
-          // Map registeredByID and registeredByName from API response
-          const registeredByID = school.registeredByID || null;
-          let registeredByName = school.registeredByName || null;
-          
-          // If we have a registeredByID but no name, try to map it from users list
-          if (!registeredByName && registeredByID !== null && registeredByID !== undefined && registeredByID !== '') {
-            registeredByName = userMap.get(registeredByID) || 
-                             userMap.get(String(registeredByID)) || 
-                             userMap.get(Number(registeredByID)) ||
-                             null;
-          }
-          
-          // Map marketerID and marketerName from API response
-          const marketerID = school.marketerID || null;
-          let marketerName = school.marketerName || null;
-          
-          // If we have a marketerID but no name, try to map it from users list
-          if (!marketerName && marketerID !== null && marketerID !== undefined && marketerID !== '') {
-            marketerName = userMap.get(marketerID) || 
-                          userMap.get(String(marketerID)) || 
-                          userMap.get(Number(marketerID)) ||
-                          null;
-          }
-          
-          return {
-            // Core fields
-            schoolCode: school.schoolCode || '',
-            schoolName: school.schoolName || '',
-            schoolLevel: school.schoolLevel || '',
-            
-            // Contact information
-            email: school.email || '',
-            phoneNo: school.phoneNo || '',
-            address: school.address || '',
-            
-            // Principal information
-            principalName: school.principalName || '',
-            principalPhoneNo: school.principalPhoneNo || '',
-            
-            // Additional contact information (from new API)
-            bursarPhoneNo: school.bursarPhoneNo || '',
-            deanPhoneNo: school.deanPhoneNo || '',
-            
-            // Location information
-            county: school.county || '',
-            subcounty: school.subcounty || '',
-            
-            // Registration information
-            registeredByID: registeredByID,
-            registeredByName: registeredByName || 'N/A',
-            registeredOn: school.registeredOn || null,
-            
-            // Marketer information (from new API)
-            marketerID: marketerID,
-            marketerName: marketerName || null,
-            
-            // Additional fields
-            schoolMotto: school.schoolMotto || '',
-            deleted: school.deleted || false,
-            
-            // Module information (if present)
-            modules: school.modules || (school.moduleName ? [school.moduleName] : []),
-            moduleName: school.moduleName || (school.modules ? school.modules.join(', ') : ''),
-            
-            // Additional fields that might be present
-            students: school.students || null,
-          };
-        });
-        
-        console.log('✅ Final mapped schools (first 3):', this.schools.slice(0, 3));
-      } catch (error) {
-        console.error('Error fetching all schools:', error);
-        toast.error('Failed to fetch schools. Please try again.');
-      } finally {
-        this.Loading = false;
+  this.Loading = true;
+  const toast = useToast();
+  try {
+    // Fetch users first to get the mapping
+    await this.fetchUsers();
+    
+    // Create a map of user ID to fullname (try both string and number keys)
+    const userMap = new Map();
+    this.users.forEach(user => {
+      if (user.id !== null && user.id !== undefined) {
+        // Add both string and number keys to handle type mismatches
+        userMap.set(String(user.id), user.fullname);
+        userMap.set(Number(user.id), user.fullname);
+        userMap.set(user.id, user.fullname);
       }
-    },
+    });
+    console.log('🗺️ User ID to Name Map (size:', userMap.size, '):', Array.from(userMap.entries()).slice(0, 5));
+    
+    const response = await axios.post('/schools/list', {});
+    
+    console.log('📋 Schools API Response (first 2):', response.data?.slice(0, 2));
+    if (response.data && response.data.length > 0) {
+      const firstSchool = response.data[0];
+      console.log('📋 First school ALL FIELDS:', firstSchool);
+      console.log('📋 First school keys:', Object.keys(firstSchool));
+      console.log('📋 First school - registeredBy fields:', {
+        registeredByName: firstSchool.registeredByName,
+        registeredByID: firstSchool.registeredByID,
+        registeredBy: firstSchool.registeredBy,
+        registeredById: firstSchool.registeredById,
+        registered_by_id: firstSchool.registered_by_id,
+        registered_by_name: firstSchool.registered_by_name,
+        registered_by: firstSchool.registered_by,
+      });
+    }
+    
+    const mapped = (response.data || []).map(school => {
+      // Map registeredByID and registeredByName from API response
+      const registeredByID = school.registeredByID || null;
+      let registeredByName = school.registeredByName || null;
+      
+      // If we have a registeredByID but no name, try to map it from users list
+      if (!registeredByName && registeredByID !== null && registeredByID !== undefined && registeredByID !== '') {
+        registeredByName = userMap.get(registeredByID) || 
+                         userMap.get(String(registeredByID)) || 
+                         userMap.get(Number(registeredByID)) ||
+                         null;
+      }
+      
+      // Map marketerID and marketerName from API response
+      const marketerID = school.marketerID || null;
+      let marketerName = school.marketerName || null;
+      
+      // If we have a marketerID but no name, try to map it from users list
+      if (!marketerName && marketerID !== null && marketerID !== undefined && marketerID !== '') {
+        marketerName = userMap.get(marketerID) || 
+                      userMap.get(String(marketerID)) || 
+                      userMap.get(Number(marketerID)) ||
+                      null;
+      }
+      
+      return {
+        // Core fields
+        schoolCode: school.schoolCode || '',
+        schoolName: school.schoolName || '',
+        schoolLevel: school.schoolLevel || '',
+        
+        // Contact information
+        email: school.email || '',
+        phoneNo: school.phoneNo || '',
+        address: school.address || '',
+        
+        // Principal information
+        principalName: school.principalName || '',
+        principalPhoneNo: school.principalPhoneNo || '',
+        
+        // Additional contact information (from new API)
+        bursarPhoneNo: school.bursarPhoneNo || '',
+        deanPhoneNo: school.deanPhoneNo || '',
+        
+        // Location information
+        county: school.county || '',
+        subcounty: school.subcounty || '',
+        
+        // Registration information
+        registeredByID: registeredByID,
+        registeredByName: registeredByName || 'N/A',
+        registeredOn: school.registeredOn || null,
+        
+        // Marketer information (from new API)
+        marketerID: marketerID,
+        marketerName: marketerName || null,
+        
+        // Additional fields
+        schoolMotto: school.schoolMotto || '',
+        deleted: school.deleted || false,
+        
+        // Module information (if present)
+        modules: school.modules || (school.moduleName ? [school.moduleName] : []),
+        moduleName: school.moduleName || (school.modules ? school.modules.join(', ') : ''),
+        
+        // Additional fields that might be present
+        students: school.students || null,
+      };
+    });
+
+    // Avoid duplicates by schoolCode (e.g. if API returns same school twice after update)
+    const byCode = new Map();
+    mapped.forEach(s => {
+      const code = s.schoolCode || '';
+      if (!byCode.has(code)) byCode.set(code, s);
+    });
+    this.schools = Array.from(byCode.values());
+    
+    console.log('✅ Final mapped schools (first 3):', this.schools.slice(0, 3));
+  } catch (error) {
+    console.error('Error fetching all schools:', error);
+    toast.error('Failed to fetch schools. Please try again.');
+  } finally {
+    this.Loading = false;
+  }
+},
+
+
+
+
+
+
     async fetchModules() {
   try {
     const response = await axios.post('/modules/list');  // Fetch modules from API

@@ -21,8 +21,7 @@
             class="form-control" 
             v-model="schoolCode" 
             placeholder="School Code" 
-            required 
-            :disabled="editMode"
+            
           />
           <label for="schoolCode" :class="{ filled: schoolCode !== '' }">School Code*</label>
         </div>
