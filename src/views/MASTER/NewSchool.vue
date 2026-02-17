@@ -12,7 +12,7 @@
       <div class="form-inputs">
         <!-- Required Fields -->
         <div class="form-group">
-          <input type="text" class="form-control" v-model="schoolName" placeholder="School Name" required />
+          <input type="text" class="form-control" v-model="schoolName" placeholder="School Name" />
           <label for="schoolName" :class="{ filled: schoolName !== '' }">School Name*</label>
         </div>
         <div class="form-group">
@@ -21,18 +21,17 @@
             class="form-control" 
             v-model="schoolCode" 
             placeholder="School Code" 
-            
           />
           <label for="schoolCode" :class="{ filled: schoolCode !== '' }">School Code*</label>
         </div>
         <div class="form-group">
-          <select class="form-control" v-model="schoolLevel" required>
-            <option value="" disabled>Select School Level*</option>
+          <select class="form-control" v-model="schoolLevel">
+            <option value="" disabled>Select School Level</option>
             <option value="Primary">Primary</option>
             <option value="Secondary">Secondary</option>
             <option value="Mixed">Mixed</option>
           </select>
-          <label for="schoolLevel" :class="{ filled: schoolLevel !== '' }">School Level*</label>
+          <label for="schoolLevel" :class="{ filled: schoolLevel !== '' }">School Level</label>
         </div>
         <div class="form-group">
           <input type="text" class="form-control" v-model="principalName" placeholder="Principal's Name" required />
@@ -53,20 +52,20 @@
 
         <!-- County Selection -->
         <div class="form-group">
-          <select class="form-control" v-model="county" @change="updateSubcounties" required id="county">
-            <option value="" disabled>Select County*</option>
+          <select class="form-control" v-model="county" @change="updateSubcounties" id="county">
+            <option value="" disabled>Select County</option>
             <option v-for="county in counties" :key="county" :value="county">{{ county }}</option>
           </select>
-          <label for="county" :class="{ filled: county !== '' }">County*</label>
+          <label for="county" :class="{ filled: county !== '' }">County</label>
         </div>
 
         <!-- Subcounty Selection (Dynamic) -->
         <div class="form-group">
-          <select class="form-control" v-model="subcounty" required>
-            <option value="" disabled>Select Subcounty*</option>
+          <select class="form-control" v-model="subcounty">
+            <option value="" disabled>Select Subcounty</option>
             <option v-for="subcounty in subcountyOptions" :key="subcounty" :value="subcounty">{{ subcounty }}</option>
           </select>
-          <label for="subcounty" :class="{ filled: subcounty !== '' }">Subcounty*</label>
+          <label for="subcounty" :class="{ filled: subcounty !== '' }">Subcounty</label>
         </div>
 
         <div class="form-group">
@@ -84,14 +83,14 @@
             class="form-control" 
             v-model="address" 
             placeholder="Address" 
-            required
+           
             id="address"
           />
           <label 
             for="address" 
             :class="{ filled: address !== '' }"
           >
-            Address*
+            Address
           </label>
         </div>
 
@@ -367,42 +366,27 @@ export default {
     async saveSchool() {
       const toast = useToast();
 
-      // Validation for required fields
-      const requiredFields = {
-        'School Name': this.schoolName,
-        'School Code': this.schoolCode,
-        'School Level': this.schoolLevel,
-        'Principal Name': this.principalName,
-        'Principal Phone': this.principalPhoneNo,
-        'County': this.county,
-        'Subcounty': this.subcounty,
-        'Email': this.email,
-        'Phone No': this.phoneNo,
-        'Address': this.address
-      };
+      // Only School Name and School Code are required - allow registration with partial data
+      const schoolNameTrimmed = (this.schoolName || '').trim();
+      const schoolCodeTrimmed = (this.schoolCode || '').trim();
 
-      const missingFields = Object.entries(requiredFields)
-        .filter(([_, value]) => !value || value.trim() === '')
-        .map(([name]) => name);
-
-      if (missingFields.length > 0) {
-        toast.warning(`Missing required fields: ${missingFields.join(', ')}`);
+      if (!schoolNameTrimmed || !schoolCodeTrimmed) {
+        toast.warning('School Name and School Code are required');
         return;
       }
 
-      // Prepare form data according to API specification
-      // Always include required fields
+      // Prepare form data - send empty string for fields not filled
       const formData = {
-        schoolCode: this.schoolCode,
-        schoolName: this.schoolName,
-        schoolLevel: this.schoolLevel || '', // Always send schoolLevel (required field)
-        principalName: this.principalName,
-        principalPhoneNo: this.principalPhoneNo,
-        county: this.county,
-        subcounty: this.subcounty,
-        email: this.email,
-        phoneNo: this.phoneNo,
-        address: this.address,
+        schoolCode: schoolCodeTrimmed,
+        schoolName: schoolNameTrimmed,
+        schoolLevel: (this.schoolLevel && this.schoolLevel.trim() !== '') ? this.schoolLevel.trim() : '',
+        principalName: (this.principalName && this.principalName.trim() !== '') ? this.principalName.trim() : '',
+        principalPhoneNo: (this.principalPhoneNo && this.principalPhoneNo.trim() !== '') ? this.principalPhoneNo.trim() : '',
+        county: (this.county && this.county.trim() !== '') ? this.county.trim() : '',
+        subcounty: (this.subcounty && this.subcounty.trim() !== '') ? this.subcounty.trim() : '',
+        email: (this.email && this.email.trim() !== '') ? this.email.trim() : '',
+        phoneNo: (this.phoneNo && this.phoneNo.trim() !== '') ? this.phoneNo.trim() : '',
+        address: (this.address && this.address.trim() !== '') ? this.address.trim() : '',
       };
 
       // Always include optional fields (send empty string for strings, null for numbers if no value)
@@ -443,29 +427,30 @@ export default {
     async updateSchool() {
       const toast = useToast();
 
-      // Basic validation - schoolLevel can be empty/null for updates
-      if (!this.schoolCode || !this.schoolName || !this.principalName || !this.principalPhoneNo) {
-        toast.warning('Please fill in all required fields');
+      // Only School Name and School Code required - allow update with partial data
+      const schoolNameTrimmed = (this.schoolName || '').trim();
+      const schoolCodeTrimmed = (this.schoolCode || '').trim();
+
+      if (!schoolNameTrimmed || !schoolCodeTrimmed) {
+        toast.warning('School Name and School Code are required');
         this.Loading = false;
         return;
       }
 
       try {
         this.Loading = true;
-        // Prepare form data according to API specification
-        // Always include required fields
+        // Prepare form data - send empty string/null for fields not filled
         const formData = {
-          schoolCode: this.schoolCode,
-          schoolName: this.schoolName,
-          // schoolLevel: send null if empty, otherwise send the value
+          schoolCode: schoolCodeTrimmed,
+          schoolName: schoolNameTrimmed,
           schoolLevel: (this.schoolLevel && this.schoolLevel.trim() !== '') ? this.schoolLevel.trim() : null,
-          principalName: this.principalName,
-          principalPhoneNo: this.principalPhoneNo,
-          county: this.county,
-          subcounty: this.subcounty,
-          email: this.email,
-          phoneNo: this.phoneNo,
-          address: this.address,
+          principalName: (this.principalName && this.principalName.trim() !== '') ? this.principalName.trim() : '',
+          principalPhoneNo: (this.principalPhoneNo && this.principalPhoneNo.trim() !== '') ? this.principalPhoneNo.trim() : '',
+          county: (this.county && this.county.trim() !== '') ? this.county.trim() : '',
+          subcounty: (this.subcounty && this.subcounty.trim() !== '') ? this.subcounty.trim() : '',
+          email: (this.email && this.email.trim() !== '') ? this.email.trim() : '',
+          phoneNo: (this.phoneNo && this.phoneNo.trim() !== '') ? this.phoneNo.trim() : '',
+          address: (this.address && this.address.trim() !== '') ? this.address.trim() : '',
         };
 
         // Always include optional fields explicitly
