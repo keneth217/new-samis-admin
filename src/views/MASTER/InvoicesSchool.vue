@@ -1,21 +1,20 @@
 <template>
-  <div class="invoices-page">
-    <!-- Header with title and search -->
-    <div class="page-header">
-      <h1 class="page-title">Invoices & Schools</h1>
-
-
-      <div class="search-wrapper">
- <div class="search-wrapper">
-  <input
-    v-model="searchQuery"
-    type="text"
-    placeholder="Search by invoice number, school name or code"
-    class="search-input"
-    aria-label="Search invoices"
-  />
-</div>
-</div>
+  <div class="the-page">
+    <!-- Header with title and search (matches AllSchools) -->
+    <div class="search-area">
+      <div class="header-container1">
+        <h2>Invoices & Schools</h2>
+      </div>
+      <div class="search-actions">
+        <input
+          v-model="searchQuery"
+          type="text"
+          placeholder="Search by invoice number, school name or code"
+          class="search-input"
+          aria-label="Search invoices"
+        />
+        <!-- Optional: could add an export button if needed -->
+      </div>
     </div>
 
     <!-- Summary Stats Cards -->
@@ -50,18 +49,18 @@
       </div>
     </div>
 
-    <!-- Action Bar: Create Invoice + Filters -->
-    <div class="action-bar">
-      <button @click="openForm" class="btn btn-primary" aria-label="Create Invoice">
-        <span class="material-symbols-outlined">add_circle</span>
-        Create Invoice
-      </button>
-
+    <!-- Action Bar: Create Invoice + Filters (layout like AllSchools) -->
+    <div class="header-container">
+      <div class="header-object1">
+        <button @click="openForm" class="action-btn" aria-label="Create Invoice">
+          <span class="material-symbols-outlined">add_circle</span> Create Invoice
+        </button>
+      </div>
       <div class="filters">
         <div class="filter-group">
-          <label for="invoicesPerPage" class="filter-label">Show:</label>
+          <label for="invoicesPerPageTop" class="filter-label">Show:</label>
           <select
-            id="invoicesPerPage"
+            id="invoicesPerPageTop"
             v-model="invoicesPerPage"
             @change="updateInvoicesPerPage"
             class="filter-select"
@@ -71,33 +70,38 @@
             </option>
           </select>
         </div>
-
         <div class="filter-group">
           <label for="schoolFilter" class="filter-label">School:</label>
-
           <select
-  id="schoolFilter"
-  v-model="selectedSchoolCode"
-  @change="onSchoolFilterChange"
-  class="filter-select"
- style="width: 120px;"
->
-  <option value="">All Schools</option>
-  <option
-    v-for="school in schools"
-    :key="school.schoolCode || school.school_code"
-    :value="school.schoolCode || school.school_code"
-  >
-    {{ school.schoolName || school.school_name }} ({{ school.schoolCode || school.school_code }})
-  </option>
-</select>
+            id="schoolFilter"
+            v-model="selectedSchoolCode"
+            @change="onSchoolFilterChange"
+            class="filter-select"
+          >
+            <option value="">All Schools</option>
+            <option
+              v-for="school in schools"
+              :key="school.schoolCode || school.school_code"
+              :value="school.schoolCode || school.school_code"
+            >
+              {{ school.schoolName || school.school_name }} ({{ school.schoolCode || school.school_code }})
+            </option>
+          </select>
         </div>
       </div>
     </div>
 
-    <!-- Invoices Table (Desktop) -->
-    <div class="table-wrapper">
-      <table class="invoices-table" v-if="displayedInvoices.length > 0">
+    <!-- Invoices Table -->
+    <div class="table-container">
+      <div class="students-controls">
+        <label for="invoicesPerPageTable">Invoices per page:</label>
+        <select id="invoicesPerPageTable" class="form-control" v-model="invoicesPerPage" @change="updateInvoicesPerPage">
+          <option v-for="option in invoicesPerPageOptions" :key="option" :value="option">{{ option }}</option>
+        </select>
+      </div>
+
+      <!-- Desktop Table View (hidden on small screens via CSS) -->
+      <table class="students-table desktop-table">
         <thead>
           <tr>
             <th>#</th>
@@ -111,13 +115,17 @@
             <th>Balance</th>
             <th>Status</th>
             <th>Receipts</th>
-            <th>Actions</th>
+            <th class="actions-header">Actions</th>
           </tr>
         </thead>
         <tbody>
+          <tr v-if="displayedInvoices.length === 0">
+            <td colspan="12">No invoices found</td>
+          </tr>
           <tr
             v-for="(invoice, index) in displayedInvoices"
             :key="invoice.invoiceNo || invoice.invoiceID || index"
+            :class="{ 'even-row': index % 2 !== 0 }"
           >
             <td>{{ (currentPage - 1) * invoicesPerPage + index + 1 }}</td>
             <td>{{ invoice.invoiceNumber || invoice.invoiceNo }}</td>
@@ -141,59 +149,48 @@
               </span>
               <span v-else class="no-receipts">—</span>
             </td>
-            <td class="actions-cell">
-              <button
-                @click="viewInvoice(invoice)"
-                class="action-btn icon-btn"
-                title="View Invoice"
-                aria-label="View Invoice"
-              >
-                <span class="material-symbols-outlined">visibility</span>
+            <td class="actions">
+              <button @click="viewInvoice(invoice)" class="manage-btn" aria-label="View Invoice">
+                <span class="material-symbols-outlined">visibility</span> View
               </button>
               <button
                 v-if="invoice.status !== 'Paid'"
                 @click="recordPayment(invoice)"
-                class="action-btn payment-btn"
-                title="Record Payment"
+                class="payment-btn"
                 aria-label="Record Payment"
               >
-                <span class="material-symbols-outlined">payment</span>
+                <span class="material-symbols-outlined">payment</span> Payment
               </button>
               <button
                 v-if="invoice.receiptCount > 0"
                 @click="viewReceiptsForInvoice(invoice)"
-                class="action-btn receipts-btn"
-                title="View Receipts"
+                class="receipts-btn"
                 aria-label="View Receipts"
               >
-                <span class="material-symbols-outlined">receipt</span>
+                <span class="material-symbols-outlined">receipt</span> Receipts
               </button>
               <button
                 @click="deleteInvoice(invoice)"
-                class="action-btn delete-btn"
-                title="Delete Invoice"
+                class="delete-btn"
                 aria-label="Delete Invoice"
               >
-                <span class="material-symbols-outlined">delete</span>
+                <span class="material-symbols-outlined">delete</span> Delete
               </button>
             </td>
           </tr>
         </tbody>
       </table>
 
-      <!-- Mobile Cards -->
-      <div v-else-if="displayedInvoices.length > 0" class="mobile-cards">
+      <!-- Mobile Cards (shown on small screens via CSS, like AllSchools) -->
+      <div class="mobile-cards" v-if="displayedInvoices.length > 0">
         <div
           v-for="(invoice, index) in displayedInvoices"
           :key="invoice.invoiceNo || invoice.invoiceID || index"
-          class="invoice-card"
+          class="school-card"
         >
           <div class="card-header">
-            <div class="card-index">{{ (currentPage - 1) * invoicesPerPage + index + 1 }}</div>
-            <h3 class="card-school">{{ invoice.schoolName }}</h3>
-            <span :class="['status-badge', invoice.status.toLowerCase().replace(' ', '-')]">
-              {{ invoice.status }}
-            </span>
+            <div class="card-number">{{ (currentPage - 1) * invoicesPerPage + index + 1 }}</div>
+            <h3 class="card-title">{{ invoice.schoolName }}</h3>
           </div>
           <div class="card-body">
             <div class="card-row">
@@ -227,6 +224,14 @@
               </span>
             </div>
             <div class="card-row">
+              <span class="card-label">Status:</span>
+              <span class="card-value">
+                <span :class="['status-badge', invoice.status.toLowerCase().replace(' ', '-')]">
+                  {{ invoice.status }}
+                </span>
+              </span>
+            </div>
+            <div class="card-row">
               <span class="card-label">Receipts:</span>
               <span class="card-value">
                 <span v-if="invoice.receiptCount > 0" class="receipt-badge">
@@ -237,66 +242,46 @@
             </div>
           </div>
           <div class="card-footer">
-            <button @click="viewInvoice(invoice)" class="card-action icon-btn" title="View">
-              <span class="material-symbols-outlined">visibility</span>
+            <button @click="viewInvoice(invoice)" class="card-action-btn manage-btn">
+              <span class="material-symbols-outlined">visibility</span> View
             </button>
             <button
               v-if="invoice.status !== 'Paid'"
               @click="recordPayment(invoice)"
-              class="card-action payment-btn"
-              title="Record Payment"
+              class="card-action-btn payment-btn"
             >
-              <span class="material-symbols-outlined">payment</span>
+              <span class="material-symbols-outlined">payment</span> Payment
             </button>
             <button
               v-if="invoice.receiptCount > 0"
               @click="viewReceiptsForInvoice(invoice)"
-              class="card-action receipts-btn"
-              title="View Receipts"
+              class="card-action-btn receipts-btn"
             >
-              <span class="material-symbols-outlined">receipt</span>
+              <span class="material-symbols-outlined">receipt</span> Receipts
             </button>
             <button
               @click="deleteInvoice(invoice)"
-              class="card-action delete-btn"
-              title="Delete Invoice"
+              class="card-action-btn delete-btn"
             >
-              <span class="material-symbols-outlined">delete</span>
+              <span class="material-symbols-outlined">delete</span> Delete
             </button>
           </div>
         </div>
       </div>
 
-      <!-- Empty State -->
-      <div v-else class="empty-state">
-        <span class="material-symbols-outlined empty-icon">receipt_long</span>
-        <h3>No Invoices Found</h3>
-        <p v-if="searchQuery || selectedSchoolCode">
-          Try adjusting your search or filter.
-        </p>
-        <p v-else>
-          Get started by creating your first invoice.
-        </p>
-        <button v-if="!searchQuery && !selectedSchoolCode" @click="openForm" class="btn btn-primary">
-          <span class="material-symbols-outlined">add_circle</span>
-          Create Invoice
-        </button>
+      <div v-if="displayedInvoices.length === 0" class="no-data-message">
+        No invoices found
       </div>
 
       <!-- Pagination -->
       <div class="pagination" v-if="totalPages > 1">
-        <button @click="prevPage" :disabled="currentPage === 1" class="pagination-btn">
-          <span class="material-symbols-outlined">chevron_left</span>
-          Previous
-        </button>
-        <span class="page-info">{{ currentPage }} / {{ totalPages }}</span>
-        <button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-btn">
-          Next
-          <span class="material-symbols-outlined">chevron_right</span>
-        </button>
+        <button @click="prevPage" :disabled="currentPage === 1">Previous</button>
+        <span>{{ currentPage }} / {{ totalPages }}</span>
+        <button @click="nextPage" :disabled="currentPage === totalPages">Next</button>
       </div>
     </div>
 
+    <!-- Modals (unchanged) -->
     <!-- Invoice Form Modal -->
     <NewInvoiceForm
       :invoice="selectedInvoice"
@@ -305,7 +290,6 @@
       @fetchInvoices="fetchInvoices"
       v-if="showForm"
     />
-
     <!-- Receipt Form Modal -->
     <NewReceiptForm
       :invoice="selectedInvoiceForPayment"
@@ -314,24 +298,15 @@
       @fetchInvoices="fetchInvoices"
       v-if="showPaymentForm"
     />
-
-    <!-- Receipts List Modal -->
+    <!-- Receipts List Modal (styled like schools delete modal) -->
     <div v-if="showReceiptsModal" class="modal-overlay" @click.self="closeReceiptsModal">
       <div class="modal-content">
         <div class="modal-header">
-          <h2>
-            Receipts for {{ selectedInvoiceForReceipts?.schoolName }}
-            ({{ selectedInvoiceForReceipts?.schoolCode }})
-          </h2>
-          <button @click="closeReceiptsModal" class="modal-close" aria-label="Close">
-            <span class="material-symbols-outlined">close</span>
-          </button>
+          <h2>Receipts for {{ selectedInvoiceForReceipts?.schoolName }} ({{ selectedInvoiceForReceipts?.schoolCode }})</h2>
+          <button @click="closeReceiptsModal" class="close-btn" aria-label="Close"><i class="fas fa-times"></i></button>
         </div>
         <div class="modal-body">
-          <div v-if="receiptsList.length === 0" class="empty-state small">
-            <span class="material-symbols-outlined empty-icon">receipt</span>
-            <p>No receipts found for this invoice.</p>
-          </div>
+          <div v-if="receiptsList.length === 0" class="no-data-message">No receipts found for this invoice.</div>
           <table v-else class="receipts-table">
             <thead>
               <tr>
@@ -350,22 +325,16 @@
                 <td>KSh {{ formatNumber(receipt.amount) }}</td>
                 <td>{{ receipt.paymentMethod }}</td>
                 <td>{{ receipt.referenceNumber || '-' }}</td>
-                <td class="actions-cell">
-                  <button @click="editReceipt(receipt)" class="action-btn icon-btn" title="Edit">
-                    <span class="material-symbols-outlined">edit</span>
-                  </button>
-                  <button @click="deleteReceipt(receipt)" class="action-btn delete-btn" title="Reverse">
-                    <span class="material-symbols-outlined">undo</span>
-                  </button>
+                <td class="actions">
+                  <button @click="editReceipt(receipt)" class="manage-btn"><span class="material-symbols-outlined">edit</span> Edit</button>
+                  <button @click="deleteReceipt(receipt)" class="delete-btn"><span class="material-symbols-outlined">undo</span> Reverse</button>
                 </td>
               </tr>
             </tbody>
             <tfoot>
               <tr>
                 <td colspan="2"><strong>Total</strong></td>
-                <td colspan="4">
-                  <strong>KSh {{ formatNumber(receiptsList.reduce((sum, r) => sum + (r.amount || 0), 0)) }}</strong>
-                </td>
+                <td colspan="4"><strong>KSh {{ formatNumber(receiptsList.reduce((sum, r) => sum + (r.amount || 0), 0)) }}</strong></td>
               </tr>
             </tfoot>
           </table>
@@ -375,112 +344,55 @@
 
     <!-- Delete Receipt Confirmation Modal -->
     <div v-if="showDeleteDialog" class="modal-overlay" @click.self="cancelDelete">
-      <div class="modal-content confirm-modal">
+      <div class="modal-content">
         <div class="modal-header">
           <h3>Reverse Receipt</h3>
-          <button @click="cancelDelete" class="modal-close" aria-label="Close">
-            <span class="material-symbols-outlined">close</span>
-          </button>
+          <button @click="cancelDelete" class="close-btn"><i class="fas fa-times"></i></button>
         </div>
         <div class="modal-body">
-          <p class="confirm-text">
-            Are you sure you want to reverse receipt
-            <strong>{{ receiptToDelete?.receiptNumber || receiptToDelete?.receiptNo }}</strong>?
-          </p>
-          <div class="receipt-preview">
-            <div class="preview-row">
-              <span>Amount:</span>
-              <span>KSh {{ formatNumber(receiptToDelete?.amount) }}</span>
-            </div>
-            <div class="preview-row" v-if="receiptToDelete?.paymentMethod">
-              <span>Payment Method:</span>
-              <span>{{ receiptToDelete.paymentMethod }}</span>
-            </div>
+          <p class="delete-warning-text">Are you sure you want to reverse receipt <strong>{{ receiptToDelete?.receiptNumber || receiptToDelete?.receiptNo }}</strong>?</p>
+          <div class="delete-school-preview" v-if="receiptToDelete">
+            <div class="preview-row"><strong>Amount:</strong> KSh {{ formatNumber(receiptToDelete?.amount) }}</div>
+            <div class="preview-row" v-if="receiptToDelete?.paymentMethod"><strong>Payment Method:</strong> {{ receiptToDelete.paymentMethod }}</div>
           </div>
-          <div class="warning-note">
-            <span class="material-symbols-outlined">warning</span>
-            <p>This will undo the payment allocation on all related invoices.</p>
-          </div>
+          <p class="delete-warning-note"><i class="fas fa-exclamation-triangle"></i> This will undo the payment allocation on all related invoices.</p>
           <div class="form-group">
             <label for="deleteReason">Reversal Reason <span class="required">*</span></label>
-            <textarea
-              id="deleteReason"
-              v-model="deleteReason"
-              rows="3"
-              placeholder="Type the reversal reason here..."
-              class="form-control"
-            ></textarea>
+            <textarea id="deleteReason" v-model="deleteReason" rows="3" placeholder="Type the reversal reason here..." class="form-control"></textarea>
             <small class="help-text">This reason will be stored for audit purposes.</small>
           </div>
         </div>
-        <div class="modal-footer">
-          <button class="btn btn-secondary" @click="cancelDelete">Cancel</button>
-          <button
-            class="btn btn-danger"
-            @click="confirmDelete"
-            :disabled="!deleteReason.trim()"
-          >
-            <span class="material-symbols-outlined">undo</span>
-            Reverse Receipt
-          </button>
+        <div class="form-actions">
+          <button class="cancel-btn" @click="cancelDelete">Cancel</button>
+          <button class="delete-confirm-btn" @click="confirmDelete" :disabled="!deleteReason.trim()"><span class="material-symbols-outlined">undo</span> Reverse Receipt</button>
         </div>
       </div>
     </div>
 
     <!-- Delete Invoice Confirmation Modal -->
     <div v-if="showInvoiceDeleteDialog" class="modal-overlay" @click.self="cancelInvoiceDelete">
-      <div class="modal-content confirm-modal">
+      <div class="modal-content">
         <div class="modal-header">
           <h3>Delete Invoice</h3>
-          <button @click="cancelInvoiceDelete" class="modal-close" aria-label="Close">
-            <span class="material-symbols-outlined">close</span>
-          </button>
+          <button @click="cancelInvoiceDelete" class="close-btn"><i class="fas fa-times"></i></button>
         </div>
         <div class="modal-body">
-          <p class="confirm-text">
-            Are you sure you want to delete
-            <strong>{{ invoiceToDelete?.invoiceNumber || invoiceToDelete?.invoiceNo }}</strong>?
-          </p>
-          <div class="receipt-preview">
-            <div class="preview-row">
-              <span>School Code:</span>
-              <span>{{ invoiceToDelete?.schoolCode }}</span>
-            </div>
-            <div class="preview-row">
-              <span>Amount:</span>
-              <span>KSh {{ formatNumber(invoiceToDelete?.amount) }}</span>
-            </div>
-            <div class="preview-row">
-              <span>Status:</span>
-              <span>{{ invoiceToDelete?.status }}</span>
-            </div>
+          <p class="delete-warning-text">Are you sure you want to delete <strong>{{ invoiceToDelete?.invoiceNumber || invoiceToDelete?.invoiceNo }}</strong>?</p>
+          <div class="delete-school-preview" v-if="invoiceToDelete">
+            <div class="preview-row"><strong>School Code:</strong> {{ invoiceToDelete?.schoolCode }}</div>
+            <div class="preview-row"><strong>Amount:</strong> KSh {{ formatNumber(invoiceToDelete?.amount) }}</div>
+            <div class="preview-row"><strong>Status:</strong> {{ invoiceToDelete?.status }}</div>
           </div>
-          <div class="warning-note">
-            <span class="material-symbols-outlined">warning</span>
-            <p>This will soft delete the invoice and all its details, and will update the school status.</p>
-          </div>
+          <p class="delete-warning-note"><i class="fas fa-exclamation-triangle"></i> This will soft delete the invoice and all its details, and will update the school status.</p>
           <div class="form-group">
             <label for="invoiceDeleteReason">Delete Reason <span class="required">*</span></label>
-            <textarea
-              id="invoiceDeleteReason"
-              v-model="invoiceDeleteReason"
-              rows="3"
-              placeholder="Type the delete reason here..."
-              class="form-control"
-            ></textarea>
+            <textarea id="invoiceDeleteReason" v-model="invoiceDeleteReason" rows="3" placeholder="Type the delete reason here..." class="form-control"></textarea>
             <small class="help-text">This reason will be stored for audit tracking.</small>
           </div>
         </div>
-        <div class="modal-footer">
-          <button class="btn btn-secondary" @click="cancelInvoiceDelete">Cancel</button>
-          <button
-            class="btn btn-danger"
-            @click="confirmInvoiceDelete"
-            :disabled="!invoiceDeleteReason.trim()"
-          >
-            <span class="material-symbols-outlined">delete</span>
-            Delete Invoice
-          </button>
+        <div class="form-actions">
+          <button class="cancel-btn" @click="cancelInvoiceDelete">Cancel</button>
+          <button class="delete-confirm-btn" @click="confirmInvoiceDelete" :disabled="!invoiceDeleteReason.trim()"><span class="material-symbols-outlined">delete</span> Delete Invoice</button>
         </div>
       </div>
     </div>
@@ -491,6 +403,7 @@
 </template>
 
 <script>
+// (script unchanged – same as provided)
 import footerCast from '../../components/footer.vue';
 import axios from '../../axios';
 import { useToast } from 'vue-toastification';
@@ -557,7 +470,6 @@ export default {
         );
       });
     },
-    // Summary stats
     totalAmount() {
       return this.invoices.reduce((sum, inv) => sum + (inv.amount || 0), 0);
     },
@@ -878,14 +790,14 @@ export default {
 </script>
 
 <style scoped>
-/* ===== Base Styles (from schools page) ===== */
+/* ===== Base Styles (copied from AllSchools.vue) ===== */
 * {
   padding: 0;
   margin: 0;
   box-sizing: border-box;
 }
 
-.invoices-page {
+.the-page {
   margin-top: 4.5rem;
   padding: clamp(0.5rem, 2vw, 1rem);
   background-color: #f4f6fa;
@@ -893,8 +805,8 @@ export default {
   min-height: calc(100vh - 4.5rem);
 }
 
-/* ===== Header (from schools page, but search updated) ===== */
-.page-header {
+/* ===== Header / Search Area ===== */
+.search-area {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -905,7 +817,17 @@ export default {
   overflow: visible;
 }
 
-.page-title {
+.header-container1 {
+  width: 100%;
+  overflow: visible;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  padding-left: 0;
+  margin-left: 0;
+  position: relative;
+}
+
+.header-container1 h2 {
   font-size: clamp(1.1rem, 2.5vw, 1.5rem);
   color: #333;
   padding: 0 0 0.5rem 0;
@@ -914,24 +836,21 @@ export default {
   overflow-wrap: break-word;
   white-space: normal;
   line-height: 1.3;
+  overflow: visible;
   width: 100%;
   box-sizing: border-box;
+  text-indent: 0;
+  padding-left: 0;
+  margin-left: 0;
 }
 
-/* ----- NEW SEARCH STYLES (from modern design) ----- */
-.search-wrapper {
-  position: relative;
+.search-actions {
+  display: flex;
+  gap: clamp(0.3rem, 1vw, 0.5rem);
+  align-items: center;
+  flex-wrap: wrap;
   flex: 1;
   min-width: 200px;
-}
-
-.search-icon {
-  position: absolute;
-  left: 1rem;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #9ca3af;
-  font-size: 1.25rem;
 }
 
 .search-input {
@@ -940,10 +859,10 @@ export default {
   border: 2px solid #2b7ab7;
   outline: none;
   font-size: clamp(0.85rem, 1.5vw, 1rem);
-  width: 100%;
+  flex: 1;
+  min-width: 150px;
   max-width: 400px;
   background: white;
-  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .search-input:focus {
@@ -951,7 +870,7 @@ export default {
   box-shadow: 0 0 0 2px rgba(43, 122, 183, 0.2);
 }
 
-/* ===== Stats Cards (unchanged from schools page) ===== */
+/* ===== Stats Cards (invoice-specific) ===== */
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -1006,74 +925,52 @@ export default {
   line-height: 1.2;
 }
 
-/* ===== Action Bar (unchanged from schools page) ===== */
-.action-bar {
+/* ===== Action Bar (from schools) ===== */
+.header-container {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: clamp(0.5rem, 1.5vw, 1rem);
   flex-wrap: wrap;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-}
-
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   gap: 0.5rem;
-  padding: 0.625rem 1.25rem;
-  border: none;
-  border-radius: 5px;
-  font-weight: 500;
-  font-size: clamp(0.85rem, 1.5vw, 1rem);
-  cursor: pointer;
-  transition: all 0.2s;
-  background: white;
-  color: #333;
-  border: 1px solid #2b7ab7;
 }
 
-.btn-primary {
+.header-object1 {
+  display: flex;
+  gap: clamp(0.3rem, 1vw, 0.5rem);
+  flex-wrap: wrap;
+}
+
+.action-btn {
   background-color: #2b7ab7;
   color: #fff;
+  padding: clamp(0.4rem, 1vw, 0.6rem) clamp(0.8rem, 2vw, 1rem);
   border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  font-size: clamp(0.85rem, 1.5vw, 1rem);
+  white-space: nowrap;
+  transition: background-color 0.3s ease;
+  gap: 0.3rem;
 }
 
-.btn-primary:hover {
+.action-btn:hover {
   background-color: #1e6192;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
-.btn-secondary {
-  background: white;
-  border: 1px solid #ddd;
-}
-
-.btn-secondary:hover {
-  background: #f3f4f6;
-}
-
-.btn-danger {
-  background-color: #dc3545;
-  color: white;
-  border: none;
-}
-
-.btn-danger:hover:not(:disabled) {
-  background-color: #c82333;
-  transform: translateY(-1px);
-}
-
-.btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+.action-btn .material-symbols-outlined {
+  margin-right: 0.3rem;
+  font-size: clamp(1rem, 2vw, 1.2rem);
 }
 
 .filters {
   display: flex;
   gap: 1rem;
   flex-wrap: wrap;
+  align-items: center;
+  margin-left: auto;
 }
 
 .filter-group {
@@ -1097,7 +994,8 @@ export default {
   appearance: none;
   cursor: pointer;
   transition: border-color 0.2s;
-  min-width: 130px;
+  min-width: 80px;
+  max-width: 180px;
 }
 
 .filter-select:focus {
@@ -1106,49 +1004,55 @@ export default {
   box-shadow: 0 0 0 2px rgba(43, 122, 183, 0.2);
 }
 
-/* ===== TABLE STYLES (new modern design) ===== */
-.table-wrapper {
-  background: white;
-  border-radius: 0.5rem;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  padding: 1.5rem;
+/* ===== Table Container (matches schools) ===== */
+.table-container {
+  background-color: white;
+  padding: clamp(0.5rem, 1.5vw, 1rem);
+  border-radius: 8px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  width: 100%;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
-.invoices-table {
+.students-table {
+  display: table !important;
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.95rem;
+  border-spacing: 0;
+  border: 1px solid #ddd;
+  font-size: clamp(0.8rem, 1.2vw, 1rem);
 }
 
-.invoices-table th {
+.students-table th,
+.students-table td {
+  white-space: nowrap;
+  padding: clamp(0.4rem, 1.2vw, 0.7rem);
+  line-height: 1.2;
   text-align: left;
-  padding: 1rem 1rem;
-  background: #f9fafb;
-  color: #4b5563;
-  font-weight: 600;
-  font-size: 0.875rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border-bottom: 2px solid #e5e7eb;
-  white-space: nowrap;
-}
-
-.invoices-table td {
-  padding: 1rem;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid #ddd;
   vertical-align: middle;
-  white-space: nowrap;
+  border: 1px solid #ddd;
 }
 
-.invoices-table tbody tr {
-  transition: background-color 0.2s;
+.students-table thead th {
+  background-color: #f1f1f1;
+  font-weight: 600;
+  border-bottom: 2px solid #ddd;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
-.invoices-table tbody tr:hover {
-  background-color: #f9fafb;
+.students-table tbody tr {
+  height: auto;
 }
 
+.even-row {
+  background-color: #f7f9fc;
+}
+
+/* ===== Invoice-specific table cell styles ===== */
 .amount,
 .paid,
 .balance {
@@ -1217,264 +1121,366 @@ export default {
   font-size: 0.875rem;
 }
 
-/* Action Buttons inside table */
-.actions-cell {
+/* Action Buttons (like schools, with custom colors) */
+.actions {
   display: flex;
-  gap: 0.5rem;
+  justify-content: flex-start;
+  gap: clamp(0.3rem, 1vw, 1rem);
+  flex-wrap: wrap;
+  align-items: center;
+  flex-wrap: nowrap;
+}
+
+.actions-header {
+  text-align: center;
+  padding: clamp(0.5rem, 1vw, 1rem);
+}
+
+.manage-btn,
+.class-list-btn,
+.payment-btn,
+.receipts-btn,
+.delete-btn {
+  background-color: #e0e7ff;
+  color: #4f46e5;
+  border: 1px solid #c7d2fe;
+  padding: clamp(0.3rem, 1vw, 0.5rem) clamp(0.6rem, 1.5vw, 0.9rem);
+  border-radius: 5px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: clamp(0.75rem, 1.2vw, 0.9rem);
+  transition: all 0.3s ease;
   white-space: nowrap;
 }
 
-.action-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  border: none;
-  border-radius: 9999px;
-  background: transparent;
-  color: #6b7280;
-  cursor: pointer;
-  transition: all 0.2s;
+.manage-btn:hover,
+.class-list-btn:hover,
+.payment-btn:hover,
+.receipts-btn:hover,
+.delete-btn:hover {
+  transform: translateY(-1px);
 }
 
-.action-btn:hover {
-  background: #f3f4f6;
-  color: #374151;
+.manage-btn:hover,
+.class-list-btn:hover {
+  background-color: #d4d7ff;
 }
 
-.action-btn.payment-btn {
-  color: #10b981;
+.payment-btn {
+  background-color: #10b981;
+  color: #fff;
+  border-color: #059669;
 }
 
-.action-btn.payment-btn:hover {
-  background: #d1fae5;
-  color: #065f46;
+.payment-btn:hover {
+  background-color: #059669;
 }
 
-.action-btn.receipts-btn {
-  color: #2b7ab7;
+.receipts-btn {
+  background-color: #3b82f6;
+  color: #fff;
+  border-color: #2563eb;
 }
 
-.action-btn.receipts-btn:hover {
-  background: #e5f0f9;
-  color: #1e6192;
+.receipts-btn:hover {
+  background-color: #2563eb;
 }
 
-.action-btn.delete-btn:hover {
-  background: #fee2e2;
-  color: #ef4444;
+.delete-btn {
+  background-color: #dc3545;
+  color: #fff;
+  border-color: #b91c1c;
 }
 
-/* ===== Mobile Cards (unchanged from schools page) ===== */
+.delete-btn:hover {
+  background-color: #b91c1c;
+}
+
+.actions .material-symbols-outlined {
+  font-size: clamp(0.9rem, 1.5vw, 1rem);
+}
+
+/* ===== Mobile Cards (from schools) ===== */
 .mobile-cards {
   display: none;
 }
 
-/* ===== Empty State (unchanged) ===== */
-.empty-state {
-  text-align: center;
-  padding: 4rem 2rem;
+.school-card {
   background: white;
+  border: 1px solid #e1e4ea;
   border-radius: 8px;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-}
-
-.empty-state.small {
-  padding: 2rem;
-}
-
-.empty-icon {
-  font-size: 4rem;
-  color: #d1d5db;
   margin-bottom: 1rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  transition: box-shadow 0.3s ease;
 }
 
-.empty-state h3 {
-  font-size: 1.5rem;
-  color: #374151;
-  margin-bottom: 0.5rem;
+.school-card:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
 
-.empty-state p {
-  color: #6b7280;
-  margin-bottom: 1.5rem;
+.card-header {
+  background: linear-gradient(135deg, #2b7ab7 0%, #1e6192 100%);
+  color: white;
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
 }
 
-/* ===== Pagination (unchanged from schools page) ===== */
+.card-number {
+  background: rgba(255, 255, 255, 0.2);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+
+.card-title {
+  font-size: clamp(1rem, 2vw, 1.2rem);
+  font-weight: 600;
+  margin: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-body {
+  padding: 0.75rem 1rem;
+}
+
+.card-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #f0f0f0;
+  gap: 0.5rem;
+}
+
+.card-row:last-child {
+  border-bottom: none;
+}
+
+.card-label {
+  font-weight: 600;
+  color: #666;
+  font-size: clamp(0.85rem, 1.2vw, 0.95rem);
+  flex-shrink: 0;
+  min-width: 130px;
+  text-align: left;
+}
+
+.card-value {
+  color: #333;
+  font-size: clamp(0.85rem, 1.2vw, 0.95rem);
+  text-align: right;
+  flex: 1;
+  word-break: break-word;
+  font-weight: 500;
+}
+
+.card-footer {
+  padding: 1rem;
+  background: #f9fafb;
+  border-top: 1px solid #e1e4ea;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.card-action-btn {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-size: clamp(0.85rem, 1.2vw, 0.95rem);
+  transition: all 0.3s ease;
+  font-weight: 500;
+  border: none;
+}
+
+.card-action-btn:hover {
+  transform: translateY(-1px);
+}
+
+.card-action-btn .material-symbols-outlined {
+  font-size: 1.2rem;
+}
+
+/* ===== Empty State ===== */
+.no-data-message {
+  text-align: center;
+  padding: 2rem;
+  color: #666;
+  font-size: clamp(0.9rem, 1.3vw, 1.1rem);
+}
+
+/* ===== Pagination ===== */
 .pagination {
+  margin-top: clamp(0.5rem, 1.5vw, 1rem);
+  text-align: center;
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 1rem;
-  margin-top: 2rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
-.pagination-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.5rem 1rem;
-  border: 2px solid #2b7ab7;
-  background: white;
-  border-radius: 5px;
-  font-size: 0.9rem;
-  color: #2b7ab7;
+.pagination button {
+  margin: 0;
+  padding: clamp(0.3rem, 1vw, 0.5rem) clamp(0.6rem, 1.5vw, 1rem);
   cursor: pointer;
-  transition: all 0.2s;
+  border: 2px solid #2b7ab7;
+  color: #2b7ab7;
+  border-radius: 5px;
+  background: white;
+  font-size: clamp(0.8rem, 1.2vw, 1rem);
+  transition: all 0.3s ease;
+  min-width: 80px;
 }
 
-.pagination-btn:hover:not(:disabled) {
-  background: #2b7ab7;
+.pagination button:hover:not(:disabled) {
+  background-color: #2b7ab7;
   color: white;
-  border-color: #2b7ab7;
+  transform: translateY(-1px);
 }
 
-.pagination-btn:disabled {
+.pagination button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-.page-info {
-  font-weight: 600;
-  color: #333;
+.pagination span {
+  font-weight: bold;
   font-size: clamp(0.9rem, 1.3vw, 1.1rem);
+  padding: 0 0.5rem;
+  color: #333;
+  display: inline-block;
+  white-space: nowrap;
 }
 
-/* ===== MODALS (unchanged from schools page) ===== */
+/* ===== Students Controls (per page) ===== */
+.students-controls {
+  margin-bottom: clamp(0.3rem, 1vw, 0.5rem);
+  display: flex;
+  gap: clamp(0.3rem, 1vw, 0.5rem);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.students-controls label {
+  color: #2b7ab7;
+  font-size: clamp(0.9rem, 1.5vw, 1.1rem);
+  white-space: nowrap;
+}
+
+.form-control {
+  border: 1px solid #2b7ab7;
+  outline: none;
+  padding: clamp(0.25rem, 0.8vw, 0.4rem);
+  border-radius: 4px;
+  font-size: clamp(0.9rem, 1.3vw, 1rem);
+  min-width: 100px;
+}
+
+.form-control:focus {
+  border-color: #1e6192;
+  box-shadow: 0 0 0 2px rgba(43, 122, 183, 0.2);
+}
+
+/* ===== Modals (unchanged from schools) ===== */
 .modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
+  background-color: rgba(0, 0, 0, 0.5);
   display: flex;
-  align-items: center;
   justify-content: center;
-  z-index: 10001;
+  align-items: center;
+  z-index: 1000;
   padding: 1rem;
-  animation: fadeIn 0.2s ease;
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-.modal-content {
-  background: white;
-  border-radius: 8px;
-  width: 90%;
-  max-width: 700px;
-  max-height: 90vh;
+.modal-overlay .modal-content {
+  width: 100%;
+  max-width: min(90vw, 500px);
+  padding: clamp(1rem, 3vw, 2rem);
+  max-height: min(90vh, 700px);
   overflow-y: auto;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-  animation: slideUp 0.3s ease;
-}
-
-.confirm-modal {
-  max-width: 500px;
-}
-
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1.5rem;
-  border-bottom: 2px solid #e5e7eb;
-  background: #4368b9;
-  color: gold;
-  border-radius: 8px 8px 0 0;
+  margin-bottom: clamp(0.75rem, 2vw, 1rem);
+  padding-bottom: clamp(0.5rem, 1.5vw, 0.75rem);
+  border-bottom: 2px solid #e9ecef;
 }
 
 .modal-header h2,
 .modal-header h3 {
+  font-size: clamp(1.1rem, 2vw, 1.5rem);
   margin: 0;
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: gold;
+  color: #333;
 }
 
-.modal-close {
+.close-btn {
   background: none;
   border: none;
-  color: gold;
+  font-size: 1.5rem;
+  color: #6c757d;
   cursor: pointer;
-  width: 2rem;
-  height: 2rem;
+  padding: 0;
+  width: 30px;
+  height: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  transition: all 0.2s;
+  transition: all 0.3s ease;
 }
 
-.modal-close:hover {
-  background: rgba(255, 255, 255, 0.2);
-  color: white;
+.close-btn:hover {
+  background-color: #f8f9fa;
+  color: #dc3545;
 }
 
 .modal-body {
-  padding: 1.5rem;
+  margin-bottom: clamp(0.75rem, 2vw, 1rem);
 }
 
-.modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.75rem;
-  padding: 1rem 1.5rem 1.5rem;
-  border-top: 1px solid #e5e7eb;
+.delete-warning-text {
+  font-size: clamp(1rem, 1.5vw, 1.2rem);
+  margin-bottom: 1rem;
+  color: #333;
+  line-height: 1.5;
 }
 
-/* Receipts Table inside modal */
-.receipts-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9rem;
+.delete-warning-text strong {
+  color: #dc3545;
 }
 
-.receipts-table th {
-  background: #f9fafb;
-  padding: 0.75rem 1rem;
-  text-align: left;
-  font-weight: 600;
-  color: #4b5563;
-  border-bottom: 2px solid #e5e7eb;
-}
-
-.receipts-table td {
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.receipts-table tbody tr:hover {
-  background: #f9fafb;
-}
-
-.receipts-table tfoot td {
-  background: #f9fafb;
-  padding: 0.75rem 1rem;
-  font-weight: 600;
-  border-top: 2px solid #e5e7eb;
-}
-
-/* Delete confirmation preview */
-.receipt-preview,
 .delete-school-preview {
-  background: #f8f9fa;
+  background-color: #f8f9fa;
   border: 1px solid #dee2e6;
   border-radius: 4px;
   padding: 1rem;
@@ -1482,80 +1488,47 @@ export default {
 }
 
 .preview-row {
-  display: flex;
-  justify-content: space-between;
-  padding: 0.25rem 0;
-  border-bottom: 1px dashed #e9ecef;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #e9ecef;
+  font-size: clamp(0.9rem, 1.3vw, 1rem);
 }
 
 .preview-row:last-child {
   border-bottom: none;
 }
 
-.preview-row strong,
-.preview-row span:first-child {
+.preview-row strong {
   color: #495057;
   margin-right: 0.5rem;
 }
 
-.warning-note {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  background: #fff3cd;
+.delete-warning-note {
+  background-color: #fff3cd;
   border: 1px solid #ffc107;
   border-radius: 4px;
-  padding: 0.75rem 1rem;
-  margin: 1rem 0;
-  color: #856404;
-}
-
-.warning-note .material-symbols-outlined {
-  color: #ffc107;
-}
-
-/* Form elements inside modals */
-.form-group {
-  margin-top: 1.5rem;
-}
-
-.form-group label {
-  display: block;
-  font-weight: 600;
-  color: #333;
-  margin-bottom: 0.5rem;
-  font-size: 0.95rem;
-}
-
-.form-group .required {
-  color: #dc3545;
-}
-
-.form-control {
-  width: 100%;
   padding: 0.75rem;
-  border: 2px solid #e5e7eb;
-  border-radius: 4px;
-  font-size: 1rem;
-  font-family: inherit;
-  transition: border-color 0.2s;
-  resize: vertical;
+  margin: 1rem 0;
+  font-size: clamp(0.85rem, 1.2vw, 0.95rem);
+  color: #856404;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
 }
 
-.form-control:focus {
-  outline: none;
-  border-color: #2b7ab7;
-  box-shadow: 0 0 0 3px rgba(43, 122, 183, 0.2);
+.delete-warning-note i {
+  color: #ffc107;
+  font-size: 1.1rem;
+  margin-top: 0.1rem;
+  flex-shrink: 0;
 }
 
-.help-text {
-  display: block;
-  margin-top: 0.25rem;
-  font-size: 0.875rem;
-  color: #6b7280;
+.form-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: clamp(0.75rem, 2vw, 1rem);
 }
 
-/* Confirmation buttons */
 .cancel-btn {
   background-color: #ddd;
   color: #333;
@@ -1594,8 +1567,309 @@ export default {
   cursor: not-allowed;
 }
 
-/* ===== Mobile Card Styles (unchanged from schools page) ===== */
-@media (max-width: 768px) {
+.delete-confirm-btn .material-symbols-outlined {
+  font-size: 1.1rem;
+}
+
+/* Receipts table inside modal */
+.receipts-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.receipts-table th {
+  background-color: #f1f1f1;
+  padding: 0.75rem;
+  text-align: left;
+  font-weight: 600;
+  border-bottom: 2px solid #ddd;
+}
+
+.receipts-table td {
+  padding: 0.75rem;
+  border-bottom: 1px solid #ddd;
+}
+
+.receipts-table tbody tr:hover {
+  background-color: #f7f9fc;
+}
+
+.receipts-table tfoot td {
+  background-color: #f1f1f1;
+  padding: 0.75rem;
+  font-weight: 600;
+  border-top: 2px solid #ddd;
+}
+
+/* ===== Responsive Breakpoints (copied from schools) ===== */
+@media only screen and (max-width: 1400px) {
+  .students-table th,
+  .students-table td {
+    padding: clamp(0.5rem, 1vw, 0.7rem);
+  }
+}
+
+@media only screen and (max-width: 1024px) {
+  .the-page {
+    margin-top: clamp(3rem, 8vw, 4.5rem);
+  }
+
+  .students-table th,
+  .students-table td {
+    padding: clamp(0.5rem, 1vw, 0.7rem);
+    font-size: clamp(0.85rem, 1.1vw, 0.95rem);
+  }
+
+  .search-input {
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .search-actions {
+    width: 100%;
+  }
+}
+
+@media only screen and (max-width: 768px) {
+  .the-page {
+    padding: clamp(0.4rem, 2vw, 0.8rem);
+    padding-left: clamp(0.5rem, 2.5vw, 0.8rem);
+    margin-top: clamp(2.5rem, 7vw, 3.5rem);
+    overflow-x: visible;
+  }
+
+  .header-container {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .header-object1 {
+    width: 100%;
+  }
+
+  .action-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .filters {
+    width: 100%;
+    margin-left: 0;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .filter-group {
+    flex: 1;
+    min-width: 140px;
+  }
+
+  .filter-select {
+    width: 100%;
+    max-width: none;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .stat-card {
+    padding: 1rem;
+  }
+
+  .stat-value {
+    font-size: 1.25rem;
+  }
+
+  .header-container1 {
+    width: 100%;
+    padding: 0;
+    margin: 0;
+    padding-left: 0;
+    margin-left: 0;
+    overflow: visible;
+    position: relative;
+  }
+
+  .header-container1 h2 {
+    text-align: left;
+    font-size: clamp(1rem, 3.5vw, 1.3rem);
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
+    line-height: 1.4;
+    width: 100%;
+    padding: 0 0 0.5rem 0;
+    margin: 0;
+    padding-left: 0;
+    margin-left: 0;
+    overflow: visible;
+    text-indent: 0;
+    box-sizing: border-box;
+  }
+
+  .search-area {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .search-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .search-input {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .table-container {
+    padding: clamp(0.4rem, 1.5vw, 0.8rem);
+    border-radius: 6px;
+  }
+
+  /* Hide desktop table on mobile */
+  .desktop-table {
+    display: none !important;
+  }
+
+  /* Show mobile cards on small screens */
+  .mobile-cards {
+    display: block;
+  }
+
+  .card-header {
+    padding: clamp(0.75rem, 2vw, 1rem);
+  }
+
+  .card-body {
+    padding: clamp(0.6rem, 2vw, 0.85rem) clamp(0.75rem, 2vw, 1rem);
+  }
+
+  .card-row {
+    padding: clamp(0.4rem, 1.2vw, 0.55rem) 0;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .card-label {
+    min-width: 110px;
+    font-size: clamp(0.8rem, 1.1vw, 0.9rem);
+    text-align: left;
+  }
+
+  .card-value {
+    text-align: right;
+    font-size: clamp(0.85rem, 1.2vw, 0.95rem);
+  }
+
+  .card-footer {
+    padding: clamp(0.75rem, 2vw, 1rem);
+  }
+
+  .pagination {
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 1rem;
+  }
+
+  .pagination button {
+    width: 100%;
+    max-width: 150px;
+  }
+
+  .students-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .students-controls label {
+    width: 100%;
+  }
+
+  .form-control {
+    width: 100%;
+  }
+}
+
+@media only screen and (max-width: 480px) {
+  .the-page {
+    padding: clamp(0.25rem, 1.5vw, 0.5rem);
+    padding-left: clamp(0.5rem, 2vw, 0.75rem);
+    margin-top: clamp(2rem, 6vw, 3rem);
+    overflow-x: visible;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+
+  .stat-card {
+    padding: 0.75rem 1rem;
+  }
+
+  .stat-icon {
+    width: 2.5rem;
+    height: 2.5rem;
+    font-size: 1.5rem;
+  }
+
+  .stat-value {
+    font-size: 1.1rem;
+  }
+
+  .stat-label {
+    font-size: 0.75rem;
+  }
+
+  .filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filter-group {
+    min-width: 0;
+  }
+
+  .header-container1 {
+    width: 100%;
+    padding: 0;
+    margin: 0;
+    padding-left: 0;
+    margin-left: 0;
+    overflow: visible;
+    position: relative;
+    min-width: 0;
+  }
+
+  .header-container1 h2 {
+    font-size: clamp(0.95rem, 4.5vw, 1.2rem);
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
+    line-height: 1.4;
+    width: auto;
+    max-width: 100%;
+    padding: 0 0 0.5rem 0;
+    margin: 0;
+    padding-left: 0;
+    margin-left: 0;
+    overflow: visible;
+    text-align: left;
+    text-indent: 0;
+    box-sizing: border-box;
+    min-width: 0;
+    display: block;
+  }
+
+  /* Hide desktop table completely on small screens */
   .desktop-table {
     display: none !important;
   }
@@ -1604,219 +1878,168 @@ export default {
     display: block;
   }
 
-  .invoice-card {
-    background: white;
-    border: 1px solid #e1e4ea;
-    border-radius: 8px;
-    margin-bottom: 1rem;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    overflow: hidden;
-  }
-
-  .invoice-card:hover {
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  .school-card {
+    margin-bottom: 0.75rem;
+    border-radius: 6px;
   }
 
   .card-header {
-    background: linear-gradient(135deg, #2b7ab7 0%, #1e6192 100%);
-    color: white;
-    padding: 1rem;
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-  }
-
-  .card-index {
-    background: rgba(255, 255, 255, 0.2);
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: bold;
-    font-size: 0.9rem;
-    flex-shrink: 0;
-  }
-
-  .card-school {
-    font-size: clamp(1rem, 2vw, 1.2rem);
-    font-weight: 600;
-    margin: 0;
-    flex: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .card-body {
-    padding: 0.75rem 1rem;
-  }
-
-  .card-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.5rem 0;
-    border-bottom: 1px solid #f0f0f0;
-    gap: 0.5rem;
-  }
-
-  .card-row:last-child {
-    border-bottom: none;
-  }
-
-  .card-label {
-    font-weight: 600;
-    color: #666;
-    font-size: clamp(0.85rem, 1.2vw, 0.95rem);
-    flex-shrink: 0;
-    min-width: 130px;
-    text-align: left;
-  }
-
-  .card-value {
-    color: #333;
-    font-size: clamp(0.85rem, 1.2vw, 0.95rem);
-    text-align: right;
-    flex: 1;
-    word-break: break-word;
-    font-weight: 500;
-  }
-
-  .card-footer {
-    padding: 1rem;
-    background: #f9fafb;
-    border-top: 1px solid #e1e4ea;
-    display: flex;
-    gap: 0.5rem;
+    padding: 0.75rem;
     flex-wrap: wrap;
   }
 
-  .card-action {
-    flex: 1;
-    min-width: 120px;
-    background-color: #e0e7ff;
-    color: #4f46e5;
-    border: 1px solid #c7d2fe;
-    padding: 0.75rem 1rem;
-    border-radius: 5px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    font-size: clamp(0.85rem, 1.2vw, 0.95rem);
-    transition: all 0.3s ease;
-    font-weight: 500;
-  }
-
-  .card-action.payment-btn {
-    background-color: #10b981;
-    color: #fff;
-    border-color: #059669;
-  }
-
-  .card-action.receipts-btn {
-    background-color: #3b82f6;
-    color: #fff;
-    border-color: #2563eb;
-  }
-
-  .card-action.delete-btn {
-    background-color: #fee2e2;
-    color: #dc2626;
-    border-color: #fecaca;
-  }
-
-  .card-action:hover {
-    background-color: #d1d5db;
-    transform: translateY(-1px);
-  }
-}
-
-/* ===== Responsive Adjustments ===== */
-@media (max-width: 1024px) {
-  .invoices-page {
-    padding: 1.5rem;
-  }
-
-  .page-title {
-    font-size: 1.75rem;
-  }
-
-  .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 480px) {
-  .invoices-page {
-    padding: 1rem;
-  }
-
-  .page-header {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .search-wrapper {
-    min-width: auto;
-  }
-
-  .stats-grid {
-    grid-template-columns: 1fr;
-    gap: 1rem;
-  }
-
-  .action-bar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .filters {
-    flex-direction: column;
-  }
-
-  .filter-group {
-    width: 100%;
-  }
-
-  .filter-select {
-    width: 100%;
-  }
-
-  .card-footer {
-    flex-direction: column;
-  }
-
-  .card-action {
-    width: 100%;
-  }
-
-  .modal-content {
-    width: 95%;
-  }
-}
-
-@media (max-width: 360px) {
-  .card-index {
+  .card-number {
     width: 28px;
     height: 28px;
     font-size: 0.85rem;
   }
 
-  .card-school {
-    font-size: 1rem;
+  .card-title {
+    font-size: clamp(0.95rem, 3vw, 1.1rem);
+    white-space: normal;
+    line-height: 1.3;
+  }
+
+  .card-body {
+    padding: 0.6rem 0.75rem;
+  }
+
+  .card-row {
+    padding: 0.45rem 0;
+    gap: 0.4rem;
+    flex-direction: row;
+    align-items: center;
   }
 
   .card-label {
-    min-width: 95px;
-    font-size: 0.8rem;
+    font-size: clamp(0.8rem, 2vw, 0.85rem);
+    font-weight: 600;
+    min-width: 100px;
+    text-align: left;
   }
 
   .card-value {
-    font-size: 0.85rem;
+    font-size: clamp(0.85rem, 2vw, 0.9rem);
+    text-align: right;
+  }
+
+  .card-footer {
+    padding: 0.75rem;
+  }
+
+  .card-action-btn {
+    padding: 0.65rem 0.85rem;
+    font-size: clamp(0.8rem, 2vw, 0.9rem);
+  }
+
+  .manage-btn,
+  .class-list-btn,
+  .payment-btn,
+  .receipts-btn,
+  .delete-btn {
+    padding: clamp(0.3rem, 1vw, 0.4rem) clamp(0.5rem, 1.5vw, 0.7rem);
+    font-size: clamp(0.7rem, 1vw, 0.8rem);
+  }
+
+  .action-btn {
+    padding: clamp(0.4rem, 1.2vw, 0.5rem) clamp(0.6rem, 1.5vw, 0.8rem);
+    font-size: clamp(0.8rem, 1.1vw, 0.9rem);
+  }
+
+  .pagination button {
+    padding: clamp(0.3rem, 1vw, 0.4rem) clamp(0.5rem, 1.2vw, 0.7rem);
+    font-size: clamp(0.75rem, 1vw, 0.85rem);
+  }
+
+  .actions-header {
+    padding: clamp(0.3rem, 1vw, 0.5rem);
+  }
+
+  .modal-overlay .modal-content {
+    width: 95vw;
+    padding: clamp(0.75rem, 3vw, 1.25rem);
+    border-radius: 6px;
+  }
+
+  .delete-school-preview {
+    padding: 0.75rem;
+  }
+
+  .preview-row {
+    padding: 0.4rem 0;
+    font-size: clamp(0.85rem, 1.2vw, 0.9rem);
+  }
+
+  .delete-warning-note {
+    padding: 0.6rem;
+    font-size: clamp(0.8rem, 1.1vw, 0.85rem);
+  }
+}
+
+@media only screen and (max-width: 360px) {
+  .desktop-table {
+    display: none !important;
+  }
+
+  .mobile-cards {
+    display: block;
+  }
+
+  .stats-grid {
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .stat-card {
+    padding: 0.6rem 0.75rem;
+  }
+
+  .stat-value {
+    font-size: 1rem;
+  }
+
+  .card-header {
+    padding: 0.6rem;
+  }
+
+  .card-body {
+    padding: 0.5rem 0.6rem;
+  }
+
+  .card-row {
+    padding: 0.4rem 0;
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .card-label {
+    font-size: 0.75rem;
+    min-width: 95px;
+    text-align: left;
+  }
+
+  .card-value {
+    font-size: 0.8rem;
+    text-align: right;
+  }
+
+  .card-action-btn {
+    font-size: 0.8rem;
+    padding: 0.6rem 0.75rem;
+  }
+
+  .manage-btn,
+  .class-list-btn,
+  .payment-btn,
+  .receipts-btn,
+  .delete-btn {
+    font-size: 0.7rem;
+    padding: 0.3rem 0.4rem;
+  }
+
+  .action-btn {
+    font-size: 0.75rem;
+    padding: 0.35rem 0.5rem;
   }
 }
 </style>
