@@ -183,6 +183,7 @@
       </div>
 
       <!-- Desktop Table View -->
+      <Scrollable>
       <table class="students-table desktop-table">
         <thead>
           <tr>
@@ -198,12 +199,12 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-if="paginatedSchools.length === 0">
+          <tr v-if="filteredSchools.length === 0">
             <td colspan="9">No schools found</td>
           </tr>
-          <tr v-for="(school, index) in paginatedSchools" :key="school.schoolID || index" 
+          <tr v-for="(school, index) in filteredSchools" :key="school.schoolID || index" 
               :class="{ 'even-row': index % 2 !== 0 }">
-            <td>{{ (currentPage - 1) * schoolsPerPage + index + 1 }}</td>
+            <td>{{ index + 1 }}</td>
             <td>{{ school.schoolCode }}</td>
             <td>{{ school.schoolName }}</td>
             <td>{{ school.moduleName }}</td>
@@ -212,17 +213,20 @@
             <td>{{ school.expiryDate }}</td>
             <td>{{ school.installationDate }}</td>
             <td class="actions">
-              <button @click="fetchActivationStatus(school)" class="manage-btn">ACTIVATE</button>
+              <button @click="fetchActivationStatus(school)" class="manage-btn" aria-label="Activate School">
+                <span class="material-symbols-outlined">check_circle</span>
+              </button>
             </td>
           </tr>
         </tbody>
       </table>
+      </Scrollable>
 
       <!-- Mobile Card View -->
-      <div class="mobile-cards" v-if="paginatedSchools.length > 0">
-        <div v-for="(school, index) in paginatedSchools" :key="school.schoolID || index" class="school-card">
+      <div class="mobile-cards" v-if="filteredSchools.length > 0">
+        <div v-for="(school, index) in filteredSchools" :key="school.schoolID || index" class="school-card">
           <div class="card-header">
-            <div class="card-number">{{ (currentPage - 1) * schoolsPerPage + index + 1 }}</div>
+            <div class="card-number">{{ index + 1 }}</div>
             <h3 class="card-title">{{ school.schoolName }}</h3>
           </div>
           
@@ -266,14 +270,8 @@
         </div>
       </div>
 
-      <div v-if="paginatedSchools.length === 0" class="no-data-message">
+      <div v-if="filteredSchools.length === 0" class="no-data-message">
         No schools found
-      </div>
-
-      <div class="pagination">
-        <button @click="prevPage" :disabled="currentPage === 1">Previous</button>
-        <span>{{ currentPage }} / {{ totalPages }}</span>
-        <button @click="nextPage" :disabled="currentPage === totalPages">Next</button>
       </div>
     </div>
 
@@ -285,6 +283,7 @@
 
 <script>
 import footerCast from '../../components/footer.vue';
+import Scrollable from '../../components/Scrollable.vue';
 import axios from '../../axios';
 import { useToast } from 'vue-toastification';
 import LoadingSpinner from '../../components/LoadingSpinner.vue';
@@ -293,6 +292,7 @@ export default {
   components: {
     footerCast,
     LoadingSpinner,
+    Scrollable,
   },
   setup() {
     const toast = useToast();
@@ -321,11 +321,6 @@ export default {
       },
       selectedSchool: null,
     };
-  },
-  watch: {
-    searchQuery() {
-      this.currentPage = 1;
-    },
   },
   computed: {
     filteredSchools() {
@@ -489,19 +484,6 @@ export default {
       }
     },
 
-    updateSchoolsPerPage() {
-      this.currentPage = 1;
-    },
-    nextPage() {
-      if (this.currentPage < this.totalPages) {
-        this.currentPage++;
-      }
-    },
-    prevPage() {
-      if (this.currentPage > 1) {
-        this.currentPage--;
-      }
-    },
     exportToExcel() {
       // Export current displayed (filtered) expired schools as CSV
       const headers = [
@@ -695,6 +677,15 @@ export default {
   position: relative;
 }
 
+.table-scroll-wrapper {
+  max-height: calc(100vh - 14rem);
+  overflow-y: auto;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
 .students-table {
   display: table !important;
   width: 100%;
@@ -832,12 +823,12 @@ export default {
 
 .students-table th,
 .students-table td {
-  padding: clamp(0.5rem, 1.5vw, 1rem);
+  white-space: nowrap;
+  padding: 0.3rem 0.5rem;
+  line-height: 1.2;
   text-align: left;
-  border-bottom: 1px solid #ddd;
-  vertical-align: middle;
   border: 1px solid #ddd;
-  word-break: break-word;
+  vertical-align: middle;
 }
 
 .students-table thead th {
@@ -1283,13 +1274,6 @@ export default {
 }
 
 /* Responsive Breakpoints */
-@media only screen and (max-width: 1400px) {
-  .students-table th,
-  .students-table td {
-    padding: clamp(0.6rem, 1vw, 0.9rem);
-  }
-}
-
 @media only screen and (max-width: 1024px) {
   .the-page {
     margin-top: clamp(3rem, 8vw, 4.5rem);
@@ -1297,7 +1281,7 @@ export default {
 
   .students-table th,
   .students-table td {
-    padding: clamp(0.5rem, 1vw, 0.75rem);
+    padding: 0.3rem 0.45rem;
     font-size: clamp(0.85rem, 1.1vw, 0.95rem);
   }
 

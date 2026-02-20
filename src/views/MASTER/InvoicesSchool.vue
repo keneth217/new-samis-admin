@@ -53,23 +53,10 @@
     <div class="header-container">
       <div class="header-object1">
         <button @click="openForm" class="action-btn" aria-label="Create Invoice">
-          <span class="material-symbols-outlined">add_circle</span> Create Invoice
+          <span class="material-symbols-outlined">add_circle</span>
         </button>
       </div>
       <div class="filters">
-        <div class="filter-group">
-          <label for="invoicesPerPageTop" class="filter-label">Show:</label>
-          <select
-            id="invoicesPerPageTop"
-            v-model="invoicesPerPage"
-            @change="updateInvoicesPerPage"
-            class="filter-select"
-          >
-            <option v-for="option in invoicesPerPageOptions" :key="option" :value="option">
-              {{ option }}
-            </option>
-          </select>
-        </div>
         <div class="filter-group">
           <label for="schoolFilter" class="filter-label">School:</label>
           <select
@@ -93,14 +80,8 @@
 
     <!-- Invoices Table -->
     <div class="table-container">
-      <div class="students-controls">
-        <label for="invoicesPerPageTable">Invoices per page:</label>
-        <select id="invoicesPerPageTable" class="form-control" v-model="invoicesPerPage" @change="updateInvoicesPerPage">
-          <option v-for="option in invoicesPerPageOptions" :key="option" :value="option">{{ option }}</option>
-        </select>
-      </div>
-
-      <!-- Desktop Table View (hidden on small screens via CSS) -->
+      <!-- Desktop Table View - Scrollable -->
+      <Scrollable>
       <table class="students-table desktop-table">
         <thead>
           <tr>
@@ -119,15 +100,15 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-if="displayedInvoices.length === 0">
+          <tr v-if="filteredInvoices.length === 0">
             <td colspan="12">No invoices found</td>
           </tr>
           <tr
-            v-for="(invoice, index) in displayedInvoices"
+            v-for="(invoice, index) in filteredInvoices"
             :key="invoice.invoiceNo || invoice.invoiceID || index"
             :class="{ 'even-row': index % 2 !== 0 }"
           >
-            <td>{{ (currentPage - 1) * invoicesPerPage + index + 1 }}</td>
+            <td>{{ index + 1 }}</td>
             <td>{{ invoice.invoiceNumber || invoice.invoiceNo }}</td>
             <td>{{ invoice.schoolName }}</td>
             <td>{{ invoice.schoolCode }}</td>
@@ -151,7 +132,7 @@
             </td>
             <td class="actions">
               <button @click="viewInvoice(invoice)" class="manage-btn" aria-label="View Invoice">
-                <span class="material-symbols-outlined">visibility</span> View
+                <span class="material-symbols-outlined">visibility</span>
               </button>
               <button
                 v-if="invoice.status !== 'Paid'"
@@ -159,7 +140,7 @@
                 class="payment-btn"
                 aria-label="Record Payment"
               >
-                <span class="material-symbols-outlined">payment</span> Payment
+                <span class="material-symbols-outlined">payment</span>
               </button>
               <button
                 v-if="invoice.receiptCount > 0"
@@ -167,29 +148,30 @@
                 class="receipts-btn"
                 aria-label="View Receipts"
               >
-                <span class="material-symbols-outlined">receipt</span> Receipts
+                <span class="material-symbols-outlined">receipt</span>
               </button>
               <button
                 @click="deleteInvoice(invoice)"
                 class="delete-btn"
                 aria-label="Delete Invoice"
               >
-                <span class="material-symbols-outlined">delete</span> Delete
+                <span class="material-symbols-outlined">delete</span>
               </button>
             </td>
           </tr>
         </tbody>
       </table>
+      </Scrollable>
 
       <!-- Mobile Cards (shown on small screens via CSS, like AllSchools) -->
-      <div class="mobile-cards" v-if="displayedInvoices.length > 0">
+      <div class="mobile-cards" v-if="filteredInvoices.length > 0">
         <div
-          v-for="(invoice, index) in displayedInvoices"
+          v-for="(invoice, index) in filteredInvoices"
           :key="invoice.invoiceNo || invoice.invoiceID || index"
           class="school-card"
         >
           <div class="card-header">
-            <div class="card-number">{{ (currentPage - 1) * invoicesPerPage + index + 1 }}</div>
+            <div class="card-number">{{ index + 1 }}</div>
             <h3 class="card-title">{{ invoice.schoolName }}</h3>
           </div>
           <div class="card-body">
@@ -242,42 +224,38 @@
             </div>
           </div>
           <div class="card-footer">
-            <button @click="viewInvoice(invoice)" class="card-action-btn manage-btn">
-              <span class="material-symbols-outlined">visibility</span> View
+            <button @click="viewInvoice(invoice)" class="card-action-btn manage-btn" aria-label="View Invoice">
+              <span class="material-symbols-outlined">visibility</span>
             </button>
             <button
               v-if="invoice.status !== 'Paid'"
               @click="recordPayment(invoice)"
               class="card-action-btn payment-btn"
+              aria-label="Record Payment"
             >
-              <span class="material-symbols-outlined">payment</span> Payment
+              <span class="material-symbols-outlined">payment</span>
             </button>
             <button
               v-if="invoice.receiptCount > 0"
               @click="viewReceiptsForInvoice(invoice)"
               class="card-action-btn receipts-btn"
+              aria-label="View Receipts"
             >
-              <span class="material-symbols-outlined">receipt</span> Receipts
+              <span class="material-symbols-outlined">receipt</span>
             </button>
             <button
               @click="deleteInvoice(invoice)"
               class="card-action-btn delete-btn"
+              aria-label="Delete Invoice"
             >
-              <span class="material-symbols-outlined">delete</span> Delete
+              <span class="material-symbols-outlined">delete</span>
             </button>
           </div>
         </div>
       </div>
 
-      <div v-if="displayedInvoices.length === 0" class="no-data-message">
+      <div v-if="filteredInvoices.length === 0" class="no-data-message">
         No invoices found
-      </div>
-
-      <!-- Pagination -->
-      <div class="pagination" v-if="totalPages > 1">
-        <button @click="prevPage" :disabled="currentPage === 1">Previous</button>
-        <span>{{ currentPage }} / {{ totalPages }}</span>
-        <button @click="nextPage" :disabled="currentPage === totalPages">Next</button>
       </div>
     </div>
 
@@ -326,8 +304,8 @@
                 <td>{{ receipt.paymentMethod }}</td>
                 <td>{{ receipt.referenceNumber || '-' }}</td>
                 <td class="actions">
-                  <button @click="editReceipt(receipt)" class="manage-btn"><span class="material-symbols-outlined">edit</span> Edit</button>
-                  <button @click="deleteReceipt(receipt)" class="delete-btn"><span class="material-symbols-outlined">undo</span> Reverse</button>
+                  <button @click="editReceipt(receipt)" class="manage-btn" aria-label="Edit Receipt"><span class="material-symbols-outlined">edit</span></button>
+                  <button @click="deleteReceipt(receipt)" class="delete-btn" aria-label="Reverse Receipt"><span class="material-symbols-outlined">undo</span></button>
                 </td>
               </tr>
             </tbody>
@@ -405,6 +383,7 @@
 <script>
 // (script unchanged – same as provided)
 import footerCast from '../../components/footer.vue';
+import Scrollable from '../../components/Scrollable.vue';
 import axios from '../../axios';
 import { useToast } from 'vue-toastification';
 import LoadingSpinner from '../../components/LoadingSpinner.vue';
@@ -418,6 +397,7 @@ export default {
     LoadingSpinner,
     NewInvoiceForm,
     NewReceiptForm,
+    Scrollable,
   },
   setup() {
     const toast = useToast();
@@ -437,9 +417,6 @@ export default {
       invoices: [],
       schools: [],
       Loading: false,
-      currentPage: 1,
-      invoicesPerPage: 15,
-      invoicesPerPageOptions: [5, 15, 30, 50, 75, 100],
       isViewMode: false,
       selectedSchoolCode: '',
       showDeleteDialog: false,
@@ -451,14 +428,6 @@ export default {
     };
   },
   computed: {
-    totalPages() {
-      return Math.ceil(this.filteredInvoices.length / this.invoicesPerPage);
-    },
-    displayedInvoices() {
-      const startIndex = (this.currentPage - 1) * this.invoicesPerPage;
-      const endIndex = Math.min(startIndex + this.invoicesPerPage, this.filteredInvoices.length);
-      return this.filteredInvoices.slice(startIndex, endIndex);
-    },
     filteredInvoices() {
       if (!this.searchQuery.trim()) return this.invoices;
       const query = this.searchQuery.toLowerCase();
@@ -618,19 +587,6 @@ export default {
       this.showForm = false;
       this.selectedInvoice = null;
     },
-    nextPage() {
-      if (this.currentPage < this.totalPages) {
-        this.currentPage++;
-      }
-    },
-    prevPage() {
-      if (this.currentPage > 1) {
-        this.currentPage--;
-      }
-    },
-    updateInvoicesPerPage() {
-      this.currentPage = 1;
-    },
     async fetchSchools() {
       try {
         const response = await axios.post('/schools/list');
@@ -774,7 +730,6 @@ export default {
       }
     },
     onSchoolFilterChange() {
-      this.currentPage = 1;
       if (!this.selectedSchoolCode) {
         this.fetchInvoices();
       } else {
@@ -1027,12 +982,11 @@ export default {
 .students-table th,
 .students-table td {
   white-space: nowrap;
-  padding: clamp(0.4rem, 1.2vw, 0.7rem);
+  padding: 0.3rem 0.5rem;
   line-height: 1.2;
   text-align: left;
-  border-bottom: 1px solid #ddd;
-  vertical-align: middle;
   border: 1px solid #ddd;
+  vertical-align: middle;
 }
 
 .students-table thead th {
@@ -1617,7 +1571,7 @@ export default {
 
   .students-table th,
   .students-table td {
-    padding: clamp(0.5rem, 1vw, 0.7rem);
+    padding: 0.3rem 0.45rem;
     font-size: clamp(0.85rem, 1.1vw, 0.95rem);
   }
 

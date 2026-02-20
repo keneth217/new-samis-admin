@@ -14,22 +14,14 @@
     <div class="header-container">
       <div class="header-object1">
         <button @click="openForm" class="action-btn" aria-label="Add Contact">
-          <span class="material-symbols-outlined">add_circle</span> Add Contact
+          <span class="material-symbols-outlined">add_circle</span>
         </button>
       </div>
     </div>
 
     <div class="table-container">
-      <div class="students-controls">
-        <label for="contactsPerPage">Contacts per page:</label>
-        <select class="form-control" v-model="contactsPerPage" @change="updateContactsPerPage">
-          <option v-for="option in contactsPerPageOptions" :key="option" :value="option">
-            {{ option }}
-          </option>
-        </select>
-      </div>
-
-      <!-- Desktop Table View -->
+      <!-- Desktop Table View - Scrollable -->
+      <Scrollable>
       <table class="students-table desktop-table">
         <thead>
           <tr>
@@ -43,15 +35,15 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-if="displayedContacts.length === 0">
+          <tr v-if="filteredContacts.length === 0">
             <td colspan="7">No contacts found</td>
           </tr>
           <tr
-            v-for="(contact, index) in displayedContacts"
+            v-for="(contact, index) in filteredContacts"
             :key="contact.contactID || index"
             :class="{ 'even-row': index % 2 !== 0 }"
           >
-            <td>{{ (currentPage - 1) * contactsPerPage + index + 1 }}</td>
+            <td>{{ index + 1 }}</td>
             <td>{{ contact.contactName }}</td>
             <td>{{ contact.designation }}</td>
             <td>{{ contact.email || '-' }}</td>
@@ -59,7 +51,7 @@
             <td>{{ contact.schoolCode }}</td>
             <td class="actions">
               <button @click="editContact(contact)" class="manage-btn" aria-label="Edit Contact">
-                <span class="material-symbols-outlined">edit</span> Edit
+                <span class="material-symbols-outlined">edit</span>
               </button>
               <button
                 @click="confirmDeleteContact(contact)"
@@ -67,18 +59,19 @@
                 aria-label="Delete Contact"
                 :disabled="Loading"
               >
-                <span class="material-symbols-outlined">delete</span> Delete
+                <span class="material-symbols-outlined">delete</span>
               </button>
             </td>
           </tr>
         </tbody>
       </table>
+      </Scrollable>
 
       <!-- Mobile Card View -->
-      <div class="mobile-cards" v-if="displayedContacts.length > 0">
-        <div v-for="(contact, index) in displayedContacts" :key="contact.contactID || index" class="contact-card">
+      <div class="mobile-cards" v-if="filteredContacts.length > 0">
+        <div v-for="(contact, index) in filteredContacts" :key="contact.contactID || index" class="contact-card">
           <div class="card-header">
-            <div class="card-number">{{ (currentPage - 1) * contactsPerPage + index + 1 }}</div>
+            <div class="card-number">{{ index + 1 }}</div>
             <h3 class="card-title">{{ contact.contactName }}</h3>
           </div>
           
@@ -106,23 +99,17 @@
           
           <div class="card-footer">
             <button @click="editContact(contact)" class="card-action-btn" aria-label="Edit Contact">
-              <span class="material-symbols-outlined">edit</span> Edit
+              <span class="material-symbols-outlined">edit</span>
             </button>
             <button @click="confirmDeleteContact(contact)" class="card-action-btn delete-btn" aria-label="Delete Contact" :disabled="Loading">
-              <span class="material-symbols-outlined">delete</span> Delete
+              <span class="material-symbols-outlined">delete</span>
             </button>
           </div>
         </div>
       </div>
 
-      <div v-if="displayedContacts.length === 0" class="no-data-message">
+      <div v-if="filteredContacts.length === 0" class="no-data-message">
         No contacts found
-      </div>
-
-      <div class="pagination">
-        <button @click="prevPage" :disabled="currentPage === 1">Previous</button>
-        <span>{{ currentPage }} / {{ totalPages }}</span>
-        <button @click="nextPage" :disabled="currentPage === totalPages">Next</button>
       </div>
     </div>
 
@@ -159,8 +146,8 @@
         </div>
         <div class="form-actions">
           <button @click="cancelDeleteContact" class="cancel-btn">Cancel</button>
-          <button @click="deleteContactConfirm" class="delete-confirm-btn" :disabled="Loading">
-            <span class="material-symbols-outlined">delete</span> Delete Contact
+          <button @click="deleteContactConfirm" class="delete-confirm-btn" :disabled="Loading" aria-label="Delete Contact">
+            <span class="material-symbols-outlined">delete</span>
           </button>
         </div>
       </div>
@@ -180,6 +167,7 @@
 
 <script>
 import footerCast from '../../components/footer.vue';
+import Scrollable from '../../components/Scrollable.vue';
 import axios from '../../axios';
 import { useToast } from 'vue-toastification';
 import LoadingSpinner from '../../components/LoadingSpinner.vue';
@@ -191,6 +179,7 @@ export default {
     footerCast,
     LoadingSpinner,
     NewContact,
+    Scrollable,
   },
   setup() {
     const toast = useToast();
@@ -203,22 +192,11 @@ export default {
       showForm: false,
       searchQuery: '',
       Loading: false,
-      currentPage: 1,
-      contactsPerPage: 15,
-      contactsPerPageOptions: [5, 15, 30, 50, 75, 100],
       showDeleteConfirm: false,
       contactToDelete: null,
     };
   },
   computed: {
-    totalPages() {
-      return Math.ceil(this.filteredContacts.length / this.contactsPerPage) || 1;
-    },
-    displayedContacts() {
-      const startIndex = (this.currentPage - 1) * this.contactsPerPage;
-      const endIndex = Math.min(startIndex + this.contactsPerPage, this.filteredContacts.length);
-      return this.filteredContacts.slice(startIndex, endIndex);
-    },
     filteredContacts() {
       if (!this.searchQuery.trim()) return this.contacts;
       const query = this.searchQuery.toLowerCase();
@@ -243,19 +221,6 @@ export default {
     editContact(contact) {
       this.selectedContact = contact;
       this.showForm = true;
-    },
-    updateContactsPerPage() {
-      this.currentPage = 1;
-    },
-    nextPage() {
-      if (this.currentPage < this.totalPages) {
-        this.currentPage++;
-      }
-    },
-    prevPage() {
-      if (this.currentPage > 1) {
-        this.currentPage--;
-      }
     },
     async fetchContacts() {
       this.Loading = true;
@@ -504,6 +469,15 @@ export default {
   -webkit-overflow-scrolling: touch;
 }
 
+.table-scroll-wrapper {
+  max-height: calc(100vh - 14rem);
+  overflow-y: auto;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
 .students-table {
   display: table !important;
   width: 100%;
@@ -653,12 +627,12 @@ export default {
 
 .students-table th,
 .students-table td {
-  padding: clamp(0.5rem, 1.5vw, 1rem);
+  white-space: nowrap;
+  padding: 0.3rem 0.5rem;
+  line-height: 1.2;
   text-align: left;
-  border-bottom: 1px solid #ddd;
-  vertical-align: middle;
   border: 1px solid #ddd;
-  word-break: break-word;
+  vertical-align: middle;
 }
 
 .students-table thead th {
@@ -787,13 +761,6 @@ export default {
 }
 
 /* Responsive Breakpoints */
-@media only screen and (max-width: 1400px) {
-  .students-table th,
-  .students-table td {
-    padding: clamp(0.6rem, 1vw, 0.9rem);
-  }
-}
-
 @media only screen and (max-width: 1024px) {
   .the-page {
     margin-top: clamp(3rem, 8vw, 4.5rem);
@@ -801,7 +768,7 @@ export default {
 
   .students-table th,
   .students-table td {
-    padding: clamp(0.5rem, 1vw, 0.75rem);
+    padding: 0.3rem 0.45rem;
     font-size: clamp(0.85rem, 1.1vw, 0.95rem);
   }
 

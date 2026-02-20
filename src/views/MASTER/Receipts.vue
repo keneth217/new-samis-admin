@@ -10,29 +10,15 @@
           placeholder="Search by receipt number, school code or payment mode"
           class="search-input"
         />
-        <button class="action-btn" @click="exportToExcel">
+        <button class="action-btn" @click="exportToExcel" aria-label="Export to Excel">
           <span class="material-symbols-outlined">download</span>
-          Export to Excel
         </button>
       </div>
     </div>
 
     <div class="table-container">
-      <div class="students-controls">
-        <label for="receiptsPerPage">Receipts per page:</label>
-        <select
-          id="receiptsPerPage"
-          class="form-control"
-          v-model="receiptsPerPage"
-          @change="updateReceiptsPerPage"
-        >
-          <option v-for="option in receiptsPerPageOptions" :key="option" :value="option">
-            {{ option }}
-          </option>
-        </select>
-      </div>
-
-      <!-- Desktop Table View -->
+      <!-- Desktop Table View - Scrollable -->
+      <Scrollable>
       <table class="students-table desktop-table">
         <thead>
           <tr>
@@ -48,15 +34,15 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-if="displayedReceipts.length === 0">
+          <tr v-if="filteredReceipts.length === 0">
             <td colspan="9">No receipts found</td>
           </tr>
           <tr
-            v-for="(receipt, index) in displayedReceipts"
+            v-for="(receipt, index) in filteredReceipts"
             :key="receipt.receiptNo || receipt.receiptID || index"
             :class="[{ 'even-row': index % 2 !== 0 }, { 'row-reversed': receipt.deleted }]"
           >
-            <td>{{ (currentPage - 1) * receiptsPerPage + index + 1 }}</td>
+            <td>{{ index + 1 }}</td>
             <td>
               <span v-if="receipt.deleted" class="reversed-flag">[REVERSED]&nbsp;</span>
               {{ receipt.receiptNo }}
@@ -79,28 +65,29 @@
               <button
                 class="receipt-print-btn"
                 @click="printReceipt(receipt)"
-                title="Print Receipt"
+                aria-label="Print Receipt"
               >
                 <span class="material-symbols-outlined">print</span>
-                Print
               </button>
               <button
                 class="receipt-delete-btn"
                 @click="deleteReceipt(receipt)"
                 :disabled="receipt.deleted"
+                :aria-label="receipt.deleted ? 'Reversed' : 'Reverse Receipt'"
               >
-                {{ receipt.deleted ? 'Reversed' : 'Reverse' }}
+                <span class="material-symbols-outlined">undo</span>
               </button>
             </td>
           </tr>
         </tbody>
       </table>
+      </Scrollable>
 
       <!-- Mobile Card View -->
-      <div class="mobile-cards" v-if="displayedReceipts.length > 0">
-        <div v-for="(receipt, index) in displayedReceipts" :key="receipt.receiptNo || receipt.receiptID || index" class="receipt-card" :class="{ 'card-reversed': receipt.deleted }">
+      <div class="mobile-cards" v-if="filteredReceipts.length > 0">
+        <div v-for="(receipt, index) in filteredReceipts" :key="receipt.receiptNo || receipt.receiptID || index" class="receipt-card" :class="{ 'card-reversed': receipt.deleted }">
           <div class="card-header">
-            <div class="card-number">{{ (currentPage - 1) * receiptsPerPage + index + 1 }}</div>
+            <div class="card-number">{{ index + 1 }}</div>
             <div class="card-header-text">
               <h3 class="card-title">
                 <span v-if="receipt.deleted" class="reversed-flag">[REVERSED]&nbsp;</span>
@@ -149,27 +136,22 @@
           
           <div class="card-footer">
             <button @click="printReceipt(receipt)" class="card-action-btn print-btn" aria-label="Print Receipt">
-              <span class="material-symbols-outlined">print</span> Print
+              <span class="material-symbols-outlined">print</span>
             </button>
             <button @click="deleteReceipt(receipt)" class="card-action-btn delete-btn" :disabled="receipt.deleted" aria-label="Reverse Receipt">
-              <span class="material-symbols-outlined">undo</span> {{ receipt.deleted ? 'Reversed' : 'Reverse' }}
+              <span class="material-symbols-outlined">undo</span>
             </button>
           </div>
         </div>
       </div>
 
-      <div v-if="displayedReceipts.length === 0" class="no-data-message">
+      <div v-if="filteredReceipts.length === 0" class="no-data-message">
         No receipts found
-      </div>
-
-      <div class="pagination">
-        <button @click="prevPage" :disabled="currentPage === 1">Previous</button>
-        <span>{{ currentPage }} / {{ totalPages }}</span>
-        <button @click="nextPage" :disabled="currentPage === totalPages">Next</button>
       </div>
     </div>
 
-    <!-- Print Receipt Window -->
+    <!-- Print Receipt Window - Teleported to body to avoid clipping by parent overflow -->
+    <Teleport to="body">
     <div v-if="showPrintView" class="print-receipt-overlay" @click.self="closePrintView">
       <div class="print-receipt-container">
         <div class="print-receipt-header">
@@ -178,64 +160,57 @@
             <button class="print-close-btn" @click="closePrintView">
               <span class="material-symbols-outlined">close</span>
             </button>
-            <button class="print-btn" @click="executePrint">
+            <button class="print-btn" @click="executePrint" aria-label="Print">
               <span class="material-symbols-outlined">print</span>
-              Print
             </button>
           </div>
         </div>
         <div class="print-receipt-content" id="receiptToPrint">
-          <div class="receipt-header">
-            <h1>RECEIPT</h1>
-            <div class="receipt-company-info">
-              <div class="company-name">SAMIS FINANCE ADMIN</div>
-              <div class="company-details">Payment Receipt</div>
-            </div>
-          </div>
+          <div class="receipt-main-header">RECEIPT</div>
+          <div class="receipt-section-title">RECEIPT DETAILS</div>
           <div class="receipt-body">
             <div class="receipt-row">
-              <div class="receipt-label">Receipt Number:</div>
-              <div class="receipt-value">{{ receiptToPrint?.receiptNo || 'N/A' }}</div>
+              <span class="receipt-label">Receipt #:</span>
+              <span class="receipt-value">{{ receiptToPrint?.receiptNo || 'N/A' }}</span>
             </div>
             <div class="receipt-row">
-              <div class="receipt-label">Date:</div>
-              <div class="receipt-value">{{ receiptToPrint?.receiptDate || 'N/A' }}</div>
+              <span class="receipt-label">Receipt Date:</span>
+              <span class="receipt-value">{{ receiptToPrint?.receiptDate || 'N/A' }}</span>
             </div>
             <div class="receipt-row">
-              <div class="receipt-label">School Code:</div>
-              <div class="receipt-value">{{ receiptToPrint?.schoolCode || 'N/A' }}</div>
-            </div>
-            <div class="receipt-divider"></div>
-            <div class="receipt-row">
-              <div class="receipt-label">Amount Paid:</div>
-              <div class="receipt-value amount">KSh {{ formatNumber(receiptToPrint?.amount || 0) }}</div>
+              <span class="receipt-label">Payment Method:</span>
+              <span class="receipt-value">{{ (receiptToPrint?.paymentMode || 'N/A') }} {{ receiptToPrint?.paymentModeNo ? '- ' + receiptToPrint.paymentModeNo : '-' }}</span>
             </div>
             <div class="receipt-row">
-              <div class="receipt-label">Payment Method:</div>
-              <div class="receipt-value">{{ receiptToPrint?.paymentMode || 'N/A' }}</div>
-            </div>
-            <div class="receipt-row" v-if="receiptToPrint?.paymentModeNo">
-              <div class="receipt-label">Reference Number:</div>
-              <div class="receipt-value">{{ receiptToPrint.paymentModeNo }}</div>
+              <span class="receipt-label">Payment Amount:</span>
+              <span class="receipt-value receipt-amount">{{ formatNumber(receiptToPrint?.amount || 0) }}</span>
             </div>
             <div class="receipt-row">
-              <div class="receipt-label">Status:</div>
-              <div class="receipt-value" :class="{ 'status-reversed-print': receiptToPrint?.deleted }">
-                {{ receiptToPrint?.deleted ? 'REVERSED' : (receiptToPrint?.status || 'Paid') }}
-              </div>
+              <span class="receipt-label">Received with thanks from:</span>
+              <span class="receipt-value">{{ receiptToPrint?.schoolName || receiptToPrint?.schoolCode || 'N/A' }}</span>
+            </div>
+            <div class="receipt-row">
+              <span class="receipt-label">Amount In Words:</span>
+              <span class="receipt-value">{{ numberToWords(receiptToPrint?.amount || 0) }}</span>
+            </div>
+            <div class="receipt-row">
+              <span class="receipt-label">Payment For:</span>
+              <span class="receipt-value">{{ (receiptToPrint?.paymentFor && receiptToPrint.paymentFor !== 'null') ? receiptToPrint.paymentFor : '-' }}</span>
             </div>
             <div v-if="receiptToPrint?.deleted && receiptToPrint?.deleteReason" class="receipt-reversal-note">
-              <div class="receipt-label">Reversal Reason:</div>
-              <div class="receipt-value">{{ receiptToPrint.deleteReason }}</div>
+              <span class="receipt-label">Reversal Reason:</span>
+              <span class="receipt-value">{{ receiptToPrint.deleteReason }}</span>
             </div>
           </div>
           <div class="receipt-footer">
-            <div class="receipt-footer-text">Thank you for your payment</div>
-            <div class="receipt-footer-date">Printed on: {{ new Date().toLocaleString() }}</div>
+            <div class="receipt-footer-date">{{ formatReceiptFooterDate(receiptToPrint?.receiptDate) }}</div>
+            <div class="receipt-footer-text">Thank you for your Business</div>
+            <div class="receipt-tagline">The Lord is my Shepherd.</div>
           </div>
         </div>
       </div>
     </div>
+    </Teleport>
 
     <!-- Delete / Reverse Receipt Dialog -->
     <div v-if="showDeleteDialog" class="modal-overlay" @click.self="cancelDelete">
@@ -281,8 +256,8 @@
         </div>
         <div class="form-actions">
           <button @click="cancelDelete" class="cancel-btn">Cancel</button>
-          <button @click="confirmDelete" class="delete-confirm-btn" :disabled="!deleteReason.trim() || Loading">
-            <span class="material-symbols-outlined">undo</span> Reverse Receipt
+          <button @click="confirmDelete" class="delete-confirm-btn" :disabled="!deleteReason.trim() || Loading" aria-label="Reverse Receipt">
+            <span class="material-symbols-outlined">undo</span>
           </button>
         </div>
       </div>
@@ -295,6 +270,7 @@
 
 <script>
 import footerCast from '../../components/footer.vue';
+import Scrollable from '../../components/Scrollable.vue';
 import axios from '../../axios';
 import { useToast } from 'vue-toastification';
 import LoadingSpinner from '../../components/LoadingSpinner.vue';
@@ -304,6 +280,7 @@ export default {
   components: {
     footerCast,
     LoadingSpinner,
+    Scrollable,
   },
   setup() {
     const toast = useToast();
@@ -314,9 +291,6 @@ export default {
       receipts: [],
       searchQuery: '',
       Loading: false,
-      currentPage: 1,
-      receiptsPerPage: 15,
-      receiptsPerPageOptions: [5, 15, 30, 50, 75, 100],
       showDeleteDialog: false,
       receiptToDelete: null,
       deleteReason: '',
@@ -340,14 +314,6 @@ export default {
         );
       });
     },
-    totalPages() {
-      return Math.ceil(this.filteredReceipts.length / this.receiptsPerPage) || 1;
-    },
-    displayedReceipts() {
-      const start = (this.currentPage - 1) * this.receiptsPerPage;
-      const end = start + this.receiptsPerPage;
-      return this.filteredReceipts.slice(start, end);
-    },
   },
   methods: {
     formatNumber(num) {
@@ -356,17 +322,36 @@ export default {
         maximumFractionDigits: 2,
       }).format(num || 0);
     },
-    updateReceiptsPerPage() {
-      this.currentPage = 1;
+    numberToWords(num) {
+      const n = Math.floor(parseFloat(num) || 0);
+      if (!Number.isFinite(n) || n < 0) return 'N/A SHILLINGS ONLY';
+      if (n === 0) return 'ZERO SHILLINGS ONLY';
+      const ones = ['', 'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE', 'TEN', 'ELEVEN', 'TWELVE', 'THIRTEEN', 'FOURTEEN', 'FIFTEEN', 'SIXTEEN', 'SEVENTEEN', 'EIGHTEEN', 'NINETEEN'];
+      const tens = ['', '', 'TWENTY', 'THIRTY', 'FORTY', 'FIFTY', 'SIXTY', 'SEVENTY', 'EIGHTY', 'NINETY'];
+      const toWords = (n) => {
+        if (n < 20) return ones[n];
+        if (n < 100) return tens[Math.floor(n / 10)] + (n % 10 ? ' ' + ones[n % 10] : '');
+        if (n < 1000) return ones[Math.floor(n / 100)] + ' HUNDRED' + (n % 100 ? ' ' + toWords(n % 100) : '');
+        if (n < 1000000) return toWords(Math.floor(n / 1000)) + ' THOUSAND' + (n % 1000 ? ' ' + toWords(n % 1000) : '');
+        if (n < 1000000000) return toWords(Math.floor(n / 1000000)) + ' MILLION' + (n % 1000000 ? ' ' + toWords(n % 1000000) : '');
+        return 'N/A';
+      };
+      return toWords(n).trim() + ' SHILLINGS ONLY';
     },
-    nextPage() {
-      if (this.currentPage < this.totalPages) {
-        this.currentPage += 1;
-      }
-    },
-    prevPage() {
-      if (this.currentPage > 1) {
-        this.currentPage -= 1;
+    formatReceiptFooterDate(dateStr) {
+      const format = (d) => {
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = d.toLocaleDateString('en-GB', { month: 'short' }).toUpperCase();
+        const year = d.getFullYear();
+        return `${day} ${month}-${year}`;
+      };
+      if (!dateStr) return format(new Date());
+      try {
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return dateStr;
+        return format(d);
+      } catch {
+        return dateStr;
       }
     },
     async fetchReceipts() {
@@ -379,10 +364,12 @@ export default {
             receiptNo: r.receiptNo || r.receipt_number || r.id,
             receiptID: r.receiptID || r.id,
             schoolCode: r.schoolCode || '',
+            schoolName: r.schoolName || r.school_name || r.fullname || '',
             receiptDate: r.receiptDate || r.receipt_date || '',
             amount: parseFloat(r.amount || 0),
             paymentMode: r.paymentMode || r.paymentMethod || '',
             paymentModeNo: r.paymentModeNo || r.paymentModeNO || r.paymentRef || '',
+            paymentFor: r.paymentFor || r.payment_for || r.purpose || '',
             status: r.status || 'Paid',
             deleted: !!r.deleted,
             deleteReason: r.deleteReason || r.reason || '',
@@ -479,104 +466,86 @@ export default {
         <head>
           <title>Receipt ${this.receiptToPrint?.receiptNo || ''}</title>
           <style>
-            * {
-              margin: 0;
-              padding: 0;
-              box-sizing: border-box;
-            }
+            * { margin: 0; padding: 0; box-sizing: border-box; }
             body {
-              font-family: Arial, sans-serif;
+              font-family: 'Times New Roman', Georgia, serif;
               padding: 40px;
               background: #fff;
               color: #000;
+              font-size: 14px;
             }
-            .receipt-header {
+            .receipt-main-header {
               text-align: center;
-              margin-bottom: 30px;
-              padding-bottom: 20px;
-              border-bottom: 3px solid #000;
-            }
-            .receipt-header h1 {
-              font-size: 2.5rem;
+              font-size: 28px;
               font-weight: bold;
-              margin-bottom: 10px;
-              letter-spacing: 3px;
+              letter-spacing: 2px;
+              margin-bottom: 24px;
+              text-transform: uppercase;
             }
-            .company-name {
-              font-size: 1.2rem;
+            .receipt-section-title {
+              font-size: 16px;
               font-weight: bold;
-              margin-bottom: 5px;
-            }
-            .company-details {
-              font-size: 0.9rem;
-              color: #666;
+              margin-bottom: 16px;
+              text-transform: uppercase;
             }
             .receipt-body {
-              margin: 30px 0;
+              margin: 20px 0 30px 0;
             }
             .receipt-row {
               display: flex;
-              justify-content: space-between;
-              padding: 12px 0;
+              padding: 8px 0;
               border-bottom: 1px solid #ddd;
+              gap: 12px;
             }
             .receipt-label {
               font-weight: 600;
-              font-size: 1rem;
+              min-width: 200px;
+              flex-shrink: 0;
               color: #333;
             }
             .receipt-value {
-              font-size: 1rem;
-              text-align: right;
+              flex: 1;
               color: #000;
+              word-break: break-word;
             }
-            .receipt-value.amount {
-              font-size: 1.3rem;
+            .receipt-value.receipt-amount {
               font-weight: bold;
-              color: #000;
-            }
-            .receipt-divider {
-              height: 2px;
-              background: #000;
-              margin: 20px 0;
+              font-size: 15px;
             }
             .receipt-reversal-note {
-              margin-top: 20px;
-              padding: 15px;
+              margin-top: 12px;
+              padding: 12px;
               background: #ffecec;
               border-left: 4px solid #b91c1c;
+              display: flex;
+              gap: 12px;
             }
-            .receipt-reversal-note .receipt-label {
-              color: #b91c1c;
-              margin-bottom: 5px;
-            }
-            .status-reversed-print {
-              color: #b91c1c !important;
-              font-weight: bold;
-            }
+            .receipt-reversal-note .receipt-label { color: #b91c1c; }
             .receipt-footer {
-              margin-top: 40px;
+              margin-top: 36px;
               padding-top: 20px;
               border-top: 2px solid #000;
               text-align: center;
             }
-            .receipt-footer-text {
-              font-size: 1.1rem;
-              font-weight: 600;
-              margin-bottom: 10px;
-            }
             .receipt-footer-date {
-              font-size: 0.85rem;
-              color: #666;
+              font-size: 14px;
+              font-weight: 600;
+              margin-bottom: 16px;
+              text-transform: uppercase;
+            }
+            .receipt-footer-text {
+              font-size: 15px;
+              font-weight: 600;
+              margin-bottom: 8px;
+            }
+            .receipt-tagline {
+              font-size: 13px;
+              font-style: italic;
+              color: #444;
             }
             @media print {
-              body {
-                padding: 20px;
-              }
-              @page {
-                size: A4;
-                margin: 1cm;
-              }
+              body { padding: 20px; }
+              @page { size: A4; margin: 1cm; }
             }
           </style>
         </head>
@@ -798,7 +767,7 @@ export default {
 
 .students-table th,
 .students-table td {
-  padding: clamp(0.5rem, 1.5vw, 1rem);
+  padding: 0.3rem 0.5rem;
   text-align: left;
   border-bottom: 1px solid #ddd;
   vertical-align: middle;
@@ -1022,6 +991,9 @@ export default {
   color: #fff;
   font-size: 0.8rem;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
 }
 
 .receipt-delete-btn:disabled {
@@ -1031,44 +1003,8 @@ export default {
   border-color: #9ca3af;
 }
 
-.pagination {
-  margin-top: clamp(0.5rem, 1.5vw, 1rem);
-  text-align: center;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.pagination button {
-  margin: 0;
-  padding: clamp(0.3rem, 1vw, 0.5rem) clamp(0.6rem, 1.5vw, 1rem);
-  cursor: pointer;
-  border: 2px solid #2b7ab7;
-  color: #2b7ab7;
-  border-radius: 5px;
-  background: white;
-  font-size: clamp(0.8rem, 1.2vw, 1rem);
-  transition: all 0.3s ease;
-  min-width: 80px;
-}
-
-.pagination button:hover:not(:disabled) {
-  background-color: #2b7ab7;
-  color: white;
-  transform: translateY(-1px);
-}
-
-.pagination button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.pagination span {
-  font-weight: bold;
-  font-size: clamp(0.9rem, 1.3vw, 1.1rem);
-  padding: 0 0.5rem;
+.receipt-delete-btn .material-symbols-outlined {
+  font-size: 16px;
 }
 
 /* Delete / Reverse Receipt Dialog Styles (matching Contacts delete modal) */
@@ -1291,13 +1227,15 @@ export default {
   position: fixed;
   top: 0;
   left: 0;
+  right: 0;
+  bottom: 0;
   width: 100%;
   height: 100%;
   background-color: rgba(0, 0, 0, 0.7);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 10003;
+  z-index: 10050;
 }
 
 .print-receipt-container {
@@ -1359,110 +1297,96 @@ export default {
   padding: 2rem;
   background: #fff;
   color: #000;
+  font-family: 'Times New Roman', Georgia, serif;
 }
 
-.receipt-header {
+.receipt-main-header {
   text-align: center;
-  margin-bottom: 30px;
-  padding-bottom: 20px;
-  border-bottom: 3px solid #000;
-}
-
-.receipt-header h1 {
-  font-size: 2.5rem;
+  font-size: 28px;
   font-weight: bold;
-  margin-bottom: 10px;
-  letter-spacing: 3px;
+  letter-spacing: 2px;
+  margin-bottom: 24px;
+  text-transform: uppercase;
   color: #000;
 }
 
-.receipt-company-info {
-  margin-top: 15px;
-}
-
-.company-name {
-  font-size: 1.2rem;
+.receipt-section-title {
+  font-size: 16px;
   font-weight: bold;
-  margin-bottom: 5px;
+  margin-bottom: 16px;
+  text-transform: uppercase;
   color: #000;
-}
-
-.company-details {
-  font-size: 0.9rem;
-  color: #666;
 }
 
 .receipt-body {
-  margin: 30px 0;
+  margin: 20px 0 30px 0;
 }
 
 .receipt-row {
   display: flex;
-  justify-content: space-between;
-  padding: 12px 0;
+  padding: 8px 0;
   border-bottom: 1px solid #ddd;
+  gap: 12px;
 }
 
 .receipt-label {
   font-weight: 600;
-  font-size: 1rem;
+  min-width: 200px;
+  flex-shrink: 0;
   color: #333;
 }
 
 .receipt-value {
-  font-size: 1rem;
-  text-align: right;
+  flex: 1;
   color: #000;
+  word-break: break-word;
 }
 
-.receipt-value.amount {
-  font-size: 1.3rem;
+.receipt-value.receipt-amount {
   font-weight: bold;
-  color: #000;
-}
-
-.receipt-divider {
-  height: 2px;
-  background: #000;
-  margin: 20px 0;
+  font-size: 15px;
 }
 
 .receipt-reversal-note {
-  margin-top: 20px;
-  padding: 15px;
+  margin-top: 12px;
+  padding: 12px;
   background: #ffecec;
   border-left: 4px solid #b91c1c;
-  border-radius: 4px;
+  display: flex;
+  gap: 12px;
 }
 
 .receipt-reversal-note .receipt-label {
   color: #b91c1c;
-  margin-bottom: 5px;
-  display: block;
-}
-
-.status-reversed-print {
-  color: #b91c1c !important;
-  font-weight: bold;
+  min-width: 140px;
 }
 
 .receipt-footer {
-  margin-top: 40px;
+  margin-top: 36px;
   padding-top: 20px;
   border-top: 2px solid #000;
   text-align: center;
 }
 
-.receipt-footer-text {
-  font-size: 1.1rem;
+.receipt-footer-date {
+  font-size: 14px;
   font-weight: 600;
-  margin-bottom: 10px;
+  margin-bottom: 16px;
+  text-transform: uppercase;
   color: #000;
 }
 
-.receipt-footer-date {
-  font-size: 0.85rem;
-  color: #666;
+.receipt-footer-text {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #000;
+}
+
+.receipt-tagline {
+  font-size: 13px;
+  font-style: italic;
+  color: #444;
 }
 
 .actions {
@@ -1499,7 +1423,7 @@ export default {
 @media only screen and (max-width: 1400px) {
   .students-table th,
   .students-table td {
-    padding: clamp(0.6rem, 1vw, 0.9rem);
+    padding: 0.3rem 0.5rem;
   }
 }
 
@@ -1510,7 +1434,7 @@ export default {
 
   .students-table th,
   .students-table td {
-    padding: clamp(0.5rem, 1vw, 0.75rem);
+    padding: 0.3rem 0.45rem;
     font-size: clamp(0.85rem, 1.1vw, 0.95rem);
   }
 
@@ -1621,30 +1545,6 @@ export default {
 
   .card-footer {
     padding: clamp(0.75rem, 2vw, 1rem);
-  }
-
-  .pagination {
-    flex-direction: column;
-    gap: 0.5rem;
-    margin-top: 1rem;
-  }
-
-  .pagination button {
-    width: 100%;
-    max-width: 150px;
-  }
-
-  .students-controls {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .students-controls label {
-    width: 100%;
-  }
-
-  .form-control {
-    width: 100%;
   }
 
   /* Modal Responsive Styles */
@@ -1762,11 +1662,6 @@ export default {
   .action-btn {
     padding: clamp(0.4rem, 1.2vw, 0.5rem) clamp(0.6rem, 1.5vw, 0.8rem);
     font-size: clamp(0.8rem, 1.1vw, 0.9rem);
-  }
-
-  .pagination button {
-    padding: clamp(0.3rem, 1vw, 0.4rem) clamp(0.5rem, 1.2vw, 0.7rem);
-    font-size: clamp(0.75rem, 1vw, 0.85rem);
   }
 
   .modal-content,

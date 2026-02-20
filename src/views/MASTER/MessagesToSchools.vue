@@ -12,13 +12,13 @@
     <div class="header-container">
       <div class="header-object1">
         <button @click="openMessageForm" class="action-btn" aria-label="Send Message">
-          <span class="material-symbols-outlined">send</span> Send Message
+          <span class="material-symbols-outlined">send</span>
         </button>
         <button @click="refreshMessages" class="action-btn" aria-label="Refresh Messages" :disabled="Loading">
-          <span class="material-symbols-outlined">refresh</span> Refresh
+          <span class="material-symbols-outlined">refresh</span>
         </button>
         <button @click="showBalanceModal = true" class="action-btn balance-btn" aria-label="Check Balance">
-          <span class="material-symbols-outlined">account_balance_wallet</span> Balance
+          <span class="material-symbols-outlined">account_balance_wallet</span>
         </button>
       </div>
       <div class="header-object2" v-if="accountBalance !== null">
@@ -31,61 +31,56 @@
 
     <!-- Messages Table -->
     <div class="table-container">
-      <div class="students-controls">
-        <label for="messagesPerPage">Messages per page:</label>
-        <select class="form-control" v-model="messagesPerPage" @change="updateMessagesPerPage">
-          <option v-for="option in messagesPerPageOptions" :key="option" :value="option">{{ option }}</option>
-        </select>
-      </div>
-
-      <!-- Desktop Table View -->
+      <!-- Desktop Table View - Scrollable -->
+      <Scrollable>
       <table class="students-table desktop-table">
         <thead>
           <tr>
-            <th>#</th>
-            <th>Date Sent</th>
-            <th>Subject</th>
-            <th>Recipients</th>
-            <th>Status</th>
+            <th class="col-num">#</th>
+            <th class="col-date">Date Sent</th>
+            <th class="col-subject">Subject</th>
+            <th class="col-recipients">Recipients</th>
+            <th class="col-status">Status</th>
             <th class="actions-header">Actions</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-if="displayedMessages.length === 0">
+          <tr v-if="filteredMessages.length === 0">
             <td colspan="6">No messages found</td>
           </tr>
           <tr
-            v-for="(message, index) in displayedMessages"
+            v-for="(message, index) in filteredMessages"
             :key="message.messageID"
             :class="{ 'even-row': index % 2 !== 0 }"
           >
-            <td>{{ (currentPage - 1) * messagesPerPage + index + 1 }}</td>
-            <td>{{ message.sentDate }}</td>
-            <td>{{ message.subject }}</td>
-            <td>{{ message.recipientCount }} School(s)</td>
-            <td :class="{ 'text-success': message.status === 'Sent', 'text-warning': message.status === 'Pending' }">
+            <td class="col-num">{{ index + 1 }}</td>
+            <td class="col-date">{{ message.sentDate }}</td>
+            <td class="col-subject">{{ message.subject }}</td>
+            <td class="col-recipients">{{ message.recipientCount }} School(s)</td>
+            <td class="col-status" :class="{ 'text-success': message.status === 'Sent', 'text-warning': message.status === 'Pending' }">
               {{ message.status }}
             </td>
             <td class="actions">
               <button @click="viewMessage(message)" class="manage-btn" aria-label="View Message">
-                <span class="material-symbols-outlined">visibility</span> View
+                <span class="material-symbols-outlined">visibility</span>
               </button>
-              <button @click="resendMessage(message)" class="manage-btn resend-btn" aria-label="Resend Message" :disabled="Loading">
-                <span class="material-symbols-outlined">send</span> Resend
+              <button @click="resendMessage(message)" class="class-list-btn" aria-label="Resend Message" :disabled="Loading">
+                <span class="material-symbols-outlined">send</span>
               </button>
-              <button @click="confirmDeleteMessage(message)" class="manage-btn delete-btn" aria-label="Delete Message" :disabled="Loading">
-                <span class="material-symbols-outlined">delete</span> Delete
+              <button @click="confirmDeleteMessage(message)" class="class-list-btn delete-btn" aria-label="Delete Message" :disabled="Loading">
+                <span class="material-symbols-outlined">delete</span>
               </button>
             </td>
           </tr>
         </tbody>
       </table>
+      </Scrollable>
 
       <!-- Mobile Card View -->
-      <div class="mobile-cards" v-if="displayedMessages.length > 0">
-        <div v-for="(message, index) in displayedMessages" :key="message.messageID" class="message-card">
+      <div class="mobile-cards" v-if="filteredMessages.length > 0">
+        <div v-for="(message, index) in filteredMessages" :key="message.messageID" class="message-card">
           <div class="card-header">
-            <div class="card-number">{{ (currentPage - 1) * messagesPerPage + index + 1 }}</div>
+            <div class="card-number">{{ index + 1 }}</div>
             <h3 class="card-title">{{ message.subject }}</h3>
           </div>
           
@@ -109,26 +104,21 @@
           </div>
           
           <div class="card-footer">
-            <button @click="viewMessage(message)" class="card-action-btn" aria-label="View Message">
-              <span class="material-symbols-outlined">visibility</span> View
+            <button @click="viewMessage(message)" class="card-action-btn manage-btn" aria-label="View Message">
+              <span class="material-symbols-outlined">visibility</span>
             </button>
-            <button @click="resendMessage(message)" class="card-action-btn resend-btn" aria-label="Resend Message" :disabled="Loading">
-              <span class="material-symbols-outlined">send</span> Resend
+            <button @click="resendMessage(message)" class="card-action-btn class-list-btn" aria-label="Resend Message" :disabled="Loading">
+              <span class="material-symbols-outlined">send</span>
             </button>
-            <button @click="confirmDeleteMessage(message)" class="card-action-btn delete-btn" aria-label="Delete Message" :disabled="Loading">
-              <span class="material-symbols-outlined">delete</span> Delete
+            <button @click="confirmDeleteMessage(message)" class="card-action-btn class-list-btn delete-btn" aria-label="Delete Message" :disabled="Loading">
+              <span class="material-symbols-outlined">delete</span>
             </button>
           </div>
         </div>
       </div>
 
-      <div v-if="displayedMessages.length === 0" class="no-data-message">
+      <div v-if="filteredMessages.length === 0" class="no-data-message">
         No messages found
-      </div>
-      <div class="pagination">
-        <button @click="prevPage" :disabled="currentPage === 1">Previous</button>
-        <span>{{ currentPage }} / {{ totalPages }}</span>
-        <button @click="nextPage" :disabled="currentPage === totalPages">Next</button>
       </div>
     </div>
 
@@ -192,14 +182,14 @@
             </div>
           </div>
           <div class="modal-actions">
-            <button @click="resendMessageFromModal(selectedMessageForView)" class="modal-action-btn resend-btn" :disabled="Loading">
-              <span class="material-symbols-outlined">send</span> Resend Message
+            <button @click="resendMessageFromModal(selectedMessageForView)" class="modal-action-btn resend-btn" :disabled="Loading" aria-label="Resend Message">
+              <span class="material-symbols-outlined">send</span>
             </button>
-            <button @click="viewMessagesByPhone(selectedMessageForView.phoneNo)" class="modal-action-btn" v-if="selectedMessageForView.phoneNo">
-              <span class="material-symbols-outlined">history</span> View All Messages to this Number
+            <button @click="viewMessagesByPhone(selectedMessageForView.phoneNo)" class="modal-action-btn" v-if="selectedMessageForView.phoneNo" aria-label="View All Messages to this Number">
+              <span class="material-symbols-outlined">history</span>
             </button>
-            <button @click="confirmDeleteMessageFromModal(selectedMessageForView)" class="modal-action-btn delete-btn" :disabled="Loading">
-              <span class="material-symbols-outlined">delete</span> Delete Message
+            <button @click="confirmDeleteMessageFromModal(selectedMessageForView)" class="modal-action-btn delete-btn" :disabled="Loading" aria-label="Delete Message">
+              <span class="material-symbols-outlined">delete</span>
             </button>
           </div>
         </div>
@@ -231,8 +221,8 @@
             <div class="balance-value" v-else>
               <p class="error-text">Failed to load balance</p>
             </div>
-            <button @click="fetchAccountBalance" class="refresh-balance-btn" :disabled="balanceLoading">
-              <span class="material-symbols-outlined">refresh</span> Refresh Balance
+            <button @click="fetchAccountBalance" class="refresh-balance-btn" :disabled="balanceLoading" aria-label="Refresh Balance">
+              <span class="material-symbols-outlined">refresh</span>
             </button>
           </div>
         </div>
@@ -275,8 +265,8 @@
         </div>
         <div class="form-actions">
           <button @click="showDeleteConfirm = false" class="cancel-btn">Cancel</button>
-          <button @click="deleteMessageConfirm" class="delete-confirm-btn" :disabled="Loading">
-            <span class="material-symbols-outlined">delete</span> Delete Message
+          <button @click="deleteMessageConfirm" class="delete-confirm-btn" :disabled="Loading" aria-label="Delete Message">
+            <span class="material-symbols-outlined">delete</span>
           </button>
         </div>
       </div>
@@ -292,6 +282,7 @@ import axios from '../../axios';
 import { useToast } from 'vue-toastification';
 import LoadingSpinner from '../../components/LoadingSpinner.vue';
 import footerCast from '../../components/footer.vue';
+import Scrollable from '../../components/Scrollable.vue';
 import NewMessageForm from './NewMessageForm.vue';
 import {
   listMessages,
@@ -306,6 +297,7 @@ export default {
   components: {
     footerCast,
     LoadingSpinner,
+    Scrollable: Scrollable,
     NewMessageForm,
   },
   setup() {
@@ -326,20 +318,9 @@ export default {
       Loading: false,
       balanceLoading: false,
       accountBalance: null,
-      currentPage: 1,
-      messagesPerPage: 15,
-      messagesPerPageOptions: [5, 15, 30, 50, 75, 100],
     };
   },
   computed: {
-    totalPages() {
-      return Math.ceil(this.filteredMessages.length / this.messagesPerPage);
-    },
-    displayedMessages() {
-      const startIndex = (this.currentPage - 1) * this.messagesPerPage;
-      const endIndex = Math.min(startIndex + this.messagesPerPage, this.filteredMessages.length);
-      return this.filteredMessages.slice(startIndex, endIndex);
-    },
     filteredMessages() {
       if (!this.searchQuery.trim()) return this.messages;
       const query = this.searchQuery.toLowerCase();
@@ -370,22 +351,6 @@ export default {
     closeViewModal() {
       this.showViewModal = false;
       this.selectedMessageForView = null;
-    },
-
-    updateMessagesPerPage() {
-      this.currentPage = 1;
-    },
-
-    prevPage() {
-      if (this.currentPage > 1) {
-        this.currentPage--;
-      }
-    },
-
-    nextPage() {
-      if (this.currentPage < this.totalPages) {
-        this.currentPage++;
-      }
     },
 
     loadDummyMessages() {
@@ -628,7 +593,6 @@ export default {
           
           // Show messages in modal or filter the current view
           this.messages = messagesForPhone;
-          this.currentPage = 1;
           toast.success(`Showing ${messagesForPhone.length} message(s) for ${phoneNo}`);
           this.closeViewModal();
         } else {
@@ -687,7 +651,7 @@ export default {
 }
 
 .header-container1 h2 {
-  color: #4368b9;
+  color: #333;
   font-size: clamp(1.1rem, 2.5vw, 1.5rem);
   font-weight: 600;
   padding: 0 0 0.5rem 0;
@@ -704,6 +668,15 @@ export default {
   margin-left: 0;
 }
 
+.search-actions {
+  display: flex;
+  gap: clamp(0.3rem, 1vw, 0.5rem);
+  align-items: center;
+  flex-wrap: wrap;
+  flex: 1;
+  min-width: 200px;
+}
+
 .search-input {
   padding: clamp(0.3rem, 1vw, 0.5rem);
   border-radius: 5px;
@@ -713,7 +686,6 @@ export default {
   flex: 1;
   min-width: 150px;
   max-width: 400px;
-  margin-left: 1rem;
 }
 
 .search-input:focus {
@@ -732,7 +704,7 @@ export default {
 
 .header-object1 {
   display: flex;
-  gap: clamp(0.5rem, 1.5vw, 1rem);
+  gap: clamp(0.3rem, 1vw, 0.5rem);
   flex-wrap: wrap;
 }
 
@@ -795,6 +767,7 @@ export default {
 }
 
 .action-btn .material-symbols-outlined {
+  margin-right: 0.3rem;
   font-size: clamp(1rem, 2vw, 1.2rem);
 }
 
@@ -808,64 +781,79 @@ export default {
   -webkit-overflow-scrolling: touch;
 }
 
-.students-controls {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: clamp(0.5rem, 1.5vw, 1rem);
-  margin-bottom: clamp(0.5rem, 1.5vw, 1rem);
-  flex-wrap: wrap;
-}
-
-.students-controls label {
-  font-weight: 500;
-  font-size: clamp(0.9rem, 1.3vw, 1rem);
-  white-space: nowrap;
-}
-
-.form-control {
-  padding: clamp(0.4rem, 1vw, 0.6rem);
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: clamp(0.9rem, 1.3vw, 1rem);
-  min-width: 100px;
-}
-
-.form-control:focus {
-  border-color: #4368b9;
-  box-shadow: 0 0 0 2px rgba(67, 104, 185, 0.2);
-  outline: none;
-}
-
 .students-table {
   display: table !important;
   width: 100%;
   border-collapse: collapse;
-  margin-bottom: 1rem;
+  border-spacing: 0;
+  border: 1px solid #ddd;
   font-size: clamp(0.8rem, 1.2vw, 1rem);
+}
+
+.students-table th,
+.students-table td {
+  white-space: nowrap;
+  padding: 0.3rem 0.5rem;
+  line-height: 1.2;
+  text-align: left;
+  border-bottom: 1px solid #ddd;
+  vertical-align: middle;
   border: 1px solid #ddd;
 }
 
-.students-table thead {
-  background-color: #4368b9;
-  color: white;
+.students-table tbody tr {
+  height: auto;
 }
 
-.students-table th {
-  padding: clamp(0.75rem, 1.5vw, 1rem);
-  text-align: left;
+.students-table thead th {
+  background-color: #f1f1f1;
   font-weight: 600;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-bottom: 2px solid #ddd;
   position: sticky;
   top: 0;
   z-index: 10;
 }
 
-.students-table td {
-  padding: clamp(0.75rem, 1.5vw, 1rem);
-  border-bottom: 1px solid #ddd;
-  border: 1px solid #ddd;
+/* Column widths - proportional to content */
+.students-table th.col-num,
+.students-table td.col-num {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.students-table th.col-date,
+.students-table td.col-date {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.students-table th.col-subject,
+.students-table td.col-subject {
+  width: 1%;
+  max-width: 200px;
+  white-space: normal;
   word-break: break-word;
+}
+
+.students-table th.col-recipients,
+.students-table td.col-recipients {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.students-table th.col-status,
+.students-table td.col-status {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.students-table thead th.actions-header,
+.students-table td.actions {
+  width: 1%;
+  max-width: 90px;
+  min-width: 0;
+  white-space: nowrap;
+  padding: 0.15rem 0.25rem;
 }
 
 .students-table tbody tr:hover {
@@ -897,7 +885,7 @@ export default {
 }
 
 .card-header {
-  background: linear-gradient(135deg, #4368b9 0%, #2b4d8a 100%);
+  background: linear-gradient(135deg, #2b7ab7 0%, #1e6192 100%);
   color: white;
   padding: 1rem;
   display: flex;
@@ -925,8 +913,7 @@ export default {
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: normal;
-  line-height: 1.3;
+  white-space: nowrap;
 }
 
 .card-body {
@@ -969,14 +956,12 @@ export default {
   background: #f9fafb;
   border-top: 1px solid #e1e4ea;
   display: flex;
+  flex-direction: column;
   gap: 0.5rem;
 }
 
 .card-action-btn {
-  flex: 1;
-  background-color: #28a745;
-  color: white;
-  border: none;
+  width: 100%;
   padding: 0.75rem 1rem;
   border-radius: 6px;
   cursor: pointer;
@@ -987,26 +972,40 @@ export default {
   font-size: clamp(0.85rem, 1.2vw, 0.95rem);
   transition: all 0.3s ease;
   font-weight: 500;
+  border: none;
 }
 
-.card-action-btn:hover:not(:disabled) {
-  background-color: #218838;
+.card-action-btn:hover {
   transform: translateY(-1px);
 }
 
-.card-action-btn.resend-btn {
-  background-color: #4368b9;
+.card-action-btn.manage-btn {
+  background-color: #e0e7ff;
+  color: #4f46e5;
+  border: 1px solid #c7d2fe;
 }
 
-.card-action-btn.resend-btn:hover:not(:disabled) {
-  background-color: #2b4d8a;
+.card-action-btn.manage-btn:hover:not(:disabled) {
+  background-color: #d1d5db;
 }
 
-.card-action-btn.delete-btn {
+.card-action-btn.class-list-btn {
+  background-color: #e0e7ff;
+  color: #4f46e5;
+  border: 1px solid #c7d2fe;
+}
+
+.card-action-btn.class-list-btn:hover:not(:disabled) {
+  background-color: #d4d7ff;
+}
+
+.card-action-btn.class-list-btn.delete-btn {
   background-color: #dc3545;
+  color: white;
+  border: 1px solid #c82333;
 }
 
-.card-action-btn.delete-btn:hover:not(:disabled) {
+.card-action-btn.class-list-btn.delete-btn:hover:not(:disabled) {
   background-color: #c82333;
 }
 
@@ -1028,98 +1027,71 @@ export default {
 
 .actions-header {
   text-align: center;
-  padding: clamp(0.75rem, 1.5vw, 1rem);
+  padding: clamp(0.5rem, 1vw, 1rem);
+  width: 1%;
+  white-space: nowrap;
 }
 
 .actions {
   display: flex;
-  gap: clamp(0.3rem, 1vw, 0.5rem);
-  justify-content: center;
-  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: clamp(0.15rem, 0.5vw, 0.4rem);
+  flex-wrap: nowrap;
+  align-items: center;
+  width: 1%;
 }
 
-.manage-btn {
-  background-color: #28a745;
-  color: white;
-  border: none;
-  padding: clamp(0.4rem, 1vw, 0.6rem) clamp(0.75rem, 1.5vw, 1rem);
+.manage-btn,
+.class-list-btn {
+  background-color: #e0e7ff;
+  color: #4f46e5;
+  border: 1px solid #c7d2fe;
+  padding: clamp(0.2rem, 0.5vw, 0.35rem) clamp(0.4rem, 0.9vw, 0.6rem);
   border-radius: 4px;
   cursor: pointer;
-  font-size: clamp(0.8rem, 1.2vw, 0.9rem);
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.15rem;
+  font-size: clamp(0.65rem, 1vw, 0.8rem);
   transition: all 0.3s ease;
   white-space: nowrap;
 }
 
+.manage-btn .material-symbols-outlined,
+.class-list-btn .material-symbols-outlined {
+  font-size: 0.95rem;
+}
+
 .manage-btn:hover:not(:disabled) {
-  background-color: #218838;
+  background-color: #d1d5db;
   transform: translateY(-1px);
 }
 
-.manage-btn.resend-btn {
-  background-color: #4368b9;
+.class-list-btn:hover:not(:disabled) {
+  background-color: #d4d7ff;
+  transform: translateY(-1px);
 }
 
-.manage-btn.resend-btn:hover:not(:disabled) {
-  background-color: #2b4d8a;
-}
-
-.manage-btn.delete-btn {
+.class-list-btn.delete-btn {
   background-color: #dc3545;
+  color: white;
+  border: 1px solid #c82333;
 }
 
-.manage-btn.delete-btn:hover:not(:disabled) {
+.class-list-btn.delete-btn:hover:not(:disabled) {
   background-color: #c82333;
 }
 
-.manage-btn:disabled {
+.manage-btn:disabled,
+.class-list-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-}
-
-.pagination {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: clamp(0.5rem, 1.5vw, 1rem);
-  margin-top: clamp(0.5rem, 1.5vw, 1rem);
-  flex-wrap: wrap;
-}
-
-.pagination button {
-  padding: clamp(0.4rem, 1vw, 0.6rem) clamp(0.75rem, 1.5vw, 1rem);
-  border: 2px solid #4368b9;
-  background-color: white;
-  color: #4368b9;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: clamp(0.8rem, 1.2vw, 1rem);
-  transition: all 0.3s ease;
-  min-width: 80px;
-}
-
-.pagination button:hover:not(:disabled) {
-  background-color: #4368b9;
-  color: white;
-  transform: translateY(-1px);
-}
-
-.pagination button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.pagination span {
-  font-weight: bold;
-  font-size: clamp(0.9rem, 1.3vw, 1.1rem);
-  padding: 0 0.5rem;
 }
 
 .text-success {
-  color: #28a745 !important;
-  font-weight: 600;
+  color: #2b7ab7 !important;
+  font-weight: bold;
+  font-style: italic;
 }
 
 .text-warning {
@@ -1128,8 +1100,9 @@ export default {
 }
 
 .text-danger {
-  color: #dc3545 !important;
-  font-weight: 600;
+  color: red !important;
+  font-weight: bold;
+  font-style: italic;
 }
 
 /* Modal Styles */
@@ -1648,7 +1621,7 @@ export default {
 @media only screen and (max-width: 1400px) {
   .students-table th,
   .students-table td {
-    padding: clamp(0.6rem, 1vw, 0.9rem);
+    padding: 0.3rem 0.5rem;
   }
 }
 
@@ -1659,12 +1632,16 @@ export default {
 
   .students-table th,
   .students-table td {
-    padding: clamp(0.5rem, 1vw, 0.75rem);
+    padding: 0.3rem 0.45rem;
     font-size: clamp(0.85rem, 1.1vw, 0.95rem);
   }
 
   .search-input {
     max-width: 100%;
+    width: 100%;
+  }
+
+  .search-actions {
     width: 100%;
   }
 }
@@ -1750,6 +1727,11 @@ export default {
     align-items: stretch;
   }
 
+  .search-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
   .search-input {
     width: 100%;
     margin-left: 0;
@@ -1798,30 +1780,6 @@ export default {
 
   .card-footer {
     padding: clamp(0.75rem, 2vw, 1rem);
-  }
-
-  .pagination {
-    flex-direction: column;
-    gap: 0.5rem;
-    margin-top: 1rem;
-  }
-
-  .pagination button {
-    width: 100%;
-    max-width: 150px;
-  }
-
-  .students-controls {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .students-controls label {
-    width: 100%;
-  }
-
-  .form-control {
-    width: 100%;
   }
 
   /* Modal Responsive Styles */
@@ -1953,11 +1911,6 @@ export default {
   .action-btn {
     padding: clamp(0.4rem, 1.2vw, 0.5rem) clamp(0.6rem, 1.5vw, 0.8rem);
     font-size: clamp(0.8rem, 1.1vw, 0.9rem);
-  }
-
-  .pagination button {
-    padding: clamp(0.3rem, 1vw, 0.4rem) clamp(0.5rem, 1.2vw, 0.7rem);
-    font-size: clamp(0.75rem, 1vw, 0.85rem);
   }
 }
 

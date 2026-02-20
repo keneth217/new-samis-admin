@@ -37,6 +37,7 @@
   
         
         <!-- Desktop Table View -->
+        <Scrollable>
         <table class="students-table desktop-table">
           <thead>
             <tr>
@@ -58,21 +59,22 @@
             >
               <td>{{ (currentPage - 1) * modulesPerPage + index + 1 }}</td>
               <td>{{ module.moduleName }}</td>
-              <td>{{ module.description }}</td>
+              <td class="description-cell" :title="module.description">{{ module.description }}</td>
               <td :class="{ 'text-success': module.activated === true, 'text-danger': module.activated !== true }">
                 {{ module.activated === true ? 'ACTIVE' : 'EXPIRED' }}
               </td>
               <td class="actions">
                 <button @click="viewModule(module)" class="manage-btn" aria-label="View Profile">
-                  <span class="material-symbols-outlined">person</span> Details
+                  <span class="material-symbols-outlined">person</span>
                 </button>
                 <button @click="viewAnalysis(module)" class="class-list-btn" aria-label="Edit Module">
-                  <span class="material-symbols-outlined">analytics</span> Edit
+                  <span class="material-symbols-outlined">edit</span>
                 </button>
               </td>
             </tr>
           </tbody>
         </table>
+        </Scrollable>
 
         <!-- Mobile Card View -->
         <div class="mobile-cards" v-if="displayedModules.length > 0">
@@ -83,9 +85,9 @@
             </div>
             
             <div class="card-body">
-              <div class="card-row">
+              <div class="card-row description-row">
                 <span class="card-label">Description:</span>
-                <span class="card-value">{{ module.description }}</span>
+                <span class="card-value description-value" :title="module.description">{{ module.description }}</span>
               </div>
               
               <div class="card-row">
@@ -98,10 +100,10 @@
             
             <div class="card-footer">
               <button @click="viewModule(module)" class="card-action-btn manage-btn" aria-label="View Profile">
-                <span class="material-symbols-outlined">person</span> Details
+                <span class="material-symbols-outlined">person</span>
               </button>
               <button @click="viewAnalysis(module)" class="card-action-btn class-list-btn" aria-label="Edit Module">
-                <span class="material-symbols-outlined">analytics</span> Edit
+                <span class="material-symbols-outlined">edit</span>
               </button>
             </div>
           </div>
@@ -132,6 +134,7 @@
   </template>
  <script>
  import footerCast from '../../components/footer.vue';
+import Scrollable from '../../components/Scrollable.vue';
 import axios from '../../axios';
  import { useToast } from 'vue-toastification';
  import LoadingSpinner from '../../components/LoadingSpinner.vue';
@@ -139,11 +142,12 @@ import NewFinanceModule from './NewFinanceModule.vue';
    
  export default {
    name: 'FinanceModule',
-   components: {
-     footerCast,
-     LoadingSpinner,
-     NewFinanceModule,
-   },
+  components: {
+    footerCast,
+    LoadingSpinner,
+    NewFinanceModule,
+    Scrollable,
+  },
    setup() {
      const toast = useToast();
      return { toast };
@@ -379,6 +383,21 @@ import NewFinanceModule from './NewFinanceModule.vue';
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
+
+  .table-scroll-wrapper {
+    max-height: calc(100vh - 18rem);
+    overflow-y: auto;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+  }
+
+  .description-cell {
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
   
   .students-table {
     display: table !important;
@@ -476,6 +495,16 @@ import NewFinanceModule from './NewFinanceModule.vue';
     font-weight: 500;
   }
 
+  .description-value {
+    max-width: 100%;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    word-break: break-word;
+  }
+
   .card-footer {
     padding: 1rem;
     background: #f9fafb;
@@ -517,12 +546,13 @@ import NewFinanceModule from './NewFinanceModule.vue';
   
   .students-table th,
   .students-table td {
-    padding: clamp(0.5rem, 1.5vw, 1rem);
+    white-space: nowrap;
+    padding: 0.3rem 0.5rem;
+    line-height: 1.2;
     text-align: left;
     border-bottom: 1px solid #ddd;
     vertical-align: middle;
     border: 1px solid #ddd;
-    word-break: break-word;
   }
   
   .students-table thead th {
@@ -559,7 +589,7 @@ import NewFinanceModule from './NewFinanceModule.vue';
     display: flex;
     justify-content: flex-start;
     gap: clamp(0.3rem, 1vw, 1rem);
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
   }
   
@@ -632,6 +662,9 @@ import NewFinanceModule from './NewFinanceModule.vue';
     font-weight: bold;
     font-size: clamp(0.9rem, 1.3vw, 1.1rem);
     padding: 0 0.5rem;
+    color: #333;
+    display: inline-block;
+    white-space: nowrap;
   }
 
   .students-controls {

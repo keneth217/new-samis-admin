@@ -82,6 +82,56 @@ export const getCallHistoryByPhone = async (phoneNo) => {
 };
 
 /**
+ * List Gateway Calls (all)
+ * POST /api/calls/list
+ * @returns {Promise} Response with array of gateway call records (includes recordingUrl)
+ */
+export const getGatewayCalls = async () => {
+  try {
+    const response = await axios.post('/calls/list');
+    return response;
+  } catch (error) {
+    console.error('❌ Error fetching gateway calls:', error);
+    throw error;
+  }
+};
+
+/**
+ * List Gateway Calls by Date
+ * POST /api/calls/listbydate/{date}
+ * @param {string} date - Date in yyyy-MM-dd format
+ * @returns {Promise} Response with array of gateway call records
+ */
+export const getGatewayCallsByDate = async (date) => {
+  if (!date) throw new Error('date is required (yyyy-MM-dd)');
+  try {
+    const response = await axios.post(`/calls/listbydate/${date}`);
+    return response;
+  } catch (error) {
+    console.error('❌ Error fetching gateway calls by date:', error);
+    throw error;
+  }
+};
+
+/**
+ * List Gateway Calls by Date Range
+ * POST /api/calls/listbydaterange/{startDate}/{endDate}
+ * @param {string} startDate - Start date in yyyy-MM-dd format
+ * @param {string} endDate - End date in yyyy-MM-dd format
+ * @returns {Promise} Response with array of gateway call records
+ */
+export const getGatewayCallsByDateRange = async (startDate, endDate) => {
+  if (!startDate || !endDate) throw new Error('startDate and endDate are required (yyyy-MM-dd)');
+  try {
+    const response = await axios.post(`/calls/listbydaterange/${startDate}/${endDate}`);
+    return response;
+  } catch (error) {
+    console.error('❌ Error fetching gateway calls by date range:', error);
+    throw error;
+  }
+};
+
+/**
  * Delete Call History
  * POST /api/calls/history/delete/{callHistoryId}
  * @param {number|string} callHistoryId - The ID of the call history record to delete
@@ -107,4 +157,7 @@ export default {
   getCallHistory,
   getCallHistoryByPhone,
   deleteCallHistory,
+  getGatewayCalls,
+  getGatewayCallsByDate,
+  getGatewayCallsByDateRange,
 };

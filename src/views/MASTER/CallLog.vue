@@ -43,8 +43,7 @@
             <div style="margin-top: 1rem; text-align: center;">
               <!-- Show duration when connected and in call - PHONE STYLE -->
               <div v-if="callStatus === 'connected' && isInCall" 
-                   class="call-duration" 
-                   :key="'duration-' + callDuration"
+                   class="call-duration"
                    style="font-size: 2.2rem; color: #ffffff; font-weight: 300; letter-spacing: 4px; font-variant-numeric: tabular-nums; line-height: 1.3; text-shadow: 0 2px 6px rgba(0,0,0,0.5); margin-top: 0.5rem; display: block; min-height: 2.5rem;">
                 <span style="display: inline-block;">{{ formatCallDuration(callDuration) }}</span>
               </div>
@@ -221,62 +220,95 @@
         </div>
 
         <div v-if="tabValue === 'recents'" class="list-pane">
+          <!-- Date filter for gateway calls -->
+          <div class="recents-date-filter">
+            <input v-model="recentsDateFilter" type="date" class="date-filter-input" title="Load calls for this date" />
+            <span class="date-filter-sep">–</span>
+            <input v-model="recentsStartDate" type="date" class="date-filter-input" title="Start date (range)" />
+            <input v-model="recentsEndDate" type="date" class="date-filter-input" title="End date (range)" />
+            <button class="primary-btn small" @click="loadRecentsByDate" :disabled="loading">
+              Load by date
+            </button>
+          </div>
           <div v-if="groupedRecentsKeys.length === 0" class="empty-state">No recent calls.</div>
-          <div v-else>
-            <div v-for="day in groupedRecentsKeys" :key="day" class="group-block">
-              <div class="group-title">{{ day }}</div>
-              <table class="students-table desktop-table recents-table">
-                <thead>
-                  <tr>
-                    <th>Contact</th>
-                    <th>Time</th>
-                    <th>Type</th>
-                    <th class="actions-header">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr
-                    v-for="(call, idx) in groupedRecents[day]"
-                    :key="idx"
-                    :class="{ 'even-row': idx % 2 !== 0 }"
-                  >
-                    <td>{{ call.contactName || 'Unknown' }}</td>
-                    <td>{{ call.time }}</td>
-                    <td>{{ call.type }}</td>
-                    <td class="actions">
-                      <button class="link-btn" @click="callFromRecent(call)">Call</button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+          <div v-else class="table-container">
+            <Scrollable>
+              <div v-for="day in groupedRecentsKeys" :key="day" class="group-block">
+                <div class="group-title">{{ day }}</div>
+                <table class="students-table desktop-table">
+                  <thead>
+                    <tr>
+                      <th>Contact</th>
+                      <th>Time</th>
+                      <th>Type</th>
+                      <th>Duration</th>
+                      <th class="actions-header">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr
+                      v-for="(call, idx) in groupedRecents[day]"
+                      :key="idx"
+                      :class="{ 'even-row': idx % 2 !== 0 }"
+                    >
+                      <td>{{ call.contactName || 'Unknown' }}</td>
+                      <td>{{ call.time }}</td>
+                      <td>{{ call.type }}</td>
+                      <td>{{ formatCallDuration(call.duration || 0) }}</td>
+                      <td class="actions">
+                        <button
+                          v-if="call.recordingUrl"
+                          @click="toggleRecording(call)"
+                          :class="['play-recording-btn', { active: isPlayingRecording(call) }]"
+                          :aria-label="isPlayingRecording(call) ? 'Stop recording' : 'Play recording'"
+                        >
+                          <span class="material-symbols-outlined">
+                            {{ isPlayingRecording(call) ? 'stop_circle' : 'play_circle' }}
+                          </span>
+                        </button>
+                        <span v-else class="no-recording-hint" title="No recording available">—</span>
+                        <button @click="callFromRecent(call)" class="manage-btn" aria-label="Call">
+                          <span class="material-symbols-outlined">call</span>
+                        </button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </Scrollable>
           </div>
         </div>
 
         <div v-if="tabValue === 'contacts'" class="list-pane">
           <div v-if="filteredContacts.length === 0" class="empty-state">No contacts found.</div>
-          <table class="students-table desktop-table recents-table" v-else>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Phone</th>
-                <th class="actions-header">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="(contact, idx) in filteredContacts"
-                :key="idx"
-                :class="{ 'even-row': idx % 2 !== 0 }"
-              >
-                <td>{{ contact.contactName || contact.fullname || 'Unknown' }}</td>
-                <td>{{ contact.phoneNo || contact.phone || 'N/A' }}</td>
-                <td class="actions">
-                  <button class="link-btn" @click="startFromContact(contact)">Call</button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+          <div v-else class="table-container">
+            <Scrollable>
+              <table class="students-table desktop-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Phone</th>
+                    <th class="actions-header">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr
+                    v-for="(contact, idx) in filteredContacts"
+                    :key="idx"
+                    :class="{ 'even-row': idx % 2 !== 0 }"
+                  >
+                    <td>{{ contact.contactName || contact.fullname || 'Unknown' }}</td>
+                    <td>{{ contact.phoneNo || contact.phone || 'N/A' }}</td>
+                    <td class="actions">
+                      <button @click="startFromContact(contact)" class="manage-btn" aria-label="Call">
+                        <span class="material-symbols-outlined">call</span>
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </Scrollable>
+          </div>
         </div>
       </div>
     </div>
@@ -318,12 +350,13 @@
 <script>
 import axios from '../../axios';
 import LoadingSpinner from '../../components/LoadingSpinner.vue';
+import Scrollable from '../../components/Scrollable.vue';
 import { useToast } from 'vue-toastification';
-import { saveCallHistory, getCallHistory } from '../../services/callHistoryApi';
+import { saveCallHistory, getCallHistory, getGatewayCalls, getGatewayCallsByDate, getGatewayCallsByDateRange } from '../../services/callHistoryApi';
 
 export default {
   name: 'CallLog',
-  components: { LoadingSpinner },
+  components: { LoadingSpinner, Scrollable },
   setup() {
     const toast = useToast();
     return { toast };
@@ -370,6 +403,11 @@ export default {
       connectionTime: null, // Timestamp when connection was established (to prevent premature ending)
       callStartTime: null, // Track when call started for duration calculation
       currentCallReceiver: null, // Track receiver phone number for call history
+      playingRecordingId: null, // sessionId or unique key of currently playing recording
+      recordingAudio: null, // HTML5 Audio instance for playback
+      recentsDateFilter: '', // yyyy-MM-dd for single date
+      recentsStartDate: '',
+      recentsEndDate: '',
     };
   },
   computed: {
@@ -418,37 +456,38 @@ export default {
   },
   watch: {
     callStatus(newStatus, oldStatus) {
-      console.log(`📊 Call Status Changed: ${oldStatus} → ${newStatus}`);
-      
-      // CRITICAL: Prevent status from being reset from 'ended' to 'ringing' or 'connecting'
-      if (oldStatus === 'ended' && (newStatus === 'ringing' || newStatus === 'connecting' || newStatus === 'connected')) {
-        console.error(`❌ BLOCKED: Attempted to change status from 'ended' to '${newStatus}' - preventing reset!`);
-        // Force it back to 'ended'
-        this.$nextTick(() => {
-          if (this.callStatus !== 'ended') {
-            this.callStatus = 'ended';
-            this.$forceUpdate();
-            console.log(`✅ Status forced back to 'ended'`);
-          }
-        });
-        return;
+  console.log(`📊 Call Status Changed: ${oldStatus} → ${newStatus}`);
+  
+  // CRITICAL: Prevent status from being reset from 'ended' to 'ringing' or 'connected'
+  // Allow 'ended' -> 'connecting' (new call) and 'ended' -> 'idle' (cleanup)
+  if (oldStatus === 'ended' && (newStatus === 'ringing' || newStatus === 'connected')) {
+    console.error(`❌ BLOCKED: Attempted to change status from 'ended' to '${newStatus}' - preventing reset!`);
+    // Force it back to 'ended'
+    this.$nextTick(() => {
+      if (this.callStatus !== 'ended') {
+        this.callStatus = 'ended';
+        this.$forceUpdate();
+        console.log(`✅ Status forced back to 'ended'`);
       }
-      
-      // When status becomes 'connected', ensure timer is running
-      if (newStatus === 'connected' && this.isInCall && !this.callDurationTimer) {
-        console.log('📊 Status changed to connected and isInCall is true - starting timer');
-        this.startCallTimer();
-      }
-      
-      // Force UI update when status changes
-      this.$nextTick(() => {
-        console.log(`✅ UI should now show: ${newStatus}`);
-        // Force another update to ensure duration shows
-        if (newStatus === 'connected' && this.isInCall) {
-          this.$forceUpdate();
-        }
-      });
-    },
+    });
+    return;
+  }
+  
+  // When status becomes 'connected', ensure timer is running
+  if (newStatus === 'connected' && this.isInCall && !this.callDurationTimer) {
+    console.log('📊 Status changed to connected and isInCall is true - starting timer');
+    this.startCallTimer();
+  }
+  
+  // Force UI update when status changes
+  this.$nextTick(() => {
+    console.log(`✅ UI should now show: ${newStatus}`);
+    // Force another update to ensure duration shows
+    if (newStatus === 'connected' && this.isInCall) {
+      this.$forceUpdate();
+    }
+  });
+},
     isInCall(newValue, oldValue) {
       console.log(`📊 isInCall Changed: ${oldValue} → ${newValue}`);
       console.log(`📊 Current callStatus: ${this.callStatus}`);
@@ -536,6 +575,7 @@ export default {
   beforeUnmount() {
     window.removeEventListener('keydown', this.handleKeyPress);
     this.stopCallTimer();
+    this.stopRecording();
     // Clean up return to keypad timer
     if (this.returnToKeypadTimer) {
       clearTimeout(this.returnToKeypadTimer);
@@ -808,6 +848,7 @@ export default {
     },
     async refreshData() {
       await this.fetchContacts();
+      await this.loadRecents();
     },
     handleSearchChange() {
       // computed handles filtering
@@ -828,47 +869,134 @@ export default {
       // Load from localStorage first (for immediate display)
       const stored = localStorage.getItem('recentCalls');
       if (stored) {
-        this.recents = JSON.parse(stored);
+        try {
+          this.recents = JSON.parse(stored);
+        } catch (_) {
+          this.recents = [];
+        }
+      } else {
+        this.recents = [];
       }
-      
-      // Then fetch from API and merge
+
+      // Fetch gateway calls (have recordingUrl) - primary source for recordings
+      let gatewayRecents = [];
+      try {
+        const gwRes = await getGatewayCalls();
+        const gwData = Array.isArray(gwRes?.data) ? gwRes.data : gwRes?.data?.data || [];
+        gatewayRecents = this.mapGatewayCallsToRecents(gwData);
+      } catch (err) {
+        console.warn('Could not load gateway calls:', err);
+      }
+
+      // Fetch call history API and transform
+      let apiRecents = [];
       try {
         const response = await getCallHistory({ limit: 50 });
-        const apiRecents = Array.isArray(response.data) ? response.data : response.data?.data || [];
-        
-        // Transform API data to match local format
-        const transformedRecents = apiRecents.map(call => ({
-          contactName: call.receiverPhoneNo || call.receiverName || 'Unknown',
-          time: call.timestamp ? new Date(call.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString(),
-          type: call.callType || 'Outgoing',
-          day: call.timestamp ? new Date(call.timestamp).toLocaleDateString('en-US', { weekday: 'long' }) : new Date().toLocaleDateString('en-US', { weekday: 'long' }),
-          duration: call.duration || 0,
-          status: call.status || 'completed',
-          callerName: call.callerName || '',
-          receiverName: call.receiverName || '',
-          callerPhoneNo: call.callerPhoneNo || '',
-          receiverPhoneNo: call.receiverPhoneNo || '',
-        }));
-        
-        // Merge with localStorage data, removing duplicates
-        const merged = [...transformedRecents, ...this.recents];
-        const unique = merged.filter((call, index, self) => 
-          index === self.findIndex(c => 
-            c.contactName === call.contactName && 
-            c.time === call.time && 
-            c.type === call.type
-          )
-        );
-        
-        this.recents = unique.slice(0, 50); // Keep latest 50
-        this.saveRecents();
+        const body = response?.data ?? response;
+        const raw = Array.isArray(body) ? body : body?.data || body?.calls || body?.records || body?.list || body?.items || [];
+        apiRecents = raw.map((call) => {
+          const ts = call.timestamp || call.created_at || call.date || call.createdAt;
+          const d = ts ? new Date(ts) : new Date();
+          return {
+            contactName: call.receiverPhoneNo || call.receiverName || call.receiver_phone_no || call.receiver_name || call.contactName || 'Unknown',
+            time: d.toLocaleTimeString(),
+            day: d.toLocaleDateString('en-US', { weekday: 'long' }),
+            type: call.callType || call.call_type || 'Outgoing',
+            duration: call.duration || 0,
+            status: call.status || 'completed',
+            callerName: call.callerName || '',
+            receiverName: call.receiverName || '',
+            callerPhoneNo: call.callerPhoneNo || '',
+            receiverPhoneNo: call.receiverPhoneNo || '',
+            recordingUrl: call.recordingUrl || null,
+            sessionId: call.sessionId || null,
+            _sortTs: d.getTime(),
+          };
+        });
       } catch (error) {
         console.warn('Could not load call history from API:', error);
-        // Continue with localStorage data only
       }
+
+      // Merge: gateway first (have recordings), then API, then localStorage; dedupe by sessionId or contact+time+type
+      const byKey = new Map();
+      const add = (c) => {
+        const key = c.sessionId || `${c.contactName || ''}_${c.time}_${c.type}`;
+        if (!byKey.has(key)) byKey.set(key, { ...c, _sortTs: c._sortTs ?? 0 });
+      };
+      gatewayRecents.forEach(add);
+      apiRecents.forEach(add);
+      this.recents.forEach((c) => add({ ...c, _sortTs: c._sortTs ?? (c.day && c.time ? new Date(`${c.day} ${c.time}`).getTime() : 0) }));
+      this.recents = Array.from(byKey.values())
+        .sort((a, b) => (b._sortTs || 0) - (a._sortTs || 0))
+        .slice(0, 50)
+        .map(({ _sortTs, ...r }) => r); // drop _sortTs before save
+      this.saveRecents();
     },
     saveRecents() {
       localStorage.setItem('recentCalls', JSON.stringify(this.recents));
+    },
+    async loadRecentsByDate() {
+      const singleDate = this.recentsDateFilter?.trim();
+      const startDate = this.recentsStartDate?.trim();
+      const endDate = this.recentsEndDate?.trim();
+      if (!singleDate && !startDate && !endDate) {
+        this.toast.warning('Select a date or date range to load calls.');
+        return;
+      }
+      this.loading = true;
+      let gatewayRecents = [];
+      try {
+        if (singleDate) {
+          const gwRes = await getGatewayCallsByDate(singleDate);
+          const gwData = Array.isArray(gwRes?.data) ? gwRes.data : gwRes?.data?.data || [];
+          gatewayRecents = this.mapGatewayCallsToRecents(gwData);
+        } else if (startDate && endDate) {
+          const gwRes = await getGatewayCallsByDateRange(startDate, endDate);
+          const gwData = Array.isArray(gwRes?.data) ? gwRes.data : gwRes?.data?.data || [];
+          gatewayRecents = this.mapGatewayCallsToRecents(gwData);
+        } else {
+          this.toast.warning('For date range, provide both start and end date.');
+          this.loading = false;
+          return;
+        }
+        const byKey = new Map();
+        const add = (c) => {
+          const key = c.sessionId || `${c.contactName || ''}_${c.time}_${c.type}`;
+          if (!byKey.has(key)) byKey.set(key, { ...c, _sortTs: c._sortTs ?? 0 });
+        };
+        gatewayRecents.forEach(add);
+        this.recents = Array.from(byKey.values())
+          .sort((a, b) => (b._sortTs || 0) - (a._sortTs || 0))
+          .slice(0, 100)
+          .map(({ _sortTs, ...r }) => r);
+        this.saveRecents();
+        this.toast.success(`Loaded ${this.recents.length} call(s).`);
+      } catch (err) {
+        console.error('Failed to load calls by date:', err);
+        this.toast.error('Could not load calls. Check date format (yyyy-MM-dd).');
+      } finally {
+        this.loading = false;
+      }
+    },
+    mapGatewayCallsToRecents(gwData) {
+      return gwData.map((call) => {
+        const ts = call.callStartTime;
+        const d = ts ? new Date(ts) : new Date();
+        const isInbound = (call.direction || '').toLowerCase() === 'inbound';
+        const contact = isInbound ? (call.callerNumber || call.caller_number || 'Unknown') : (call.destinationNumber || call.destination_number || call.clientDialedNumber || 'Unknown');
+        return {
+          sessionId: call.sessionId,
+          contactName: contact,
+          time: d.toLocaleTimeString(),
+          day: d.toLocaleDateString('en-US', { weekday: 'long' }),
+          type: isInbound ? 'Incoming' : 'Outgoing',
+          duration: call.durationInSeconds || 0,
+          recordingUrl: call.recordingUrl || null,
+          receiverPhoneNo: isInbound ? call.destinationNumber : call.callerNumber,
+          callerPhoneNo: call.callerNumber,
+          _sortTs: d.getTime(),
+        };
+      });
     },
     loadAfricastalkingScript() {
       if (window.Africastalking) return;
@@ -1211,6 +1339,8 @@ export default {
         console.log('📴 Call terminated - recipient ended the call');
         console.log('📴 Current isInCall state:', this.isInCall);
         console.log('📴 Current callStatus:', this.callStatus);
+        
+        const wasInCall = this.isInCall || this.callStatus === 'connected' || this.callStatus === 'ringing';
         
         // IMMEDIATELY stop polling to prevent status from being reset
         if (this.statusUpdateInterval) {
@@ -3134,19 +3264,7 @@ export default {
           this.callDuration++;
           const formatted = this.formatCallDuration(this.callDuration);
           console.log(`⏱️ Duration: ${this.callDuration}s (${formatted})`);
-          
-          // Force multiple UI updates to ensure visibility
           this.$forceUpdate();
-          this.$nextTick(() => {
-            this.$forceUpdate();
-            // Verify the duration is actually displayed
-            const durationEl = document.querySelector('.call-duration');
-            if (durationEl) {
-              console.log(`✅ Duration element found, displaying: ${formatted}`);
-            } else {
-              console.warn(`⚠️ Duration element not found in DOM!`);
-            }
-          });
         } else {
           console.log('⏱️ Timer tick skipped - isInCall:', this.isInCall, 'isOnHold:', this.isOnHold, 'status:', this.callStatus);
         }
@@ -3304,8 +3422,48 @@ export default {
         this.handleCall();
       }
     },
+    getRecordingId(call) {
+      return call.sessionId || `${call.contactName || ''}_${call.time}_${call.type}`;
+    },
+    isPlayingRecording(call) {
+      return this.playingRecordingId === this.getRecordingId(call);
+    },
+    toggleRecording(call) {
+      if (!call?.recordingUrl) return;
+      const id = this.getRecordingId(call);
+      if (this.playingRecordingId === id) {
+        this.stopRecording();
+        return;
+      }
+      this.stopRecording();
+      this.playingRecordingId = id;
+      const audio = new Audio(call.recordingUrl);
+      this.recordingAudio = audio;
+      audio.play().catch((err) => {
+        console.error('Error playing recording:', err);
+        this.toast.error('Could not play recording. The URL may be invalid or inaccessible.');
+        this.playingRecordingId = null;
+        this.recordingAudio = null;
+      });
+      audio.onended = () => {
+        this.playingRecordingId = null;
+        this.recordingAudio = null;
+      };
+      audio.onerror = () => {
+        this.playingRecordingId = null;
+        this.recordingAudio = null;
+      };
+    },
+    stopRecording() {
+      if (this.recordingAudio) {
+        this.recordingAudio.pause();
+        this.recordingAudio.currentTime = 0;
+        this.recordingAudio = null;
+      }
+      this.playingRecordingId = null;
+    },
     callFromRecent(call) {
-      this.dialedNumber = call.contactName || '';
+      this.dialedNumber = call.receiverPhoneNo || call.contactName || '';
       this.handleCall();
     },
     startFromContact(contact) {
@@ -3844,27 +4002,68 @@ export default {
 }
 .list-pane {
   margin-top: 0.5rem;
+  min-height: 200px;
+  display: block;
 }
-/* Recents Table - Using Contacts table styling */
-.recents-table {
+
+.recents-date-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+.recents-date-filter .date-filter-input {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #d6d9e0;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+.recents-date-filter .date-filter-sep {
+  color: #6c7480;
+  font-weight: 600;
+}
+.recents-date-filter .primary-btn.small {
+  padding: 0.4rem 0.8rem;
+  font-size: 0.9rem;
+}
+.no-recording-hint {
+  color: #9ca3af;
+  font-size: 0.9rem;
+  padding: 0 0.25rem;
+}
+
+/* Table container - matching AllSchools */
+.list-pane .table-container {
+  background-color: white;
+  padding: clamp(0.5rem, 1.5vw, 1rem);
+  border-radius: 8px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Students table - matching AllSchools */
+.list-pane .students-table {
   display: table !important;
   width: 100%;
   border-collapse: collapse;
   border-spacing: 0;
   border: 1px solid #ddd;
   font-size: clamp(0.8rem, 1.2vw, 1rem);
-  margin-bottom: 0.75rem;
 }
-.recents-table th,
-.recents-table td {
-  padding: clamp(0.5rem, 1.5vw, 1rem);
+.list-pane .students-table th,
+.list-pane .students-table td {
+  white-space: nowrap;
+  padding: 0.3rem 0.5rem;
+  line-height: 1.2;
   text-align: left;
   border-bottom: 1px solid #ddd;
   vertical-align: middle;
   border: 1px solid #ddd;
-  word-break: break-word;
 }
-.recents-table thead th {
+.list-pane .students-table thead th {
   background-color: #f1f1f1;
   font-weight: 600;
   border-bottom: 2px solid #ddd;
@@ -3872,39 +4071,80 @@ export default {
   top: 0;
   z-index: 10;
 }
-.recents-table .even-row {
+.list-pane .students-table .even-row {
   background-color: #f7f9fc;
 }
-.recents-table .actions-header {
+.list-pane .actions-header {
   text-align: center;
   padding: clamp(0.5rem, 1vw, 1rem);
 }
-.recents-table .actions {
+.list-pane .actions {
   display: flex;
   justify-content: flex-start;
   gap: clamp(0.3rem, 1vw, 1rem);
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
 }
-.link-btn {
-  border: none;
-  background: transparent;
-  color: #1a73e8;
-  cursor: pointer;
-  font-weight: 600;
-  font-size: clamp(0.75rem, 1.2vw, 0.9rem);
-  padding: clamp(0.3rem, 1vw, 0.5rem) clamp(0.6rem, 1.5vw, 0.9rem);
-  transition: all 0.3s ease;
-}
-.link-btn:hover {
+.list-pane .manage-btn {
   background-color: #e0e7ff;
-  border-radius: 4px;
   color: #4f46e5;
+  border: 1px solid #c7d2fe;
+  padding: clamp(0.3rem, 1vw, 0.5rem) clamp(0.6rem, 1.5vw, 0.9rem);
+  border-radius: 5px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: clamp(0.75rem, 1.2vw, 0.9rem);
+  transition: all 0.3s ease;
+  white-space: nowrap;
 }
+.list-pane .manage-btn:hover {
+  background-color: #d1d5db;
+  transform: translateY(-1px);
+}
+.list-pane .manage-btn .material-symbols-outlined {
+  font-size: clamp(0.9rem, 1.5vw, 1rem);
+}
+.list-pane .play-recording-btn {
+  background-color: #dcfce7;
+  color: #16a34a;
+  border: 1px solid #86efac;
+  padding: clamp(0.3rem, 1vw, 0.5rem) clamp(0.6rem, 1.5vw, 0.9rem);
+  border-radius: 5px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: clamp(0.75rem, 1.2vw, 0.9rem);
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+.list-pane .play-recording-btn:hover {
+  background-color: #bbf7d0;
+  transform: translateY(-1px);
+}
+.list-pane .play-recording-btn.active {
+  background-color: #fecaca;
+  color: #dc2626;
+  border-color: #fca5a5;
+}
+.list-pane .play-recording-btn.active:hover {
+  background-color: #fca5a5;
+}
+.list-pane .play-recording-btn .material-symbols-outlined {
+  font-size: clamp(0.9rem, 1.5vw, 1rem);
+}
+
 .empty-state {
   text-align: center;
   color: #6c7480;
-  padding: 1rem 0;
+  padding: 2rem 1rem;
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
 }
 .group-block + .group-block {
   margin-top: 0.75rem;
@@ -4121,26 +4361,18 @@ export default {
     width: 100%;
   }
   
-  /* Recents table responsive */
-  .recents-table th,
-  .recents-table td {
+  /* Recents/Contacts table responsive */
+  .list-pane .students-table th,
+  .list-pane .students-table td {
     padding: clamp(0.5rem, 1vw, 0.75rem);
     font-size: clamp(0.85rem, 1.1vw, 0.95rem);
   }
 }
 
 @media (max-width: 1024px) {
-  .recents-table th,
-  .recents-table td {
-    padding: clamp(0.6rem, 1vw, 0.9rem);
-  }
-}
-
-@media (max-width: 1400px) {
-  .recents-table th,
-  .recents-table td {
+  .list-pane .students-table th,
+  .list-pane .students-table td {
     padding: clamp(0.6rem, 1vw, 0.9rem);
   }
 }
 </style>
-

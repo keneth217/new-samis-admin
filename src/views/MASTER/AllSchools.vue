@@ -29,15 +29,9 @@
 
     <!-- Schools Table -->
     <div class="table-container">
-      <div class="students-controls">
-        <label for="schoolsPerPage">Schools per page:</label>
-        <select class="form-control" v-model="schoolsPerPage" @change="updateschoolsPerPage">
-          <option v-for="option in schoolsPerPageOptions" :key="option" :value="option">{{ option }}</option>
-        </select>
-      </div>
-
-      <!-- Desktop Table View -->
-      <table class="students-table desktop-table">
+      <!-- Desktop Table View - Scrollable -->
+      <div class="table-scroll-wrapper">
+        <table class="students-table desktop-table">
         <thead>
           <tr>
             <th>#</th>
@@ -52,11 +46,11 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-if="displayedSchools.length === 0">
+          <tr v-if="filteredSchools.length === 0">
             <td colspan="9">No schools found</td>
           </tr>
-          <tr v-for="(school, index) in displayedSchools" :key="school.schoolCode" :class="{ 'even-row': index % 2 !== 0 }">
-            <td>{{ (currentPage - 1) * schoolsPerPage + index + 1 }}</td>
+          <tr v-for="(school, index) in filteredSchools" :key="school.schoolCode" :class="{ 'even-row': index % 2 !== 0 }">
+            <td>{{ index + 1 }}</td>
             <td>{{ school.schoolName }}</td>
             <td>{{ school.schoolCode }}</td>
             <td>{{ school.principalPhoneNo }}</td>
@@ -68,25 +62,25 @@
             </td>
             <td class="actions">
               <button @click="viewSchool(school)" class="manage-btn" aria-label="View Profile">
-                <span class="material-symbols-outlined">person</span> Details
+                <span class="material-symbols-outlined">person</span>
               </button>
               <button @click="confirmDeleteSchool(school)" class="class-list-btn" aria-label="Delete School">
-                <span class="material-symbols-outlined">delete</span> Delete
+                <span class="material-symbols-outlined">delete</span>
               </button>
-              <!-- Add Module Button -->
               <button @click="openActivationModal(school)" class="activate-btn" aria-label="Add Module">
-                <span class="material-symbols-outlined">add</span> Add Module
+                <span class="material-symbols-outlined">add</span>
               </button>
             </td>
           </tr>
         </tbody>
       </table>
+      </div>
 
       <!-- Mobile Card View -->
-      <div class="mobile-cards" v-if="displayedSchools.length > 0">
-        <div v-for="(school, index) in displayedSchools" :key="school.schoolCode" class="school-card">
+      <div class="mobile-cards" v-if="filteredSchools.length > 0">
+        <div v-for="(school, index) in filteredSchools" :key="school.schoolCode" class="school-card">
           <div class="card-header">
-            <div class="card-number">{{ (currentPage - 1) * schoolsPerPage + index + 1 }}</div>
+            <div class="card-number">{{ index + 1 }}</div>
             <h3 class="card-title">{{ school.schoolName }}</h3>
           </div>
           
@@ -126,26 +120,20 @@
           
           <div class="card-footer">
             <button @click="viewSchool(school)" class="card-action-btn manage-btn" aria-label="View Profile">
-              <span class="material-symbols-outlined">person</span> Details
+              <span class="material-symbols-outlined">person</span>
             </button>
             <button @click="confirmDeleteSchool(school)" class="card-action-btn class-list-btn" aria-label="Delete School">
-              <span class="material-symbols-outlined">delete</span> Delete
+              <span class="material-symbols-outlined">delete</span>
             </button>
             <button @click="openActivationModal(school)" class="card-action-btn activate-btn" aria-label="Add Module">
-              <span class="material-symbols-outlined">add</span> Add Module
+              <span class="material-symbols-outlined">add</span>
             </button>
           </div>
         </div>
       </div>
 
-      <div v-if="displayedSchools.length === 0" class="no-data-message">
+      <div v-if="filteredSchools.length === 0" class="no-data-message">
         No schools found
-      </div>
-      <!-- Pagination -->
-      <div class="pagination">
-        <button @click="prevPage" :disabled="currentPage === 1">Previous</button>
-        <span>{{ currentPage }} / {{ totalPages }}</span>
-        <button @click="nextPage" :disabled="currentPage === totalPages">Next</button>
       </div>
     </div>
 
@@ -361,9 +349,6 @@ export default {
       schools: [],
       modules: [], // Empty initially, will be populated from the API
       Loading: false,
-      currentPage: 1,
-      schoolsPerPage: 15,
-      schoolsPerPageOptions: [5, 15, 30, 50, 75, 100],
       showActivationModal: false,
       showDeleteConfirm: false,
       schoolToDelete: null,
@@ -382,14 +367,6 @@ export default {
     };
   },
   computed: {
-    totalPages() {
-      return Math.ceil(this.filteredSchools.length / this.schoolsPerPage);
-    },
-    displayedSchools() {
-      const startIndex = (this.currentPage - 1) * this.schoolsPerPage;
-      const endIndex = Math.min(startIndex + this.schoolsPerPage, this.filteredSchools.length);
-      return this.filteredSchools.slice(startIndex, endIndex);
-    },
     filteredSchools() {
       if (!this.searchQuery.trim()) return this.schools;
       return this.schools.filter(school => {
@@ -501,19 +478,6 @@ export default {
     closeForm() {
       this.show = false;
       this.selectedSchool = null;
-    },
-    nextPage() {
-      if (this.currentPage < this.totalPages) {
-        this.currentPage++;
-      }
-    },
-    prevPage() {
-      if (this.currentPage > 1) {
-        this.currentPage--;
-      }
-    },
-    updateschoolsPerPage() {
-      this.currentPage = 1;
     },
     async fetchUsers() {
       try {
@@ -1687,6 +1651,15 @@ export default {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
+
+  .table-scroll-wrapper {
+    max-height: calc(100vh - 14rem);
+    overflow-y: auto;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+  }
   
   .students-table {
     display: table !important;
@@ -1824,14 +1797,13 @@ export default {
   }
 .students-table th,
 .students-table td {
-  white-space: nowrap;                /* forces content to stay on one line */
-  padding: clamp(0.4rem, 1.2vw, 0.7rem); /* reduced from 0.5rem/1.5vw/1rem */
-  line-height: 1.2;                   /* reduced from 1.4 */
+  white-space: nowrap;
+  padding: 0.3rem 0.5rem;
+  line-height: 1.2;
   text-align: left;
   border-bottom: 1px solid #ddd;
   vertical-align: middle;
   border: 1px solid #ddd;
-  /* word-break: break-word; — no longer needed, removed */
 }
 
   .students-table tbody tr {
@@ -1981,13 +1953,6 @@ export default {
       
   
   /* Responsive Breakpoints */
-  @media only screen and (max-width: 1400px) {
-    .students-table th,
-    .students-table td {
-      padding: clamp(0.5rem, 1vw, 0.7rem);
-    }
-  }
-
   @media only screen and (max-width: 1024px) {
     .the-page {
       margin-top: clamp(3rem, 8vw, 4.5rem);
@@ -1995,7 +1960,7 @@ export default {
 
     .students-table th,
     .students-table td {
-      padding: clamp(0.5rem, 1vw, 0.7rem);
+      padding: 0.3rem 0.45rem;
       font-size: clamp(0.85rem, 1.1vw, 0.95rem);
     }
 

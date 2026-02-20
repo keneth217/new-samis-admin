@@ -20,14 +20,8 @@
 
     <!-- Students Table (Desktop) -->
     <div class="table-container">
-      <div class="students-controls">
-        <label for="schoolsPerPage">Schools per page:</label>
-        <select class="form-control" v-model="schoolsPerPage" @change="updateschoolsPerPage">
-          <option v-for="option in schoolsPerPageOptions" :key="option" :value="option">{{ option }}</option>
-        </select>
-      </div>
-
-      <!-- Desktop Table View -->
+      <!-- Desktop Table View - Scrollable -->
+      <div class="table-scroll-wrapper">
       <table class="students-table desktop-table">
         <thead>
           <tr>
@@ -37,8 +31,6 @@
             <th>Module Name</th>
             <th>Installation Date</th>
             <th>Expiry Date</th>
-            <th>Registered By</th>
-            <th>Handled By</th>
             <th>Selling Price</th>
             <th>Maintenance Fee</th>
             <th class="actions-header">Actions</th>
@@ -46,35 +38,34 @@
         </thead>
         <tbody>
           <tr v-if="filteredSchools.length === 0">
-            <td colspan="11">No schools found</td>
+            <td colspan="9">No schools found</td>
           </tr>
-          <tr v-for="(school, index) in paginatedSchools" 
+          <tr v-for="(school, index) in filteredSchools" 
               :key="`${school.schoolCode}-${school.moduleName}-${school.activationID}-${index}`" 
               :class="{ 'even-row': index % 2 !== 0 }">
-            <td>{{ (currentPage - 1) * schoolsPerPage + index + 1 }}</td>
+            <td>{{ index + 1 }}</td>
             <td>{{ school.schoolName }}</td>
             <td>{{ school.schoolCode }}</td>
             <td>{{ school.moduleName }}</td>
             <td>{{ school.installationDate }}</td>
             <td>{{ school.expiryDate }}</td>
-            <td>{{ school.registeredByName }}</td>
-            <td>{{ school.handledByName || 'N/A' }}</td>
             <td>{{ school.sellingPrice }}</td>
             <td>{{ school.maintenanceFee }}</td>
             <td class="actions">
               <button @click="viewSchool(school)" class="manage-btn" aria-label="View Profile">
-                <span class="material-symbols-outlined">person</span> Details
+                <span class="material-symbols-outlined">person</span>
               </button>
             </td>
           </tr>
         </tbody>
       </table>
+      </div>
 
       <!-- Mobile Card View -->
-      <div class="mobile-cards" v-if="paginatedSchools.length > 0">
-        <div v-for="(school, index) in paginatedSchools" :key="school.activationID" class="school-card">
+      <div class="mobile-cards" v-if="filteredSchools.length > 0">
+        <div v-for="(school, index) in filteredSchools" :key="school.activationID" class="school-card">
           <div class="card-header">
-            <div class="card-number">{{ (currentPage - 1) * schoolsPerPage + index + 1 }}</div>
+            <div class="card-number">{{ index + 1 }}</div>
             <h3 class="card-title">{{ school.schoolName }}</h3>
           </div>
           
@@ -100,16 +91,6 @@
             </div>
             
             <div class="card-row">
-              <span class="card-label">Registered By:</span>
-              <span class="card-value">{{ school.registeredByName }}</span>
-            </div>
-            
-            <div class="card-row">
-              <span class="card-label">Handled By:</span>
-              <span class="card-value">{{ school.handledByName || 'N/A' }}</span>
-            </div>
-            
-            <div class="card-row">
               <span class="card-label">Selling Price:</span>
               <span class="card-value">{{ school.sellingPrice }}</span>
             </div>
@@ -122,7 +103,7 @@
           
           <div class="card-footer">
             <button @click="viewSchool(school)" class="card-action-btn" aria-label="View Profile">
-              <span class="material-symbols-outlined">person</span> View Details
+              <span class="material-symbols-outlined">person</span>
             </button>
           </div>
         </div>
@@ -130,12 +111,6 @@
 
       <div v-if="filteredSchools.length === 0" class="no-data-message">
         No schools found
-      </div>
-
-      <div class="pagination">
-        <button @click="prevPage" :disabled="currentPage === 1">Previous</button>
-        <span>{{ currentPage }} / {{ totalPages }}</span>
-        <button @click="nextPage" :disabled="currentPage === totalPages">Next</button>
       </div>
     </div>
 
@@ -298,11 +273,6 @@ export default {
       searchQuery: '',
       schools: [],
       Loading: false,
-
-      currentPage: 1,
-      schoolsPerPage: 15,
-      schoolsPerPageOptions: [5, 15, 30, 50, 75, 100],
-
       showActivationModal: false,
       modules: [], // Store modules list
       users: [], // Store users list for marketer and handledBy
@@ -317,18 +287,7 @@ export default {
       },
     };
   },
-  watch: {
-    // Reset pagination when the search changes so results start from page 1
-    searchQuery() {
-      this.currentPage = 1;
-    },
-  },
   computed: {
-    // Calculate the total number of pages
-    totalPages() {
-      return Math.ceil(this.filteredSchools.length / this.schoolsPerPage);
-    },
-
     // Filter individual activations - each module activation is a separate row
     filteredSchools() {
       const query = this.searchQuery.trim().toLowerCase();
@@ -374,13 +333,6 @@ export default {
       }
       
       return filtered;
-    },
-
-    // Paginate the filtered schools list
-    paginatedSchools() {
-      const start = (this.currentPage - 1) * this.schoolsPerPage;
-      const end = start + this.schoolsPerPage;
-      return this.filteredSchools.slice(start, end);
     }
   },
 
@@ -563,20 +515,6 @@ export default {
       this.show = false;
       this.selectedSchool = null;
     },
-    nextPage() {
-      if (this.currentPage < this.totalPages) {
-        this.currentPage++;
-      }
-    },
-    prevPage() {
-      if (this.currentPage > 1) {
-        this.currentPage--;
-      }
-    },
-    updateschoolsPerPage() {
-      this.currentPage = 1;
-    },
-    
     async fetchSchools() {
   this.Loading = true;
   const toast = useToast();
@@ -1130,6 +1068,15 @@ export default {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
+
+  .table-scroll-wrapper {
+    max-height: calc(100vh - 14rem);
+    overflow-y: auto;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+  }
   
   .students-table {
     display: table !important;
@@ -1268,14 +1215,12 @@ export default {
   
   .students-table th,
   .students-table td {
-    padding: clamp(0.5rem, 1.5vw, 1rem);
+    white-space: nowrap;
+    padding: 0.3rem 0.5rem;
+    line-height: 1.2;
     text-align: left;
     border: 1px solid #ddd;
     vertical-align: middle;
-    word-break: break-word;
-    line-height: 1.4;
-    height: auto;
-    min-height: 50px;
   }
   
   /* Prevent row numbers from wrapping vertically */
@@ -1300,8 +1245,6 @@ export default {
     position: sticky;
     top: 0;
     z-index: 10;
-    height: auto;
-    min-height: 50px;
   }
   
   .even-row {
@@ -1434,26 +1377,6 @@ export default {
 
 
   /* Responsive Breakpoints */
-  @media only screen and (max-width: 1400px) {
-    .students-table th,
-    .students-table td {
-      padding: clamp(0.6rem, 1vw, 0.9rem);
-      min-height: 50px;
-    }
-    
-    .students-table tbody tr {
-      min-height: 50px;
-    }
-    
-    /* Keep row numbers horizontal */
-    .students-table tbody td:first-child,
-    .students-table thead th:first-child {
-      white-space: nowrap;
-      min-width: 50px;
-      width: 50px;
-    }
-  }
-
   @media only screen and (max-width: 1024px) {
     .the-page {
       margin-top: clamp(3rem, 8vw, 4.5rem);
@@ -1461,13 +1384,8 @@ export default {
 
     .students-table th,
     .students-table td {
-      padding: clamp(0.5rem, 1vw, 0.75rem);
+      padding: 0.3rem 0.45rem;
       font-size: clamp(0.85rem, 1.1vw, 0.95rem);
-      min-height: 50px;
-    }
-    
-    .students-table tbody tr {
-      min-height: 50px;
     }
     
     /* Keep row numbers horizontal */

@@ -14,7 +14,7 @@
       <div class="header-container">
         <div class="header-object1">
           <button @click="openForm" class="action-btn" aria-label="Add User">
-            <span class="material-symbols-outlined">add_circle</span> Add User
+            <span class="material-symbols-outlined">add_circle</span>
           </button>
   
           <!-- <button @click="openImport" class="action-btn" aria-label="Add School">
@@ -29,15 +29,8 @@
   
       <!-- Students Table -->
       <div class="table-container">
-        <div class="students-controls">
-          <label for="UsersPerPage">users per page:</label>
-          <select class="form-control" v-model="usersPerPage" @change="updateusersPerPage">
-            <option v-for="option in usersPerPageOptions" :key="option" :value="option">{{ option }}</option>
-          </select>
-        </div>
-  
-        
-        <!-- Desktop Table View -->
+        <!-- Desktop Table View - Scrollable -->
+        <Scrollable>
         <table class="students-table desktop-table">
           <thead>
             <tr>
@@ -52,15 +45,15 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-if="displayedUsers.length === 0">
+            <tr v-if="filteredUsers.length === 0">
               <td colspan="8">No User found</td>
             </tr>
             <tr
-            v-for="(user, index) in displayedUsers"
+            v-for="(user, index) in filteredUsers"
               :key="user.username"
               :class="{ 'even-row': index % 2 !== 0 }"
             >
-            <td>{{ (currentPage - 1) * usersPerPage + index + 1 }}</td>
+            <td>{{ index + 1 }}</td>
               <td>{{ user.fullname }}</td>
               <td>{{ user.username }}</td>
               <td>{{ user.email }}</td>
@@ -71,21 +64,22 @@
               </td>
               <td class="actions">
                 <button @click="viewUser(user)" class="manage-btn" aria-label="View Profile">
-                  <span class="material-symbols-outlined">person</span> Details
+                  <span class="material-symbols-outlined">person</span>
                 </button>
                 <button @click="viewUser(user)" class="class-list-btn" aria-label="Edit User">
-                  <span class="material-symbols-outlined">edit</span> Edit
+                  <span class="material-symbols-outlined">edit</span>
                 </button>
               </td>
             </tr>
           </tbody>
         </table>
+        </Scrollable>
 
         <!-- Mobile Card View -->
-        <div class="mobile-cards" v-if="displayedUsers.length > 0">
-          <div v-for="(user, index) in displayedUsers" :key="user.username" class="user-card">
+        <div class="mobile-cards" v-if="filteredUsers.length > 0">
+          <div v-for="(user, index) in filteredUsers" :key="user.username" class="user-card">
             <div class="card-header">
-              <div class="card-number">{{ (currentPage - 1) * usersPerPage + index + 1 }}</div>
+              <div class="card-number">{{ index + 1 }}</div>
               <h3 class="card-title">{{ user.fullname }}</h3>
             </div>
             
@@ -120,22 +114,17 @@
             
             <div class="card-footer">
               <button @click="viewUser(user)" class="card-action-btn" aria-label="View Profile">
-                <span class="material-symbols-outlined">person</span> Details
+                <span class="material-symbols-outlined">person</span>
               </button>
               <button @click="viewUser(user)" class="card-action-btn edit-btn" aria-label="Edit User">
-                <span class="material-symbols-outlined">edit</span> Edit
+                <span class="material-symbols-outlined">edit</span>
               </button>
             </div>
           </div>
         </div>
 
-        <div v-if="displayedUsers.length === 0" class="no-data-message">
+        <div v-if="filteredUsers.length === 0" class="no-data-message">
           No User found
-        </div>
-        <div class="pagination">
-          <button @click="prevPage" :disabled="currentPage === 1">Previous</button>
-          <span>{{ currentPage }} / {{ totalPages }}</span>
-          <button @click="nextPage" :disabled="currentPage === totalPages">Next</button>
         </div>
       </div>
   
@@ -155,6 +144,7 @@
 
 <script>
 import footerCast from '../../components/footer.vue';
+import Scrollable from '../../components/Scrollable.vue';
 import axios from '../../axios';
 import { useToast } from 'vue-toastification';
 import LoadingSpinner from '../../components/LoadingSpinner.vue';
@@ -165,6 +155,7 @@ export default {
     footerCast,
     NewUser,
     LoadingSpinner,
+    Scrollable,
   },
   setup() {
     const toast = useToast();
@@ -214,22 +205,6 @@ export default {
     closeForm() {
       this.show = false;  // Close the form
       this.selectedUser = null;  // Reset the selected user when the form closes
-    },
-
-    nextPage() {
-      if (this.currentPage < this.totalPages) {
-        this.currentPage++;
-      }
-    },
-
-    prevPage() {
-      if (this.currentPage > 1) {
-        this.currentPage--;
-      }
-    },
-
-    updateusersPerPage() {
-      this.currentPage = 1;
     },
 
     async fetchUsers() {
@@ -531,37 +506,9 @@ export default {
   font-size: clamp(0.9rem, 1.3vw, 1.1rem);
 }
 
-.students-controls {
-  margin-bottom: clamp(0.3rem, 1vw, 0.5rem);
-  display: flex;
-  gap: clamp(0.3rem, 1vw, 0.5rem);
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.students-controls label {
-  color: #2b7ab7;
-  font-size: clamp(0.9rem, 1.5vw, 1.1rem);
-  white-space: nowrap;
-}
-
-.form-control {
-  border: 1px solid #2b7ab7;
-  outline: none;
-  padding: clamp(0.25rem, 0.8vw, 0.4rem);
-  border-radius: 4px;
-  font-size: clamp(0.9rem, 1.3vw, 1rem);
-  min-width: 100px;
-}
-
-.form-control:focus {
-  border-color: #1e6192;
-  box-shadow: 0 0 0 2px rgba(43, 122, 183, 0.2);
-}
-
 .students-table th,
 .students-table td {
-  padding: clamp(0.5rem, 1.5vw, 1rem);
+  padding: 0.3rem 0.5rem;
   text-align: left;
   border-bottom: 1px solid #ddd;
   vertical-align: middle;
@@ -635,47 +582,6 @@ export default {
 
 .actions .material-symbols-outlined {
   font-size: clamp(0.9rem, 1.5vw, 1rem);
-}
-
-/* Pagination styles */
-.pagination {
-  margin-top: clamp(0.5rem, 1.5vw, 1rem);
-  text-align: center;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.pagination button {
-  margin: 0;
-  padding: clamp(0.3rem, 1vw, 0.5rem) clamp(0.6rem, 1.5vw, 1rem);
-  cursor: pointer;
-  border: 2px solid #2b7ab7;
-  color: #2b7ab7;
-  border-radius: 5px;
-  background: white;
-  font-size: clamp(0.8rem, 1.2vw, 1rem);
-  transition: all 0.3s ease;
-  min-width: 80px;
-}
-
-.pagination button:hover:not(:disabled) {
-  background-color: #2b7ab7;
-  color: white;
-  transform: translateY(-1px);
-}
-
-.pagination button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.pagination span {
-  font-weight: bold;
-  font-size: clamp(0.9rem, 1.3vw, 1.1rem);
-  padding: 0 0.5rem;
 }
 
 /* Responsive Breakpoints */
@@ -806,30 +712,6 @@ export default {
   .card-footer {
     padding: clamp(0.75rem, 2vw, 1rem);
   }
-
-  .pagination {
-    flex-direction: column;
-    gap: 0.5rem;
-    margin-top: 1rem;
-  }
-
-  .pagination button {
-    width: 100%;
-    max-width: 150px;
-  }
-
-  .students-controls {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .students-controls label {
-    width: 100%;
-  }
-
-  .form-control {
-    width: 100%;
-  }
 }
 
 @media only screen and (max-width: 480px) {
@@ -944,11 +826,6 @@ export default {
   .action-btn {
     padding: clamp(0.4rem, 1.2vw, 0.5rem) clamp(0.6rem, 1.5vw, 0.8rem);
     font-size: clamp(0.8rem, 1.1vw, 0.9rem);
-  }
-
-  .pagination button {
-    padding: clamp(0.3rem, 1vw, 0.4rem) clamp(0.5rem, 1.2vw, 0.7rem);
-    font-size: clamp(0.75rem, 1vw, 0.85rem);
   }
 
   .actions-header {
