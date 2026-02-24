@@ -166,46 +166,113 @@
           </div>
         </div>
         <div class="print-receipt-content" id="receiptToPrint">
-          <div class="receipt-main-header">RECEIPT</div>
-          <div class="receipt-section-title">RECEIPT DETAILS</div>
-          <div class="receipt-body">
-            <div class="receipt-row">
-              <span class="receipt-label">Receipt #:</span>
-              <span class="receipt-value">{{ receiptToPrint?.receiptNo || 'N/A' }}</span>
+          <!-- Watermark: SAMIS + The Assurance Of Excellence (behind main content, faint light blue) -->
+          <div class="receipt-watermark">
+            <div class="receipt-watermark-content">
+              <div class="receipt-watermark-brand">
+                <img v-if="!logoLoadFailed" :src="samisLogoUrl" alt="" class="receipt-watermark-img" @error="onLogoError" />
+                <template v-else>
+                  <span class="receipt-watermark-s">S</span><span class="receipt-watermark-amis">AMIS</span>
+                </template>
+              </div>
+              <div class="receipt-watermark-tagline">The Assurance Of Excellence</div>
             </div>
-            <div class="receipt-row">
-              <span class="receipt-label">Receipt Date:</span>
-              <span class="receipt-value">{{ receiptToPrint?.receiptDate || 'N/A' }}</span>
+          </div>
+          <!-- SAMIS Header: image replaces designed header when loaded -->
+          <div class="receipt-header-wrapper">
+            <template v-if="!headerImageLoadFailed">
+              <img :src="headerImageUrl" alt="SAMIS Header" class="receipt-header-image" @error="onHeaderImageError" />
+            </template>
+            <template v-else>
+              <div class="receipt-flag-band-wavy"></div>
+              <div class="receipt-letterhead">
+                <div class="receipt-logo-left">
+                  <img v-if="!logoLoadFailed" :src="samisLogoUrl" alt="SAMIS Systems" class="receipt-logo-img" @error="onLogoError" />
+                  <div v-else class="receipt-logo-placeholder">S</div>
+                </div>
+                <div class="receipt-company-info">
+                  <div class="receipt-company-name">SAMIS SYSTEMS LIMITED</div>
+                  <div class="receipt-company-address">Po Box 3380-00500</div>
+                  <div class="receipt-company-address">NAIROBI</div>
+                  <div class="receipt-company-tel">Tel: 0711 082 779</div>
+                  <div class="receipt-company-contact">
+                    <span>Email: samissystems@gmail.com</span>
+                    <span class="receipt-contact-sep">|</span>
+                    <span>Website: www.samis.co.ke</span>
+                  </div>
+                </div>
+              </div>
+              <div class="receipt-letterhead-border"></div>
+            </template>
+          </div>
+
+          <!-- Main RECEIPT section -->
+          <div class="receipt-main-block">
+            <h1 class="receipt-main-title">RECEIPT</h1>
+            <div class="receipt-top-grid">
+              <div class="receipt-details-box">
+                <div class="receipt-details-header">RECEIPT DETAILS</div>
+                <div class="receipt-detail-row">
+                  <span class="receipt-label">Receipt #:</span>
+                  <span class="receipt-value">{{ receiptToPrint?.receiptNo || 'N/A' }}</span>
+                </div>
+                <div class="receipt-detail-row">
+                  <span class="receipt-label">Receipt Date:</span>
+                  <span class="receipt-value">{{ receiptToPrint?.receiptDate || 'N/A' }}</span>
+                </div>
+                <div class="receipt-detail-row">
+                  <span class="receipt-label">Payment Method:</span>
+                  <span class="receipt-value">{{ (receiptToPrint?.paymentMode || 'N/A') }}{{ receiptToPrint?.paymentModeNo ? ' - ' + receiptToPrint.paymentModeNo : ' -' }}</span>
+                </div>
+              </div>
+              <div class="receipt-amount-box">
+                <div class="receipt-amount-label">Payment Amount:</div>
+                <div class="receipt-amount-value">{{ formatNumber(receiptToPrint?.amount || 0) }}</div>
+              </div>
             </div>
-            <div class="receipt-row">
-              <span class="receipt-label">Payment Method:</span>
-              <span class="receipt-value">{{ (receiptToPrint?.paymentMode || 'N/A') }} {{ receiptToPrint?.paymentModeNo ? '- ' + receiptToPrint.paymentModeNo : '-' }}</span>
+          </div>
+
+          <div class="receipt-blue-stripe"></div>
+
+          <!-- Payment description section -->
+          <div class="receipt-payment-desc">
+            <div class="receipt-desc-row">
+              <span class="receipt-desc-label">Received with thanks from:</span>
+              <span class="receipt-desc-value underlined">{{ receiptToPrint?.schoolName || receiptToPrint?.schoolCode || 'N/A' }}</span>
             </div>
-            <div class="receipt-row">
-              <span class="receipt-label">Payment Amount:</span>
-              <span class="receipt-value receipt-amount">{{ formatNumber(receiptToPrint?.amount || 0) }}</span>
+            <div class="receipt-desc-row">
+              <span class="receipt-desc-label">Amount In Words:</span>
+              <span class="receipt-desc-value underlined">{{ numberToWords(receiptToPrint?.amount || 0) }}</span>
             </div>
-            <div class="receipt-row">
-              <span class="receipt-label">Received with thanks from:</span>
-              <span class="receipt-value">{{ receiptToPrint?.schoolName || receiptToPrint?.schoolCode || 'N/A' }}</span>
-            </div>
-            <div class="receipt-row">
-              <span class="receipt-label">Amount In Words:</span>
-              <span class="receipt-value">{{ numberToWords(receiptToPrint?.amount || 0) }}</span>
-            </div>
-            <div class="receipt-row">
-              <span class="receipt-label">Payment For:</span>
-              <span class="receipt-value">{{ (receiptToPrint?.paymentFor && receiptToPrint.paymentFor !== 'null') ? receiptToPrint.paymentFor : '-' }}</span>
+            <div class="receipt-desc-row">
+              <span class="receipt-desc-label">Payment For:</span>
+              <span class="receipt-desc-value underlined">{{ (receiptToPrint?.paymentFor && receiptToPrint.paymentFor !== 'null') ? receiptToPrint.paymentFor : '- null' }}</span>
             </div>
             <div v-if="receiptToPrint?.deleted && receiptToPrint?.deleteReason" class="receipt-reversal-note">
               <span class="receipt-label">Reversal Reason:</span>
               <span class="receipt-value">{{ receiptToPrint.deleteReason }}</span>
             </div>
           </div>
+
+          <!-- Footer -->
           <div class="receipt-footer">
-            <div class="receipt-footer-date">{{ formatReceiptFooterDate(receiptToPrint?.receiptDate) }}</div>
-            <div class="receipt-footer-text">Thank you for your Business</div>
-            <div class="receipt-tagline">The Lord is my Shepherd.</div>
+            <div class="receipt-footer-left">
+              <div class="receipt-footer-text">Thank you for your Business</div>
+              <div class="receipt-tagline">The Lord is my Shepherd.</div>
+            </div>
+            <div class="receipt-stamp">
+              <div class="receipt-stamp-inner">
+                <img v-if="!stampImageLoadFailed" :src="stampImageUrl" alt="Stamp" class="receipt-stamp-img" @error="onStampImageError" />
+                <template v-else>
+                  <div class="receipt-stamp-ring">
+                    <span class="receipt-stamp-text">SAMIS SYSTEMS LIMITED</span>
+                    <span class="receipt-stamp-sep">✦</span>
+                    <span class="receipt-stamp-address">P. O. Box 3380-00500. NAIROBI</span>
+                  </div>
+                  <div class="receipt-stamp-date">{{ formatReceiptFooterDate(receiptToPrint?.receiptDate) }}</div>
+                </template>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -275,6 +342,10 @@ import axios from '../../axios';
 import { useToast } from 'vue-toastification';
 import LoadingSpinner from '../../components/LoadingSpinner.vue';
 
+const samisLogoUrl = new URL('../../assets/fb2e3603-c4b0-42da-a75f-1d8888c7b536.jfif', import.meta.url).href;
+const headerImageUrl = new URL('../../assets/WhatsApp Image 2026-02-20 at 14.49.32 (1).jpeg', import.meta.url).href;
+const stampImageUrl = new URL('../../assets/WhatsApp Image 2026-02-20 at 14.49.32.jpeg', import.meta.url).href;
+
 export default {
   name: 'Receipts',
   components: {
@@ -296,6 +367,12 @@ export default {
       deleteReason: '',
       showPrintView: false,
       receiptToPrint: null,
+      samisLogoUrl,
+      headerImageUrl,
+      stampImageUrl,
+      logoLoadFailed: false,
+      headerImageLoadFailed: false,
+      stampImageLoadFailed: false,
     };
   },
   computed: {
@@ -337,6 +414,12 @@ export default {
         return 'N/A';
       };
       return toWords(n).trim() + ' SHILLINGS ONLY';
+    },
+    onLogoError() {
+      this.logoLoadFailed = true;
+    },
+    onHeaderImageError() {
+      this.headerImageLoadFailed = true;
     },
     formatReceiptFooterDate(dateStr) {
       const format = (d) => {
@@ -449,6 +532,9 @@ export default {
     },
     printReceipt(receipt) {
       this.receiptToPrint = receipt;
+      this.logoLoadFailed = false;
+      this.headerImageLoadFailed = false;
+      this.stampImageLoadFailed = false;
       this.showPrintView = true;
     },
     closePrintView() {
@@ -466,91 +552,78 @@ export default {
         <head>
           <title>Receipt ${this.receiptToPrint?.receiptNo || ''}</title>
           <style>
+            .print-scaler { width: 100%; }
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body {
-              font-family: 'Times New Roman', Georgia, serif;
-              padding: 40px;
+              font-family: 'Times New Roman', Times, serif;
+              padding: 20px;
               background: #fff;
               color: #000;
-              font-size: 14px;
+              font-size: 10pt;
             }
-            .receipt-main-header {
-              text-align: center;
-              font-size: 28px;
-              font-weight: bold;
-              letter-spacing: 2px;
-              margin-bottom: 24px;
-              text-transform: uppercase;
-            }
-            .receipt-section-title {
-              font-size: 16px;
-              font-weight: bold;
-              margin-bottom: 16px;
-              text-transform: uppercase;
-            }
-            .receipt-body {
-              margin: 20px 0 30px 0;
-            }
-            .receipt-row {
-              display: flex;
-              padding: 8px 0;
-              border-bottom: 1px solid #ddd;
-              gap: 12px;
-            }
-            .receipt-label {
-              font-weight: 600;
-              min-width: 200px;
-              flex-shrink: 0;
-              color: #333;
-            }
-            .receipt-value {
-              flex: 1;
-              color: #000;
-              word-break: break-word;
-            }
-            .receipt-value.receipt-amount {
-              font-weight: bold;
-              font-size: 15px;
-            }
-            .receipt-reversal-note {
-              margin-top: 12px;
-              padding: 12px;
-              background: #ffecec;
-              border-left: 4px solid #b91c1c;
-              display: flex;
-              gap: 12px;
-            }
-            .receipt-reversal-note .receipt-label { color: #b91c1c; }
-            .receipt-footer {
-              margin-top: 36px;
-              padding-top: 20px;
-              border-top: 2px solid #000;
-              text-align: center;
-            }
-            .receipt-footer-date {
-              font-size: 14px;
-              font-weight: 600;
-              margin-bottom: 16px;
-              text-transform: uppercase;
-            }
-            .receipt-footer-text {
-              font-size: 15px;
-              font-weight: 600;
-              margin-bottom: 8px;
-            }
-            .receipt-tagline {
-              font-size: 13px;
-              font-style: italic;
-              color: #444;
-            }
+            .print-receipt-content { position: relative; overflow: visible; font-size: 10pt; font-family: 'Times New Roman', Times, serif; background: rgba(255,255,255,0.55); }
+            .receipt-header-wrapper { position: relative; margin-bottom: 12px; border: 1px solid #000; border-bottom: none; padding: 0 16px 0 16px; overflow: hidden; }
+            .receipt-header-image { width: 100%; height: auto; max-height: 150px; object-fit: contain; object-position: top center; display: block; }
+            .receipt-flag-band-wavy { position: absolute; top: 0; left: 0; width: 150px; height: 28px; z-index: 1; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 150 28'%3E%3Cdefs%3E%3Cpath id='w' d='M0 14 Q 25 0 50 14 T 100 14 T 150 14'/%3E%3C/defs%3E%3Cuse href='%23w' fill='none' stroke='%23006600' stroke-width='10' transform='translate(0,2)'/%3E%3Cuse href='%23w' fill='none' stroke='%23000' stroke-width='10' transform='translate(0,9)'/%3E%3Cuse href='%23w' fill='none' stroke='%23bb0000' stroke-width='10' transform='translate(0,16)'/%3E%3C/svg%3E") no-repeat; background-size: 100% 100%; }
+            .receipt-letterhead { display: flex; align-items: center; justify-content: space-between; padding: 8px 0 12px 0; position: relative; z-index: 2; }
+            .receipt-logo-left, .receipt-logo-right { flex-shrink: 0; }
+            .receipt-logo-img { width: 52px; height: 52px; border-radius: 50%; object-fit: contain; }
+            .receipt-company-info { text-align: center; flex: 1; padding: 0 12px; display: flex; flex-direction: column; gap: 2px; }
+            .receipt-company-name { font-family: 'Times New Roman',Times,serif; font-size: 18pt; font-weight: bold; margin: 0; line-height: 1.2; color: #000; }
+            .receipt-company-address { font-family: 'Times New Roman',Times,serif; font-size: 18pt; font-weight: bold; margin: 0; line-height: 1.2; }
+            .receipt-company-tel { font-family: 'Times New Roman',Times,serif; font-size: 18pt; font-weight: bold; margin: 0; line-height: 1.2; }
+            .receipt-company-contact { font-family: 'Times New Roman',Times,serif; font-size: 18pt; font-weight: bold; font-style: italic; color: #000; margin: 0; line-height: 1.2; }
+            .receipt-letterhead-border { height: 8px; background: #000; margin: 0 -16px 0 -16px; }
+            .receipt-main-title { font-size: 20pt; font-weight: bold; text-align: center; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+            .receipt-top-grid { display: flex; gap: 16px; align-items: flex-start; margin-bottom: 8px; }
+            .receipt-details-box { flex: 0 1 48%; max-width: 48%; border: 1px solid #000; }
+            .receipt-details-header { background: #4a90d9; color: #fff; padding: 4px 10px; font-weight: bold; font-size: 10pt; }
+            .receipt-detail-row { display: flex; padding: 4px 10px; border-top: 1px solid #ddd; font-size: 10pt; }
+            .receipt-detail-row .receipt-label { min-width: 110px; font-weight: bold; }
+            .receipt-detail-row .receipt-value { font-weight: normal; flex: 1; word-break: break-word; }
+            .receipt-amount-box { flex: 0 0 260px; min-width: 260px; }
+            .receipt-amount-label { font-size: 10pt; font-weight: bold; margin-bottom: 2px; }
+            .receipt-amount-value { font-size: 14pt; font-weight: bold; border: 1px solid #000; padding: 8px; text-align: center; }
+            .receipt-blue-stripe { height: 4px; background: #2563eb; margin: 8px 0 10px; }
+            .receipt-desc-row { display: flex; padding: 4px 0; gap: 10px; font-size: 10pt; }
+            .receipt-desc-label { flex-shrink: 0; font-weight: bold; }
+            .receipt-desc-value.underlined { border-bottom: 1px solid #000; flex: 1; font-weight: bold; }
+            .receipt-reversal-note { margin-top: 8px; padding: 8px; background: #ffecec; border-left: 4px solid #b91c1c; display: flex; gap: 10px; font-size: 10pt; }
+            .receipt-reversal-note .receipt-label { color: #b91c1c; min-width: 120px; font-weight: bold; }
+            .receipt-footer { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 16px; padding-top: 10px; border-top: 2px solid #000; }
+            .receipt-footer-text { font-size: 11pt; font-weight: bold; margin-bottom: 2px; }
+            .receipt-tagline { font-size: 10pt; font-style: italic; color: #333; }
+            .receipt-stamp { text-align: center; }
+            .receipt-stamp-inner { width: 130px; height: 130px; border: 2px solid #1a5fb4; border-radius: 50%; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; margin: 0 auto 2px; padding: 8px; background: linear-gradient(135deg,#2563eb,#1d4ed8); box-sizing: border-box; }
+            .receipt-stamp-inner.receipt-stamp-has-img { background: transparent; border-color: #1a5fb4; }
+            .receipt-stamp-ring { display: flex; flex-direction: column; align-items: center; font-size: 8pt; line-height: 1.15; text-align: center; text-transform: uppercase; color: #fff; font-weight: bold; }
+            .receipt-stamp-sep { font-size: 6pt; margin: 2px 0; color: #fff; }
+            .receipt-stamp-date { font-size: 12pt; font-weight: bold; color: #dc2626; text-transform: uppercase; text-align: center; line-height: 1.2; margin-top: 4px; }
+            .receipt-stamp-text { font-size: 8pt; font-weight: bold; color: #fff; }
+            .receipt-stamp-address { font-size: 7pt; color: #fff; }
+            .receipt-stamp-img { width: 100%; height: 100%; object-fit: contain; display: block; }
+            .receipt-watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%) rotate(-8deg); width: 80%; height: 60%; min-width: 320px; min-height: 240px; max-width: 480px; max-height: 360px; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 0; }
+            .receipt-watermark-content { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; width: 100%; height: 100%; }
+            .receipt-watermark-brand { display: flex; align-items: center; justify-content: center; gap: 0; }
+            .receipt-watermark-img { width: 180px; height: 180px; object-fit: contain; opacity: 0.58; filter: brightness(1.05); }
+            .receipt-watermark-s, .receipt-watermark-amis { font-size: 7rem; font-weight: bold; color: rgba(70,130,200,0.55); font-family: 'Times New Roman',Times,serif; line-height: 1; }
+            .receipt-watermark-tagline { font-size: 1.6rem; font-style: italic; color: rgba(70,130,200,0.52); font-family: Georgia,'Times New Roman',serif; margin-top: 10px; letter-spacing: 0.5px; }
+            .receipt-main-block, .receipt-blue-stripe, .receipt-payment-desc, .receipt-footer { position: relative; z-index: 1; }
             @media print {
-              body { padding: 20px; }
-              @page { size: A4; margin: 1cm; }
+              body { padding: 6px; zoom: 0.88; }
+              @page { size: A5 landscape; margin: 0.4cm; }
+              .print-receipt-content { page-break-inside: avoid; break-inside: avoid; }
+              .receipt-header-wrapper { width: 100% !important; max-width: 100% !important; padding: 0 !important; margin-left: 0 !important; margin-right: 0 !important; box-sizing: border-box; }
+              .receipt-header-image { width: 100% !important; max-width: 100% !important; min-width: 100% !important; max-height: 90px !important; object-fit: fill; object-position: top center; display: block !important; }
+              .receipt-stamp-inner { width: 135px !important; height: 135px !important; }
+              .receipt-watermark-img { width: 100px !important; height: 100px !important; }
+              .receipt-watermark-s, .receipt-watermark-amis { font-size: 4rem !important; }
+              .receipt-watermark-tagline { font-size: 1.2rem !important; }
             }
           </style>
         </head>
         <body>
-          ${printContent}
+          <div class="print-scaler">${printContent}</div>
         </body>
         </html>
       `);
@@ -1242,8 +1315,8 @@ export default {
   background-color: #fff;
   border-radius: 8px;
   width: 100%;
-  max-width: clamp(300px, 90vw, 600px);
-  max-height: min(90vh, 800px);
+  max-width: clamp(320px, 95vw, 700px);
+  max-height: min(90vh, 900px);
   overflow-y: auto;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
@@ -1294,99 +1367,410 @@ export default {
 }
 
 .print-receipt-content {
-  padding: 2rem;
-  background: #fff;
+  padding: 1rem 1.25rem;
+  background: rgba(255, 255, 255, 0.55);
   color: #000;
-  font-family: 'Times New Roman', Georgia, serif;
+  font-family: 'Times New Roman', Times, serif;
+  font-size: 10pt;
+  position: relative;
 }
 
-.receipt-main-header {
-  text-align: center;
-  font-size: 28px;
-  font-weight: bold;
-  letter-spacing: 2px;
-  margin-bottom: 24px;
-  text-transform: uppercase;
-  color: #000;
-}
-
-.receipt-section-title {
-  font-size: 16px;
-  font-weight: bold;
-  margin-bottom: 16px;
-  text-transform: uppercase;
-  color: #000;
-}
-
-.receipt-body {
-  margin: 20px 0 30px 0;
-}
-
-.receipt-row {
+.receipt-watermark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-8deg);
+  width: 80%;
+  height: 60%;
+  min-width: 320px;
+  min-height: 240px;
+  max-width: 480px;
+  max-height: 360px;
   display: flex;
-  padding: 8px 0;
-  border-bottom: 1px solid #ddd;
-  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 0;
 }
 
-.receipt-label {
-  font-weight: 600;
-  min-width: 200px;
-  flex-shrink: 0;
-  color: #333;
+.receipt-watermark-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  width: 100%;
+  height: 100%;
 }
 
-.receipt-value {
-  flex: 1;
-  color: #000;
-  word-break: break-word;
+.receipt-watermark-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
 }
 
-.receipt-value.receipt-amount {
+.receipt-watermark-img {
+  width: 180px;
+  height: 180px;
+  object-fit: contain;
+  opacity: 0.58;
+  filter: brightness(1.05);
+}
+
+.receipt-watermark-s {
+  font-size: 7rem;
   font-weight: bold;
-  font-size: 15px;
+  color: rgba(70, 130, 200, 0.55);
+  font-family: 'Times New Roman', Times, serif;
+  line-height: 1;
+}
+
+.receipt-watermark-amis {
+  font-size: 7rem;
+  font-weight: bold;
+  color: rgba(70, 130, 200, 0.55);
+  font-family: 'Times New Roman', Times, serif;
+  line-height: 1;
+}
+
+.receipt-watermark-tagline {
+  font-size: 1.6rem;
+  font-style: italic;
+  color: rgba(70, 130, 200, 0.52);
+  font-family: Georgia, 'Times New Roman', serif;
+  margin-top: 10px;
+  letter-spacing: 0.5px;
+}
+
+.receipt-header-wrapper {
+  position: relative;
+  margin-bottom: 12px;
+  border: 1px solid #000;
+  border-bottom: none;
+  padding: 0 16px 0 16px;
+  overflow: hidden;
+}
+
+.receipt-header-image {
+  width: 100%;
+  height: auto;
+  max-height: 150px;
+  object-fit: contain;
+  object-position: top center;
+  display: block;
+}
+
+.receipt-flag-band-wavy {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 150px;
+  height: 28px;
+  z-index: 1;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 150 28'%3E%3Cdefs%3E%3Cpath id='w' d='M0 14 Q 25 0 50 14 T 100 14 T 150 14'/%3E%3C/defs%3E%3Cuse href='%23w' fill='none' stroke='%23006600' stroke-width='10' transform='translate(0,2)'/%3E%3Cuse href='%23w' fill='none' stroke='%23000' stroke-width='10' transform='translate(0,9)'/%3E%3Cuse href='%23w' fill='none' stroke='%23bb0000' stroke-width='10' transform='translate(0,16)'/%3E%3C/svg%3E") no-repeat;
+  background-size: 100% 100%;
+}
+
+.receipt-letterhead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0 12px 0;
+  position: relative;
+  z-index: 2;
+}
+
+.receipt-logo-left,
+.receipt-logo-right {
+  flex-shrink: 0;
+}
+
+.receipt-logo-img {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  object-fit: contain;
+}
+
+.receipt-logo-placeholder {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #1a5fb4 0%, #2d7dd2 100%);
+  color: #fff;
+  font-size: 20pt;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.receipt-company-info {
+  text-align: center;
+  flex: 1;
+  padding: 0 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.receipt-company-name {
+  font-family: 'Times New Roman', Times, serif;
+  font-size: 18pt;
+  font-weight: bold;
+  margin-bottom: 0;
+  color: #000;
+  line-height: 1.2;
+}
+
+.receipt-company-address {
+  font-family: 'Times New Roman', Times, serif;
+  font-size: 18pt;
+  font-weight: bold;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.receipt-company-tel {
+  font-family: 'Times New Roman', Times, serif;
+  font-size: 18pt;
+  font-weight: bold;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.receipt-company-contact {
+  font-family: 'Times New Roman', Times, serif;
+  font-size: 18pt;
+  font-weight: bold;
+  font-style: italic;
+  color: #000;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.receipt-contact-sep {
+  margin: 0 6px;
+  color: #999;
+}
+
+.receipt-letterhead-border {
+  height: 8px;
+  background: #000;
+  margin: 0 -16px 0 -16px;
+}
+
+.receipt-main-block {
+  margin-bottom: 8px;
+}
+
+.receipt-main-title {
+  font-family: 'Times New Roman', Times, serif;
+  font-size: 20pt;
+  font-weight: bold;
+  text-align: center;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.receipt-top-grid {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.receipt-details-box {
+  flex: 1;
+  border: 1px solid #000;
+}
+
+.receipt-details-header {
+  background: #4a90d9;
+  color: #fff;
+  padding: 4px 10px;
+  font-weight: bold;
+  font-size: 12px;
+}
+
+.receipt-detail-row {
+  display: flex;
+  padding: 4px 10px;
+  border-top: 1px solid #ddd;
+  font-size: 12px;
+}
+
+.receipt-detail-row .receipt-label {
+  min-width: 110px;
+  font-weight: bold;
+}
+
+.receipt-amount-box {
+  flex: 0 0 260px;
+  min-width: 260px;
+}
+
+.receipt-amount-label {
+  font-size: 10pt;
+  font-weight: bold;
+  margin-bottom: 2px;
+}
+
+.receipt-amount-value {
+  font-size: 14pt;
+  font-weight: bold;
+  border: 1px solid #000;
+  padding: 8px;
+  text-align: center;
+}
+
+.receipt-blue-stripe {
+  height: 4px;
+  background: #2563eb;
+  position: relative;
+  z-index: 1;
+  margin: 8px 0 10px 0;
+}
+
+.receipt-payment-desc {
+  margin: 10px 0;
+  position: relative;
+  z-index: 1;
+}
+
+.receipt-desc-row {
+  display: flex;
+  padding: 4px 0;
+  gap: 10px;
+  font-size: 10pt;
+}
+
+.receipt-desc-label {
+  flex-shrink: 0;
+  font-weight: bold;
+}
+
+.receipt-desc-value.underlined {
+  border-bottom: 1px solid #000;
+  flex: 1;
+  font-weight: bold;
 }
 
 .receipt-reversal-note {
-  margin-top: 12px;
-  padding: 12px;
+  margin-top: 8px;
+  padding: 8px;
   background: #ffecec;
   border-left: 4px solid #b91c1c;
   display: flex;
-  gap: 12px;
+  gap: 10px;
+  font-size: 10pt;
 }
 
 .receipt-reversal-note .receipt-label {
   color: #b91c1c;
-  min-width: 140px;
+  min-width: 120px;
+  font-weight: bold;
 }
 
 .receipt-footer {
-  margin-top: 36px;
-  padding-top: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-top: 16px;
+  padding-top: 10px;
   border-top: 2px solid #000;
-  text-align: center;
+  position: relative;
+  z-index: 1;
 }
 
-.receipt-footer-date {
-  font-size: 14px;
-  font-weight: 600;
-  margin-bottom: 16px;
-  text-transform: uppercase;
-  color: #000;
+.receipt-footer-left {
+  flex: 0 0 auto;
 }
 
 .receipt-footer-text {
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 600;
-  margin-bottom: 8px;
-  color: #000;
+  margin-bottom: 2px;
 }
 
 .receipt-tagline {
-  font-size: 13px;
+  font-size: 12px;
   font-style: italic;
   color: #444;
+}
+
+.receipt-stamp {
+  text-align: center;
+}
+
+.receipt-stamp-inner {
+  width: 130px;
+  height: 130px;
+  border: 2px solid #1a5fb4;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 2px auto;
+  padding: 8px;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  box-sizing: border-box;
+}
+
+.receipt-stamp-inner.receipt-stamp-has-img {
+  background: transparent;
+  border-color: #1a5fb4;
+}
+
+.receipt-stamp-ring {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  font-size: 6pt;
+  line-height: 1.15;
+  text-align: center;
+  text-transform: uppercase;
+  color: #fff;
+  font-weight: bold;
+}
+
+.receipt-stamp-sep {
+  font-size: 6pt;
+  margin: 2px 0;
+  color: #fff;
+}
+
+.receipt-stamp-date {
+  font-size: 12pt;
+  font-weight: bold;
+  color: #dc2626;
+  text-transform: uppercase;
+  text-align: center;
+  line-height: 1.2;
+  margin-top: 4px;
+}
+
+.receipt-stamp-text {
+  font-size: 6pt;
+  font-weight: bold;
+  color: #fff;
+}
+
+.receipt-stamp-address {
+  font-size: 7pt;
+  color: #fff;
+}
+
+.receipt-stamp-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
 }
 
 .actions {
@@ -1728,5 +2112,8 @@ export default {
   }
 }
 </style>
+
+>
+
 
 

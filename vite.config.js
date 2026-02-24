@@ -23,8 +23,9 @@ export default defineConfig({
       '/api': {
         target: 'https://officeapi.samis.co.ke',
         changeOrigin: true,
-        secure: false, // only if you're using self-signed certificates
-        rewrite: (path) => path.replace(/^\/api/, '')
+        secure: false,
+        // Keep /api in path: /api/calls/history/list -> https://officeapi.samis.co.ke/api/calls/history/list
+        rewrite: (path) => path
       }
     }
   }

@@ -1,0 +1,9 @@
+Place your SAMIS logo file here as: samis-logo.jfif
+
+Example: Copy your logo from:
+  src/assets/fb2e3603-c4b0-42da-a75f-1d8888c7b536.jfif
+
+To:
+  public/samis-logo.jfif
+
+The receipt will then display your logo in the header and watermark.

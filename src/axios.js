@@ -6,11 +6,12 @@ import axios from "axios";
 // VITE_BASE_URL="http://DESKTOP-RPLDG13:8083/api"    // old desktop
 // VITE_BASE_URL="http://DESKTOP-RPLDG13:8086/api"    // current target
 
+// In development: use '' so requests go to same-origin and Vite proxy forwards to API (avoids CORS)
+// In production: use full API URL
 const apiClient = axios.create({
   baseURL:
-    (import.meta.env.MODE === "development"
-      ? import.meta.env.VITE_BASE_URL
-      : import.meta.env.VITE_BASE_URL) ||"https://officeapi.samis.co.ke/api" ,
+    import.meta.env.VITE_BASE_URL ??
+    (import.meta.env.DEV ? "/api" : "https://officeapi.samis.co.ke/api"),
   headers: {
     "Content-Type": "application/json",
   },

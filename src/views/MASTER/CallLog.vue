@@ -232,7 +232,7 @@
           </div>
           <div v-if="groupedRecentsKeys.length === 0" class="empty-state">No recent calls.</div>
           <div v-else class="table-container">
-            <Scrollable>
+            <div class="table-scroll-wrapper">
               <div v-for="day in groupedRecentsKeys" :key="day" class="group-block">
                 <div class="group-title">{{ day }}</div>
                 <table class="students-table desktop-table">
@@ -275,14 +275,59 @@
                   </tbody>
                 </table>
               </div>
-            </Scrollable>
+            </div>
+            <!-- Mobile Card View (Recents) -->
+            <div class="mobile-cards mobile-recents" v-if="groupedRecentsKeys.length > 0">
+              <div v-for="day in groupedRecentsKeys" :key="day" class="group-block">
+                <div class="group-title">{{ day }}</div>
+                <div
+                  v-for="(call, idx) in groupedRecents[day]"
+                  :key="idx"
+                  class="call-card"
+                >
+                  <div class="card-header">
+                    <div class="card-number">{{ idx + 1 }}</div>
+                    <h3 class="card-title">{{ call.contactName || 'Unknown' }}</h3>
+                  </div>
+                  <div class="card-body">
+                    <div class="card-row">
+                      <span class="card-label">Time:</span>
+                      <span class="card-value">{{ call.time }}</span>
+                    </div>
+                    <div class="card-row">
+                      <span class="card-label">Type:</span>
+                      <span class="card-value">{{ call.type }}</span>
+                    </div>
+                    <div class="card-row">
+                      <span class="card-label">Duration:</span>
+                      <span class="card-value">{{ formatCallDuration(call.duration || 0) }}</span>
+                    </div>
+                  </div>
+                  <div class="card-footer">
+                    <button
+                      v-if="call.recordingUrl"
+                      @click="toggleRecording(call)"
+                      :class="['card-action-btn play-recording-btn', { active: isPlayingRecording(call) }]"
+                      :aria-label="isPlayingRecording(call) ? 'Stop' : 'Play'"
+                    >
+                      <span class="material-symbols-outlined">
+                        {{ isPlayingRecording(call) ? 'stop_circle' : 'play_circle' }}
+                      </span>
+                    </button>
+                    <button @click="callFromRecent(call)" class="card-action-btn manage-btn" aria-label="Call">
+                      <span class="material-symbols-outlined">call</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
         <div v-if="tabValue === 'contacts'" class="list-pane">
           <div v-if="filteredContacts.length === 0" class="empty-state">No contacts found.</div>
           <div v-else class="table-container">
-            <Scrollable>
+            <div class="table-scroll-wrapper">
               <table class="students-table desktop-table">
                 <thead>
                   <tr>
@@ -307,7 +352,27 @@
                   </tr>
                 </tbody>
               </table>
-            </Scrollable>
+            </div>
+            <!-- Mobile Card View (Contacts) -->
+            <div class="mobile-cards mobile-contacts">
+              <div v-for="(contact, index) in filteredContacts" :key="index" class="call-card">
+                <div class="card-header">
+                  <div class="card-number">{{ index + 1 }}</div>
+                  <h3 class="card-title">{{ contact.contactName || contact.fullname || 'Unknown' }}</h3>
+                </div>
+                <div class="card-body">
+                  <div class="card-row">
+                    <span class="card-label">Phone:</span>
+                    <span class="card-value">{{ contact.phoneNo || contact.phone || 'N/A' }}</span>
+                  </div>
+                </div>
+                <div class="card-footer">
+                  <button @click="startFromContact(contact)" class="card-action-btn manage-btn" aria-label="Call">
+                    <span class="material-symbols-outlined">call</span>
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -350,13 +415,12 @@
 <script>
 import axios from '../../axios';
 import LoadingSpinner from '../../components/LoadingSpinner.vue';
-import Scrollable from '../../components/Scrollable.vue';
 import { useToast } from 'vue-toastification';
-import { saveCallHistory, getCallHistory, getGatewayCalls, getGatewayCallsByDate, getGatewayCallsByDateRange } from '../../services/callHistoryApi';
+import { saveCallHistory, getGatewayCalls, getGatewayCallsByDate, getGatewayCallsByDateRange } from '../../services/callHistoryApi';
 
 export default {
   name: 'CallLog',
-  components: { LoadingSpinner, Scrollable },
+  components: { LoadingSpinner },
   setup() {
     const toast = useToast();
     return { toast };
@@ -878,7 +942,7 @@ export default {
         this.recents = [];
       }
 
-      // Fetch gateway calls (have recordingUrl) - primary source for recordings
+      // Fetch gateway calls via CallController: POST /api/calls/list
       let gatewayRecents = [];
       try {
         const gwRes = await getGatewayCalls();
@@ -888,43 +952,13 @@ export default {
         console.warn('Could not load gateway calls:', err);
       }
 
-      // Fetch call history API and transform
-      let apiRecents = [];
-      try {
-        const response = await getCallHistory({ limit: 50 });
-        const body = response?.data ?? response;
-        const raw = Array.isArray(body) ? body : body?.data || body?.calls || body?.records || body?.list || body?.items || [];
-        apiRecents = raw.map((call) => {
-          const ts = call.timestamp || call.created_at || call.date || call.createdAt;
-          const d = ts ? new Date(ts) : new Date();
-          return {
-            contactName: call.receiverPhoneNo || call.receiverName || call.receiver_phone_no || call.receiver_name || call.contactName || 'Unknown',
-            time: d.toLocaleTimeString(),
-            day: d.toLocaleDateString('en-US', { weekday: 'long' }),
-            type: call.callType || call.call_type || 'Outgoing',
-            duration: call.duration || 0,
-            status: call.status || 'completed',
-            callerName: call.callerName || '',
-            receiverName: call.receiverName || '',
-            callerPhoneNo: call.callerPhoneNo || '',
-            receiverPhoneNo: call.receiverPhoneNo || '',
-            recordingUrl: call.recordingUrl || null,
-            sessionId: call.sessionId || null,
-            _sortTs: d.getTime(),
-          };
-        });
-      } catch (error) {
-        console.warn('Could not load call history from API:', error);
-      }
-
-      // Merge: gateway first (have recordings), then API, then localStorage; dedupe by sessionId or contact+time+type
+      // Merge: gateway first (have recordings), then localStorage; dedupe by sessionId or contact+time+type
       const byKey = new Map();
       const add = (c) => {
         const key = c.sessionId || `${c.contactName || ''}_${c.time}_${c.type}`;
         if (!byKey.has(key)) byKey.set(key, { ...c, _sortTs: c._sortTs ?? 0 });
       };
       gatewayRecents.forEach(add);
-      apiRecents.forEach(add);
       this.recents.forEach((c) => add({ ...c, _sortTs: c._sortTs ?? (c.day && c.time ? new Date(`${c.day} ${c.time}`).getTime() : 0) }));
       this.recents = Array.from(byKey.values())
         .sort((a, b) => (b._sortTs || 0) - (a._sortTs || 0))
@@ -4155,12 +4189,155 @@ export default {
   font-size: clamp(0.9rem, 1.3vw, 1.1rem);
   color: #333;
 }
+
+/* Table scroll wrapper (desktop) */
+.list-pane .table-scroll-wrapper {
+  max-height: calc(100vh - 14rem);
+  overflow-y: auto;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+/* Mobile Card View - hidden by default */
+.list-pane .mobile-cards {
+  display: none;
+}
+
+/* Card styles (matching AllSchools) */
+.list-pane .call-card {
+  background: white;
+  border: 1px solid #e1e4ea;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  transition: box-shadow 0.3s ease;
+}
+.list-pane .call-card:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+.list-pane .call-card .card-header {
+  background: linear-gradient(135deg, #2b7ab7 0%, #1e6192 100%);
+  color: white;
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.list-pane .call-card .card-number {
+  background: rgba(255, 255, 255, 0.2);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+.list-pane .call-card .card-title {
+  font-size: clamp(1rem, 2vw, 1.2rem);
+  font-weight: 600;
+  margin: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.list-pane .call-card .card-body {
+  padding: 0.75rem 1rem;
+}
+.list-pane .call-card .card-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #f0f0f0;
+  gap: 0.5rem;
+}
+.list-pane .call-card .card-row:last-child {
+  border-bottom: none;
+}
+.list-pane .call-card .card-label {
+  font-weight: 600;
+  color: #666;
+  font-size: clamp(0.85rem, 1.2vw, 0.95rem);
+  flex-shrink: 0;
+  min-width: 90px;
+  text-align: left;
+}
+.list-pane .call-card .card-value {
+  color: #333;
+  font-size: clamp(0.85rem, 1.2vw, 0.95rem);
+  text-align: right;
+  flex: 1;
+  word-break: break-word;
+  font-weight: 500;
+}
+.list-pane .call-card .card-footer {
+  padding: 1rem;
+  background: #f9fafb;
+  border-top: 1px solid #e1e4ea;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.list-pane .call-card .card-action-btn {
+  flex: 1;
+  min-width: 80px;
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-size: clamp(0.85rem, 1.2vw, 0.95rem);
+  transition: all 0.3s ease;
+  font-weight: 500;
+  border: none;
+}
+.list-pane .call-card .card-action-btn:hover {
+  transform: translateY(-1px);
+}
+.list-pane .call-card .card-action-btn.manage-btn {
+  background-color: #e0e7ff;
+  color: #4f46e5;
+  border: 1px solid #c7d2fe;
+}
+.list-pane .call-card .card-action-btn.manage-btn:hover {
+  background-color: #d1d5db;
+}
+.list-pane .call-card .card-action-btn.play-recording-btn {
+  background-color: #dcfce7;
+  color: #16a34a;
+  border: 1px solid #86efac;
+}
+.list-pane .call-card .card-action-btn.play-recording-btn:hover {
+  background-color: #bbf7d0;
+}
+.list-pane .call-card .card-action-btn.play-recording-btn.active {
+  background-color: #fecaca;
+  color: #dc2626;
+  border-color: #fca5a5;
+}
+
 @media (max-width: 768px) {
   .table-row {
     grid-template-columns: 1.5fr 1.2fr 1fr 1fr;
   }
   .search-container {
     width: 100%;
+  }
+  /* Hide desktop table, show mobile cards on mobile */
+  .list-pane .desktop-table {
+    display: none !important;
+  }
+  .list-pane .mobile-cards {
+    display: block;
   }
 }
 

@@ -1,0 +1,8 @@
+Receipt header image - use ONE of these locations:
+
+OPTION 1 (recommended): Add to src/assets with exact filename:
+  src/assets/WhatsApp Image 2026-02-20 at 14.49.32 (1).jpeg
+
+OPTION 2: Add to public folder (rename to header-image.jpeg):
+  public/header-image.jpeg
+  Then change headerImageUrl in Receipts.vue to: '/header-image.jpeg'
