@@ -110,13 +110,12 @@
             </div>
           </div>
 
-          <!-- Footer -->
+          <!-- Footer: black line and stamp on same row, thank you text below left -->
           <div class="receipt-footer">
-            <div class="receipt-footer-left">
-              <div class="receipt-footer-text">Thank you for your Business</div>
-              <div class="receipt-tagline">The Lord is my Shepherd.</div>
-            </div>
-            <div class="receipt-stamp">
+            <div class="receipt-footer-content">
+              <div class="receipt-footer-line-row">
+                <div class="receipt-footer-black-line"></div>
+                <div class="receipt-stamp">
               <div class="receipt-stamp-inner" :class="{ 'receipt-stamp-has-img': !stampImageLoadFailed }">
                 <img v-if="!stampImageLoadFailed" :src="stampImageUrl" alt="Stamp" class="receipt-stamp-img" @error="onStampImageError" />
                 <template v-else>
@@ -128,6 +127,12 @@
                 </template>
                 <!-- Receipt date on stamp (same format as reference: e.g. 15 Sep-2023, red, centered) -->
                 <div class="receipt-stamp-date-overlay">{{ formatReceiptFooterDate(receipt?.receiptDate) }}</div>
+              </div>
+            </div>
+              </div>
+              <div class="receipt-footer-left">
+                <div class="receipt-footer-text">Thank you for your Business</div>
+                <div class="receipt-tagline">The Lord is my Shepherd.</div>
               </div>
             </div>
           </div>
@@ -687,7 +692,8 @@ export default {
   background: #2563eb;
   position: relative;
   z-index: 1;
-  margin: 8px 0 10px 0;
+  margin: 8px -1.25rem 10px -1.25rem;
+  width: calc(100% + 2.5rem);
 }
 
 .receipt-payment-desc {
@@ -756,13 +762,30 @@ export default {
 }
 
 .receipt-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
   margin-top: 0;
   padding-top: 10px;
   position: relative;
   z-index: 1;
+}
+
+.receipt-footer-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.receipt-footer-line-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.receipt-footer-black-line {
+  flex: 1;
+  height: 0;
+  border-top: 2px solid #000;
+  min-width: 80px;
 }
 
 .receipt-footer-left {
