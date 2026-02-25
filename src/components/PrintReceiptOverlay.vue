@@ -228,6 +228,17 @@ export default {
     async getPdfBlob() {
       const el = this.$refs.receiptContentRef;
       if (!el) return null;
+      const container = el.closest('.print-receipt-container');
+      const savedMaxWidth = container ? container.style.maxWidth : '';
+      const savedWidth = container ? container.style.width : '';
+      el.classList.add('receipt-for-pdf');
+      /* Widen container so captured receipt matches A5 landscape ratio and fills page (no side space) */
+      if (container) {
+        container.style.maxWidth = 'none';
+        container.style.width = 'min(95vw, 1100px)';
+      }
+      await this.$nextTick();
+      await new Promise((r) => setTimeout(r, 150));
       const canvas = await html2canvas(el, {
         scale: 2,
         useCORS: true,
@@ -237,6 +248,11 @@ export default {
         windowWidth: el.scrollWidth,
         windowHeight: el.scrollHeight,
       });
+      el.classList.remove('receipt-for-pdf');
+      if (container) {
+        container.style.maxWidth = savedMaxWidth;
+        container.style.width = savedWidth;
+      }
       const imgW = canvas.width;
       const imgH = canvas.height;
       const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a5' });
@@ -245,7 +261,8 @@ export default {
       const pxToMm = 25.4 / 96;
       const wMm = imgW * pxToMm / 2;
       const hMm = imgH * pxToMm / 2;
-      const scale = Math.min(pdfW / wMm, pdfH / hMm, 1);
+      /* Scale to fit entire receipt on page (contain) so header and footer are not cut */
+      const scale = Math.min(pdfW / wMm, pdfH / hMm);
       const w = wMm * scale;
       const h = hMm * scale;
       const x = (pdfW - w) / 2;
@@ -784,7 +801,7 @@ export default {
 .receipt-footer-black-line {
   flex: 1;
   height: 0;
-  border-top: 2px solid #000;
+  border-top: 4px solid #000;
   min-width: 80px;
 }
 
@@ -884,6 +901,71 @@ export default {
   display: block;
 }
 
+/* PDF capture: wider boxes and larger font sizes (apply when generating PDF) */
+.receipt-for-pdf.print-receipt-content {
+  font-size: 13pt !important;
+}
+.receipt-for-pdf .receipt-details-box {
+  max-width: 560px;
+  min-width: 420px;
+}
+.receipt-for-pdf .receipt-details-header {
+  font-size: 16px !important;
+}
+.receipt-for-pdf .receipt-details-body {
+  font-size: 15px !important;
+}
+.receipt-for-pdf .receipt-detail-label {
+  font-size: 15px !important;
+}
+.receipt-for-pdf .receipt-detail-value {
+  font-size: 15px !important;
+}
+.receipt-for-pdf .receipt-details-labels {
+  min-width: 120px;
+}
+.receipt-for-pdf .receipt-amount-box {
+  flex: 0 0 380px;
+  min-width: 380px;
+}
+.receipt-for-pdf .receipt-amount-label {
+  font-size: 14pt !important;
+}
+.receipt-for-pdf .receipt-amount-value {
+  font-size: 19pt !important;
+}
+.receipt-for-pdf .receipt-main-title {
+  font-size: 26pt !important;
+}
+.receipt-for-pdf .receipt-desc-row {
+  font-size: 13pt !important;
+}
+.receipt-for-pdf .receipt-desc-label {
+  font-size: 13pt !important;
+}
+.receipt-for-pdf .receipt-desc-value {
+  font-size: 13pt !important;
+}
+.receipt-for-pdf .receipt-reversal-note {
+  font-size: 12pt !important;
+}
+.receipt-for-pdf .receipt-separator-line-value {
+  font-size: 13pt !important;
+}
+.receipt-for-pdf .receipt-footer-text {
+  font-size: 16px !important;
+}
+.receipt-for-pdf .receipt-tagline {
+  font-size: 15px !important;
+}
+.receipt-for-pdf .receipt-stamp-date-overlay {
+  font-size: 15pt !important;
+}
+.receipt-for-pdf .receipt-stamp-text,
+.receipt-for-pdf .receipt-stamp-address {
+  font-size: 9pt !important;
+}
+
 @media only screen and (max-width: 768px) {
   .print-receipt-container {
     width: 100%;
@@ -900,4 +982,22 @@ export default {
     max-height: 100vh;
   }
 }
+</style>
+
+<style>
+/* Unscoped: PDF capture font sizes must apply when .receipt-for-pdf is added at runtime */
+.receipt-for-pdf.print-receipt-content { font-size: 13pt !important; }
+.receipt-for-pdf .receipt-details-header { font-size: 16px !important; }
+.receipt-for-pdf .receipt-details-body { font-size: 15px !important; }
+.receipt-for-pdf .receipt-detail-label { font-size: 15px !important; }
+.receipt-for-pdf .receipt-detail-value { font-size: 15px !important; }
+.receipt-for-pdf .receipt-amount-label { font-size: 14pt !important; }
+.receipt-for-pdf .receipt-amount-value { font-size: 19pt !important; }
+.receipt-for-pdf .receipt-main-title { font-size: 26pt !important; }
+.receipt-for-pdf .receipt-desc-row { font-size: 13pt !important; }
+.receipt-for-pdf .receipt-desc-label { font-size: 13pt !important; }
+.receipt-for-pdf .receipt-desc-value { font-size: 13pt !important; }
+.receipt-for-pdf .receipt-footer-text { font-size: 16px !important; }
+.receipt-for-pdf .receipt-tagline { font-size: 15px !important; }
+.receipt-for-pdf .receipt-stamp-date-overlay { font-size: 15pt !important; }
 </style>
