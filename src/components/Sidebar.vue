@@ -7,6 +7,7 @@
         <!-- Expanded items container (hidden by default, shows above bottom nav when expanded) -->
         <div class="expanded-items" v-if="isMobile">
           <RouterLink
+            v-if="canAccess('/Contacts')"
             to="/Contacts"
             :class="[
               'side-btn',
@@ -24,6 +25,7 @@
           </RouterLink>
 
           <RouterLink
+            v-if="canAccess('/activatedSchools')"
             to="/activatedSchools"
             :class="[
               'side-btn',
@@ -43,6 +45,7 @@
           </RouterLink>
 
           <RouterLink
+            v-if="canAccess('/expiredSchools')"
             to="/expiredSchools"
             :class="[
               'side-btn',
@@ -63,6 +66,7 @@
 
           <!-- Financial Section -->
           <RouterLink
+            v-if="canAccess('/InvoicesSchool')"
             to="/InvoicesSchool"
             :class="[
               'side-btn',
@@ -80,6 +84,7 @@
           </RouterLink>
 
           <RouterLink
+            v-if="canAccess('/Receipts')"
             to="/Receipts"
             :class="[
               'side-btn',
@@ -98,6 +103,7 @@
 
           <!-- Communication Section -->
           <RouterLink
+            v-if="canAccess('/MessagesToSchools')"
             to="/MessagesToSchools"
             :class="[
               'side-btn',
@@ -115,6 +121,7 @@
           </RouterLink>
 
           <RouterLink
+            v-if="canAccess('/CallLog')"
             to="/CallLog"
             :class="[
               'side-btn',
@@ -136,6 +143,7 @@
         <template v-if="!isMobile">
           <!-- Overview -->
           <RouterLink
+            v-if="canAccess('/')"
             to="/"
             :class="[
               'side-btn',
@@ -156,6 +164,7 @@
 
           <!-- Configuration Section -->
           <RouterLink
+            v-if="canAccess('/FinanceModule')"
             to="/FinanceModule"
             :class="[
               'side-btn',
@@ -174,6 +183,7 @@
 
           <!-- User Management Section -->
           <RouterLink
+            v-if="canAccess('/RegisterUser')"
             to="/RegisterUser"
             :class="[
               'side-btn',
@@ -192,6 +202,7 @@
 
           <!-- Schools Section -->
           <RouterLink
+            v-if="canAccess('/allSchools')"
             to="/allSchools"
             :class="[
               'side-btn',
@@ -211,6 +222,7 @@
           </RouterLink>
 
           <RouterLink
+            v-if="canAccess('/Contacts')"
             to="/Contacts"
             :class="[
               'side-btn',
@@ -228,6 +240,7 @@
           </RouterLink>
 
           <RouterLink
+            v-if="canAccess('/activatedSchools')"
             to="/activatedSchools"
             :class="[
               'side-btn',
@@ -247,6 +260,7 @@
           </RouterLink>
 
           <RouterLink
+            v-if="canAccess('/expiredSchools')"
             to="/expiredSchools"
             :class="[
               'side-btn',
@@ -267,6 +281,7 @@
 
           <!-- Financial Section -->
           <RouterLink
+            v-if="canAccess('/InvoicesSchool')"
             to="/InvoicesSchool"
             :class="[
               'side-btn',
@@ -284,6 +299,7 @@
           </RouterLink>
 
           <RouterLink
+            v-if="canAccess('/Receipts')"
             to="/Receipts"
             :class="[
               'side-btn',
@@ -302,6 +318,7 @@
 
           <!-- Communication Section -->
           <RouterLink
+            v-if="canAccess('/MessagesToSchools')"
             to="/MessagesToSchools"
             :class="[
               'side-btn',
@@ -319,6 +336,7 @@
           </RouterLink>
 
           <RouterLink
+            v-if="canAccess('/CallLog')"
             to="/CallLog"
             :class="[
               'side-btn',
@@ -341,6 +359,7 @@
         <div class="bottom-nav-row" v-if="isMobile">
           <!-- Overview -->
           <RouterLink
+            v-if="canAccess('/')"
             to="/"
             :class="[
               'side-btn',
@@ -361,6 +380,7 @@
 
           <!-- Configuration Section -->
           <RouterLink
+            v-if="canAccess('/FinanceModule')"
             to="/FinanceModule"
             :class="[
               'side-btn',
@@ -379,6 +399,7 @@
 
           <!-- User Management Section -->
           <RouterLink
+            v-if="canAccess('/RegisterUser')"
             to="/RegisterUser"
             :class="[
               'side-btn',
@@ -397,6 +418,7 @@
 
           <!-- Schools Section -->
           <RouterLink
+            v-if="canAccess('/allSchools')"
             to="/allSchools"
             :class="[
               'side-btn',
@@ -448,6 +470,7 @@
 import { RouterLink } from 'vue-router';
 import Navbar from './Navbar.vue';
 import { useAuthStore } from '../Stores/useAuthStore';
+import { canAccessRoute } from '@/utils/permissions';
 import LoadingSpinner from './LoadingSpinner.vue';
 
 export default {
@@ -519,6 +542,10 @@ export default {
   },
 
   methods: {
+    canAccess(path) {
+      const roles = this.authStore.roles || [];
+      return canAccessRoute(path, roles);
+    },
     async logout() {
       this.Loading = true; // Show the spinner     
       try {

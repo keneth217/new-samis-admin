@@ -1,6 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { useAuthStore } from '@/Stores/useAuthStore';
-
+import { useAuthStore } from '@/Stores/useAuthStore'
+import { canAccessRoute } from '@/utils/permissions'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -8,27 +8,27 @@ const router = createRouter({
     {
       path: '/',
       component: () => import('../views/MASTER/MasterDashboard.vue'),
-      meta: { requiresAuth: true }, 
+      meta: { requiresAuth: true },
     },
     {
       path: '/RegisterUser',
       component: () => import('../views/MASTER/RegisterUser.vue'),
-      meta: { requiresAuth: true }, 
+      meta: { requiresAuth: true },
     },
     {
       path: '/FinanceModule',
       component: () => import('../views/MASTER/FinanceModule.vue'),
-      meta: { requiresAuth: true }, 
+      meta: { requiresAuth: true },
     },
     {
       path: '/InvoicesSchool',
       component: () => import('../views/MASTER/InvoicesSchool.vue'),
-      meta: { requiresAuth: true }, 
+      meta: { requiresAuth: true },
     },
     {
       path: '/Receipts',
       component: () => import('../views/MASTER/Receipts.vue'),
-      meta: { requiresAuth: true }, 
+      meta: { requiresAuth: true },
     },
     {
       path: '/Employees',
@@ -55,46 +55,56 @@ const router = createRouter({
       component: () => import('../views/MASTER/ExpensesTracking.vue'),
       meta: { requiresAuth: true },
     },
-
     {
       path: '/allSchools',
       component: () => import('../views/MASTER/AllSchools.vue'),
       meta: { requiresAuth: true },
     },
-
     {
       path: '/ActivationStatus',
       component: () => import('../views/MASTER/ActivationStatus.vue'),
-      meta: { requiresAuth: true }, 
+      meta: { requiresAuth: true },
     },
     {
       path: '/activatedSchools',
       component: () => import('../views/MASTER/ActivatedSchools.vue'),
-      meta: { requiresAuth: true }, 
+      meta: { requiresAuth: true },
     },
     {
       path: '/expiredSchools',
       component: () => import('../views/MASTER/ExpiredSchools.vue'),
-      meta: { requiresAuth: true }, 
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/no-access',
+      component: () => import('../views/MASTER/NoAccess.vue'),
+      meta: { requiresAuth: true },
     },
     {
       path: '/login',
-      component: () => import('../components/Authentication/Login.vue')    
-    }
+      component: () => import('../components/Authentication/Login.vue'),
+    },
   ],
 })
 
 router.beforeEach((to, from, next) => {
-  const authStore = useAuthStore();
-  const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
+  const authStore = useAuthStore()
+  const requiresAuth = to.matched.some((record) => record.meta.requiresAuth)
 
   if (requiresAuth && !authStore.isAuthenticated) {
-    // Redirect to login if user is not authenticated
-    return next('/login');
+    return next('/login')
   }
 
-  next(); // Allow access if all conditions pass
-});
+  // User rights: if route requires specific roles, check access
+  if (requiresAuth && to.path !== '/no-access') {
+    const userRoles = authStore.roles || []
+    if (!canAccessRoute(to.path, userRoles)) {
+      return next('/no-access')
+    }
+  }
+
+  next()
+})
 
 
 export default router

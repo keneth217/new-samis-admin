@@ -25,9 +25,20 @@
           <input type="text" class="form-control" v-model="phoneNo" placeholder="Phone No" required />
           <label for="phoneNo" :class="{ filled: phoneNo !== '' }">Phone Number</label>
         </div>
-        <div class="form-group">
-          <input type="password" class="form-control" v-model="password" placeholder="Password" required />
-          <label for="password" :class="{ filled: password !== '' }">Password</label>
+        <div class="form-group password-group" v-if="!editMode">
+          <div class="password-input-wrap">
+            <input
+              :type="showPassword ? 'text' : 'password'"
+              class="form-control"
+              v-model="password"
+              placeholder="Password (optional)"
+            />
+            <button type="button" class="password-toggle" @click="showPassword = !showPassword" aria-label="Show password">
+              <span class="material-symbols-outlined">{{ showPassword ? 'visibility_off' : 'visibility' }}</span>
+            </button>
+          </div>
+          <label for="password" :class="{ filled: password !== '' }">Password (optional)</label>
+          <small class="field-hint">Set a password to know it and share with the user. Leave blank to auto-generate and send via SMS to their phone.</small>
         </div>
         <div class="form-group">
           <select class="form-control" v-model="station" required>
@@ -86,6 +97,7 @@ export default {
       role: ['ROLE_USER'],
       editMode: false,
       Loading: false,
+      showPassword: false,
     };
   },
   watch: {
@@ -119,6 +131,7 @@ export default {
       this.station = '';
       this.usertype = '';
       this.role = ['ROLE_USER'];
+      this.showPassword = false;
     },
 
     // Method to save the user (register or update)
@@ -155,7 +168,16 @@ export default {
         let response = await axios.post('/auth/signup', formData);
 
         if (response.status === 200 || response.status === 201) {
-          toast.success('User registered successfully!');
+          const data = response.data || {};
+          // If backend returns a generated password, show it so admin can share it
+          const generatedPassword = data.generatedPassword || data.password || data.temporaryPassword;
+          if (generatedPassword) {
+            toast.success(`User registered! Generated password: ${generatedPassword} — share it with the user securely.`, { timeout: 8000 });
+          } else if (this.password) {
+            toast.success('User registered! Share the password you set with the user securely.');
+          } else {
+            toast.success("User registered! A password was sent to the user's phone via SMS.");
+          }
           this.$emit('fetchUsers');
           this.$emit('closeForm');
         } else {
@@ -314,6 +336,51 @@ export default {
 
 .form-group {
   position: relative;
+}
+
+.password-group {
+  grid-column: 1 / -1;
+}
+
+.password-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-input-wrap .form-control {
+  padding-right: 2.5rem;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: gold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.password-toggle:hover {
+  color: #fff;
+}
+
+.password-toggle .material-symbols-outlined {
+  font-size: 1.25rem;
+}
+
+.field-hint {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.85);
+  line-height: 1.3;
 }
     
 .form-control {

@@ -220,15 +220,36 @@
         </div>
 
         <div v-if="tabValue === 'recents'" class="list-pane">
-          <!-- Date filter for gateway calls -->
-          <div class="recents-date-filter">
-            <input v-model="recentsDateFilter" type="date" class="date-filter-input" title="Load calls for this date" />
-            <span class="date-filter-sep">–</span>
-            <input v-model="recentsStartDate" type="date" class="date-filter-input" title="Start date (range)" />
-            <input v-model="recentsEndDate" type="date" class="date-filter-input" title="End date (range)" />
-            <button class="primary-btn small" @click="loadRecentsByDate" :disabled="loading">
-              Load by date
-            </button>
+          <!-- Load calls: single day and date range on same row (CallController API) -->
+          <div class="recents-load-section">
+            <div class="recents-load-row recents-load-main">
+              <div class="recents-load-group">
+                <span class="recents-load-label">Single day</span>
+                <input v-model="recentsDateFilter" type="date" class="date-filter-input" aria-label="Pick a single day" />
+                <button type="button" class="primary-btn small" @click="loadRecentsSingleDay" :disabled="loading">
+                  Load this day
+                </button>
+              </div>
+              <div class="recents-load-group">
+                <span class="recents-load-label">Date range</span>
+                <span class="recents-from-to">From</span>
+                <input v-model="recentsStartDate" type="date" class="date-filter-input" aria-label="Start date" />
+                <span class="recents-from-to">To</span>
+                <input v-model="recentsEndDate" type="date" class="date-filter-input" aria-label="End date" />
+                <button type="button" class="primary-btn small" @click="loadRecentsDateRange" :disabled="loading">
+                  Load range
+                </button>
+              </div>
+            </div>
+            <div class="recents-load-row recents-load-options">
+              <label class="recents-filter-checkbox" title="Hide calls with 0:00 duration (e.g. missed/unanswered)">
+                <input type="checkbox" v-model="hideZeroDuration" />
+                <span>Hide 0:00 duration</span>
+              </label>
+            </div>
+          </div>
+          <div v-if="lastLoadedDateLabel" class="recents-date-label">
+            Showing calls for: <strong>{{ lastLoadedDateLabel }}</strong>
           </div>
           <div v-if="groupedRecentsKeys.length === 0" class="empty-state">No recent calls.</div>
           <div v-else class="table-container">
@@ -242,6 +263,7 @@
                       <th>Time</th>
                       <th>Type</th>
                       <th>Duration</th>
+                      <th>Forwarded To</th>
                       <th class="actions-header">Actions</th>
                     </tr>
                   </thead>
@@ -255,6 +277,7 @@
                       <td>{{ call.time }}</td>
                       <td>{{ call.type }}</td>
                       <td>{{ formatCallDuration(call.duration || 0) }}</td>
+                      <td>{{ call.dialDestinationNumber || '—' }}</td>
                       <td class="actions">
                         <button
                           v-if="call.recordingUrl"
@@ -301,6 +324,10 @@
                     <div class="card-row">
                       <span class="card-label">Duration:</span>
                       <span class="card-value">{{ formatCallDuration(call.duration || 0) }}</span>
+                    </div>
+                    <div class="card-row" v-if="call.dialDestinationNumber">
+                      <span class="card-label">Forwarded To:</span>
+                      <span class="card-value">{{ call.dialDestinationNumber }}</span>
                     </div>
                   </div>
                   <div class="card-footer">
@@ -472,6 +499,8 @@ export default {
       recentsDateFilter: '', // yyyy-MM-dd for single date
       recentsStartDate: '',
       recentsEndDate: '',
+      hideZeroDuration: false, // filter: hide calls with 0:00 duration
+      lastLoadedDateLabel: '', // e.g. "19 Feb 2026" or "1 Feb – 19 Feb 2026" after Load by date
     };
   },
   computed: {
@@ -484,8 +513,12 @@ export default {
         return name.includes(query) || phone.includes(query);
       });
     },
+    filteredRecents() {
+      if (!this.hideZeroDuration) return this.recents;
+      return this.recents.filter((call) => (call.duration || 0) > 0);
+    },
     groupedRecents() {
-      return this.recents.reduce((acc, call) => {
+      return this.filteredRecents.reduce((acc, call) => {
         const day = call.day || 'Unknown';
         if (!acc[day]) acc[day] = [];
         acc[day].push(call);
@@ -930,6 +963,7 @@ export default {
       }
     },
     async loadRecents() {
+      this.lastLoadedDateLabel = ''; // clear date filter label when loading "all" recents
       // Load from localStorage first (for immediate display)
       const stored = localStorage.getItem('recentCalls');
       if (stored) {
@@ -969,65 +1003,101 @@ export default {
     saveRecents() {
       localStorage.setItem('recentCalls', JSON.stringify(this.recents));
     },
-    async loadRecentsByDate() {
-      const singleDate = this.recentsDateFilter?.trim();
-      const startDate = this.recentsStartDate?.trim();
-      const endDate = this.recentsEndDate?.trim();
-      if (!singleDate && !startDate && !endDate) {
-        this.toast.warning('Select a date or date range to load calls.');
+    /** POST /api/calls/listbydate/{date} – single day (inclusive) */
+    async loadRecentsSingleDay() {
+      const singleDate = (this.recentsDateFilter || '').trim();
+      if (!singleDate) {
+        this.toast.warning('Pick a date for "Single day" then click Load this day.');
         return;
       }
       this.loading = true;
-      let gatewayRecents = [];
+      this.lastLoadedDateLabel = '';
       try {
-        if (singleDate) {
-          const gwRes = await getGatewayCallsByDate(singleDate);
-          const gwData = Array.isArray(gwRes?.data) ? gwRes.data : gwRes?.data?.data || [];
-          gatewayRecents = this.mapGatewayCallsToRecents(gwData);
-        } else if (startDate && endDate) {
-          const gwRes = await getGatewayCallsByDateRange(startDate, endDate);
-          const gwData = Array.isArray(gwRes?.data) ? gwRes.data : gwRes?.data?.data || [];
-          gatewayRecents = this.mapGatewayCallsToRecents(gwData);
-        } else {
-          this.toast.warning('For date range, provide both start and end date.');
-          this.loading = false;
-          return;
-        }
-        const byKey = new Map();
-        const add = (c) => {
-          const key = c.sessionId || `${c.contactName || ''}_${c.time}_${c.type}`;
-          if (!byKey.has(key)) byKey.set(key, { ...c, _sortTs: c._sortTs ?? 0 });
-        };
-        gatewayRecents.forEach(add);
-        this.recents = Array.from(byKey.values())
-          .sort((a, b) => (b._sortTs || 0) - (a._sortTs || 0))
-          .slice(0, 100)
-          .map(({ _sortTs, ...r }) => r);
-        this.saveRecents();
-        this.toast.success(`Loaded ${this.recents.length} call(s).`);
+        const gwRes = await getGatewayCallsByDate(singleDate);
+        const gwData = this.normalizeGatewayResponse(gwRes);
+        const gatewayRecents = this.mapGatewayCallsToRecents(gwData);
+        this.lastLoadedDateLabel = this.formatDateLabel(singleDate);
+        this.applyGatewayRecentsToRecents(gatewayRecents);
+        this.toast.success(`Loaded ${this.recents.length} call(s) for ${this.lastLoadedDateLabel}.`);
       } catch (err) {
         console.error('Failed to load calls by date:', err);
-        this.toast.error('Could not load calls. Check date format (yyyy-MM-dd).');
+        const msg = err.response?.data?.message || err.message || 'Check date (yyyy-MM-dd) and network.';
+        this.toast.error(`Could not load calls: ${msg}`);
       } finally {
         this.loading = false;
       }
+    },
+    /** POST /api/calls/listbydaterange/{startDate}/{endDate} – range (inclusive) */
+    async loadRecentsDateRange() {
+      const startDate = (this.recentsStartDate || '').trim();
+      const endDate = (this.recentsEndDate || '').trim();
+      if (!startDate || !endDate) {
+        this.toast.warning('Set both From and To dates, then click Load range.');
+        return;
+      }
+      this.loading = true;
+      this.lastLoadedDateLabel = '';
+      try {
+        const gwRes = await getGatewayCallsByDateRange(startDate, endDate);
+        const gwData = this.normalizeGatewayResponse(gwRes);
+        const gatewayRecents = this.mapGatewayCallsToRecents(gwData);
+        this.lastLoadedDateLabel = `${this.formatDateLabel(startDate)} – ${this.formatDateLabel(endDate)}`;
+        this.applyGatewayRecentsToRecents(gatewayRecents);
+        this.toast.success(`Loaded ${this.recents.length} call(s) for ${this.lastLoadedDateLabel}.`);
+      } catch (err) {
+        console.error('Failed to load calls by date range:', err);
+        const msg = err.response?.data?.message || err.message || 'Check dates (yyyy-MM-dd) and network.';
+        this.toast.error(`Could not load calls: ${msg}`);
+      } finally {
+        this.loading = false;
+      }
+    },
+    applyGatewayRecentsToRecents(gatewayRecents) {
+      const byKey = new Map();
+      const add = (c) => {
+        const key = c.sessionId || `${c.contactName || ''}_${c.time}_${c.type}`;
+        if (!byKey.has(key)) byKey.set(key, { ...c, _sortTs: c._sortTs ?? 0 });
+      };
+      gatewayRecents.forEach(add);
+      this.recents = Array.from(byKey.values())
+        .sort((a, b) => (b._sortTs || 0) - (a._sortTs || 0))
+        .slice(0, 100)
+        .map(({ _sortTs, ...r }) => r);
+      this.saveRecents();
+    },
+    normalizeGatewayResponse(gwRes) {
+      if (Array.isArray(gwRes?.data)) return gwRes.data;
+      if (Array.isArray(gwRes?.data?.data)) return gwRes.data.data;
+      if (Array.isArray(gwRes?.data?.content)) return gwRes.data.content;
+      if (Array.isArray(gwRes?.data?.calls)) return gwRes.data.calls;
+      return [];
+    },
+    formatDateLabel(yyyyMmDd) {
+      if (!yyyyMmDd) return '';
+      const d = new Date(yyyyMmDd + 'T12:00:00');
+      if (isNaN(d.getTime())) return yyyyMmDd;
+      return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
     },
     mapGatewayCallsToRecents(gwData) {
       return gwData.map((call) => {
         const ts = call.callStartTime;
         const d = ts ? new Date(ts) : new Date();
-        const isInbound = (call.direction || '').toLowerCase() === 'inbound';
+        const rawDir = String(call.direction || '').trim().toLowerCase();
+        const isInbound = rawDir === 'inbound';
+        const isOutbound = rawDir === 'outbound' || rawDir === 'outgoing';
+        const type = isInbound ? 'Incoming' : (isOutbound ? 'Outgoing' : (rawDir ? rawDir.charAt(0).toUpperCase() + rawDir.slice(1) : 'Outgoing'));
         const contact = isInbound ? (call.callerNumber || call.caller_number || 'Unknown') : (call.destinationNumber || call.destination_number || call.clientDialedNumber || 'Unknown');
         return {
           sessionId: call.sessionId,
           contactName: contact,
           time: d.toLocaleTimeString(),
           day: d.toLocaleDateString('en-US', { weekday: 'long' }),
-          type: isInbound ? 'Incoming' : 'Outgoing',
+          type,
           duration: call.durationInSeconds || 0,
           recordingUrl: call.recordingUrl || null,
           receiverPhoneNo: isInbound ? call.destinationNumber : call.callerNumber,
           callerPhoneNo: call.callerNumber,
+          dialDestinationNumber: call.dialDestinationNumber || call.dial_destination_number || '',
           _sortTs: d.getTime(),
         };
       });
@@ -4040,26 +4110,76 @@ export default {
   display: block;
 }
 
-.recents-date-filter {
+.recents-load-section {
+  margin-bottom: 1rem;
+}
+.recents-load-row {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.6rem;
+}
+.recents-load-row:last-child {
+  margin-bottom: 0;
+}
+.recents-load-main {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem 1.5rem;
+}
+.recents-load-group {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
   flex-wrap: wrap;
 }
-.recents-date-filter .date-filter-input {
+.recents-load-label {
+  font-weight: 600;
+  color: #333;
+  min-width: 4.5rem;
+}
+.recents-from-to {
+  font-size: 0.9rem;
+  color: #555;
+  margin: 0 0.1rem 0 0.2rem;
+}
+.recents-load-section .date-filter-input {
   padding: 0.4rem 0.6rem;
   border: 1px solid #d6d9e0;
   border-radius: 6px;
   font-size: 0.9rem;
 }
-.recents-date-filter .date-filter-sep {
-  color: #6c7480;
-  font-weight: 600;
-}
-.recents-date-filter .primary-btn.small {
+.recents-load-section .primary-btn.small {
   padding: 0.4rem 0.8rem;
   font-size: 0.9rem;
+}
+.recents-filter-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: #333;
+  user-select: none;
+}
+.recents-filter-checkbox input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: #1a73e8;
+}
+.recents-date-label {
+  margin-bottom: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: #e8f0fe;
+  border-left: 4px solid #1a73e8;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  color: #1a73e8;
+}
+.recents-date-label strong {
+  color: #1557b0;
 }
 .no-recording-hint {
   color: #9ca3af;

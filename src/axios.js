@@ -1,17 +1,10 @@
 import axios from "axios";
 
-// Base URLs (configure in .env)
-// VITE_BASE_URL="https://officeapi.samis.co.ke/api" // prod (commented for now)
-// VITE_BASE_URL="http://localhost:8083/api"          // local alt
-// VITE_BASE_URL="http://DESKTOP-RPLDG13:8083/api"    // old desktop
-// VITE_BASE_URL="http://DESKTOP-RPLDG13:8086/api"    // current target
-
-// In development: use '' so requests go to same-origin and Vite proxy forwards to API (avoids CORS)
-// In production: use full API URL
+// Base URL: set VITE_BASE_URL in .env to override (e.g. local backend).
+// Default: production API (no localhost).
+const DEFAULT_BASE_URL = "https://officeapi.samis.co.ke/api";
 const apiClient = axios.create({
-  baseURL:
-    import.meta.env.VITE_BASE_URL ??
-    (import.meta.env.DEV ? "/api" : "https://officeapi.samis.co.ke/api"),
+  baseURL: import.meta.env.VITE_BASE_URL ?? DEFAULT_BASE_URL,
   headers: {
     "Content-Type": "application/json",
   },

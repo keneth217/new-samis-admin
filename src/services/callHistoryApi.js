@@ -2,7 +2,15 @@ import axios from '../axios';
 
 /**
  * Call History API Service
- * All endpoints for call history management
+ * All endpoints for call history management.
+ *
+ * CallController (gateway calls) – Base: /api/calls
+ * - POST /api/calls/token          → WebRTC capability token
+ * - POST /api/calls/list          → List all gateway calls
+ * - POST /api/calls/listbydate/{date}              → List by date (yyyy-MM-dd)
+ * - POST /api/calls/listbydaterange/{start}/{end}  → List by date range
+ * Gateway response fields: sessionId, direction, callerNumber, destinationNumber,
+ * dialDestinationNumber, callStartTime, durationInSeconds, recordingUrl, etc.
  */
 
 /**
@@ -98,14 +106,18 @@ export const getGatewayCalls = async () => {
 
 /**
  * List Gateway Calls by Date
- * POST /api/calls/listbydate/{date}
- * @param {string} date - Date in yyyy-MM-dd format
- * @returns {Promise} Response with array of gateway call records
+ * Returns gateway calls on a specific date (inclusive for the entire day).
+ * Endpoint: POST /api/calls/listbydate/{date}
+ * @param {string} date - Path param, required. Date in yyyy-MM-dd format (e.g. 2026-02-19)
+ * @returns {Promise} 200 OK with array of gateway call records (sessionId, direction, callerNumber,
+ *   destinationNumber, dialDestinationNumber, callStartTime, durationInSeconds, recordingUrl, etc.)
  */
 export const getGatewayCallsByDate = async (date) => {
   if (!date) throw new Error('date is required (yyyy-MM-dd)');
+  const dateStr = String(date).trim();
+  if (!dateStr) throw new Error('date is required (yyyy-MM-dd)');
   try {
-    const response = await axios.post(`/calls/listbydate/${date}`);
+    const response = await axios.post(`/calls/listbydate/${dateStr}`);
     return response;
   } catch (error) {
     console.error('❌ Error fetching gateway calls by date:', error);
