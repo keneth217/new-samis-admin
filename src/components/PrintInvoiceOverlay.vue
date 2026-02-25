@@ -56,25 +56,26 @@
             </template>
           </div>
 
-          <h1 class="invoice-main-title">INVOICE</h1>
-
-          <div class="invoice-top-grid">
-            <div class="receipt-details-box invoice-details-box">
-              <div class="receipt-details-header">CUSTOMER DETAILS</div>
-              <div class="receipt-detail-row">
-                <span class="receipt-value">{{ invoice?.schoolName || 'N/A' }}</span>
-              </div>
-              <div class="receipt-detail-row">
-                <span class="receipt-value">{{ invoice?.schoolCode || 'N/A' }}</span>
-              </div>
-              <div class="receipt-detail-row">
-                <span class="receipt-value">{{ invoice?.schoolEmail || 'N/A' }}</span>
-              </div>
-              <div class="receipt-detail-row">
-                <span class="receipt-value">Phone: {{ invoice?.schoolPhone || 'N/A' }}</span>
+          <div class="invoice-title-row">
+            <div class="invoice-title-and-customer">
+              <h1 class="invoice-main-title">INVOICE</h1>
+              <div class="receipt-details-box invoice-details-box">
+                <div class="receipt-details-header">CUSTOMER DETAILS</div>
+                <div class="receipt-detail-row">
+                  <span class="receipt-value">{{ invoice?.schoolName || 'N/A' }}</span>
+                </div>
+                <div class="receipt-detail-row">
+                  <span class="receipt-value">{{ invoice?.schoolCode || 'N/A' }}</span>
+                </div>
+                <div class="receipt-detail-row">
+                  <span class="receipt-value">{{ invoice?.schoolEmail || 'N/A' }}</span>
+                </div>
+                <div class="receipt-detail-row">
+                  <span class="receipt-value">Phone: {{ invoice?.schoolPhone || 'N/A' }}</span>
+                </div>
               </div>
             </div>
-            <div class="receipt-details-box invoice-details-box">
+            <div class="receipt-details-box invoice-details-box invoice-details-side">
               <div class="receipt-details-header">INVOICE DETAILS</div>
               <div class="receipt-detail-row">
                 <span class="receipt-label">Invoice #:</span>
@@ -227,13 +228,21 @@
               <div class="receipt-stamp-inner">
                 <img v-if="!stampImageLoadFailed" :src="stampImageUrl" alt="Stamp" class="receipt-stamp-img" @error="onStampImageError" />
                 <template v-else>
-                  <div class="receipt-stamp-ring">
-                    <span class="receipt-stamp-text">SAMIS SYSTEMS LIMITED</span>
-                    <span class="receipt-stamp-sep">✦</span>
-                    <span class="receipt-stamp-address">P. O. Box 3380-00500. NAIROBI</span>
-                  </div>
-                  <div class="receipt-stamp-date">{{ formatInvoiceFooterDate(invoice?.invoiceDate) }}</div>
+                  <svg class="receipt-stamp-svg" viewBox="0 0 130 130" aria-hidden="true">
+                    <defs>
+                      <path id="stamp-top-arc" d="M 22 28 A 43 43 0 0 1 108 28" fill="none" />
+                      <path id="stamp-bottom-arc" d="M 108 102 A 43 43 0 0 1 22 102" fill="none" />
+                    </defs>
+                    <circle class="receipt-stamp-circle" cx="65" cy="65" r="61" fill="none" stroke="currentColor" stroke-width="1.5" />
+                    <text class="receipt-stamp-arc-text">
+                      <textPath href="#stamp-top-arc" startOffset="50%" text-anchor="middle">✦ SAMIS SYSTEMS LIMITED ✦</textPath>
+                    </text>
+                    <text class="receipt-stamp-arc-text receipt-stamp-arc-bottom">
+                      <textPath href="#stamp-bottom-arc" startOffset="50%" text-anchor="middle">✦ P.O. BOX 3380 - 00500, NAIROBI ✦</textPath>
+                    </text>
+                  </svg>
                 </template>
+                <div class="receipt-stamp-date">{{ formatInvoiceFooterDate(invoice?.invoiceDate) }}</div>
               </div>
             </div>
           </div>
@@ -717,6 +726,19 @@ export default {
   background: #fff;
 }
 
+.invoice-print-content .invoice-title-row .receipt-details-header {
+  padding: 3px 6px;
+  font-size: 10pt;
+}
+
+.invoice-print-content .invoice-title-row .receipt-detail-row {
+  padding: 1px 6px;
+}
+
+.invoice-print-content .invoice-title-row .receipt-detail-row .receipt-label {
+  min-width: 72px;
+}
+
 .invoice-print-content .invoice-payment-section .receipt-detail-row {
   border-top: none;
   padding: 2px 12px;
@@ -765,9 +787,9 @@ export default {
 }
 
 .invoice-print-content .receipt-stamp-inner {
-  width: 130px;
-  height: 130px;
-  border: 2px solid #1a5fb4;
+  position: relative;
+  width: 170px;
+  height: 170px;
   border-radius: 50%;
   overflow: hidden;
   display: flex;
@@ -775,48 +797,53 @@ export default {
   align-items: center;
   justify-content: center;
   margin: 0 0 0 auto;
-  padding: 8px;
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  padding: 0;
+  background: #fff;
   box-sizing: border-box;
 }
 
-.invoice-print-content .receipt-stamp-ring {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  font-size: 6pt;
-  line-height: 1.15;
-  text-align: center;
-  text-transform: uppercase;
-  color: #fff;
-  font-weight: bold;
+.invoice-print-content .receipt-stamp-inner:not(:has(.receipt-stamp-img)) {
+  border: 1.5px solid #1a5fb4;
 }
 
-.invoice-print-content .receipt-stamp-sep {
-  font-size: 6pt;
-  margin: 2px 0;
-  color: #fff;
+.invoice-print-content .receipt-stamp-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  color: #1a5fb4;
+}
+
+.invoice-print-content .receipt-stamp-circle {
+  color: #1a5fb4;
+}
+
+.invoice-print-content .receipt-stamp-arc-text {
+  font-size: 6px;
+  font-weight: bold;
+  fill: #1a5fb4;
+  font-family: 'Times New Roman', Times, serif;
+  text-transform: uppercase;
+}
+
+.invoice-print-content .receipt-stamp-arc-bottom {
+  font-size: 5.5px;
 }
 
 .invoice-print-content .receipt-stamp-date {
-  font-size: 12pt;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 11pt;
   font-weight: bold;
   color: #dc2626;
   text-transform: uppercase;
   text-align: center;
   line-height: 1.2;
-  margin-top: 4px;
-}
-
-.invoice-print-content .receipt-stamp-text {
-  font-size: 6pt;
-  font-weight: bold;
-  color: #fff;
-}
-
-.invoice-print-content .receipt-stamp-address {
-  font-size: 7pt;
-  color: #fff;
+  z-index: 1;
+  margin: 0;
 }
 
 .invoice-print-content .receipt-stamp-img {
@@ -837,13 +864,31 @@ export default {
   z-index: 1;
 }
 
-.invoice-top-grid {
+.invoice-title-row {
   display: flex;
   gap: 16px;
   align-items: flex-start;
   margin-bottom: 12px;
   position: relative;
   z-index: 1;
+}
+
+.invoice-title-and-customer {
+  flex: 1;
+  min-width: 0;
+  max-width: 55%;
+}
+
+.invoice-title-and-customer .receipt-details-box {
+  padding: 0;
+}
+
+.invoice-details-side {
+  flex: 0 0 auto;
+  min-width: 160px;
+  max-width: 200px;
+  padding: 0;
+  margin-left: auto;
 }
 
 .invoice-details-box {
