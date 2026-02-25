@@ -600,8 +600,8 @@ export default {
 
 .receipt-details-box {
   flex: 0 1 auto;
-  max-width: 400px;
-  min-width: 300px;
+  max-width: 360px;
+  min-width: 270px;
   border: 1px solid #000;
 }
 
@@ -657,9 +657,10 @@ export default {
 }
 
 .receipt-amount-box {
-  flex: 0 0 340px;
-  min-width: 340px;
+  flex: 0 0 270px;
+  min-width: 270px;
   margin-left: auto;
+  margin-right: 24px;
   margin-top: 18px;
   border: 1px solid #000;
   padding: 2px 12px;
