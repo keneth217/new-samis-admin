@@ -64,22 +64,22 @@
             <div class="receipt-top-grid">
               <div class="receipt-details-box">
                 <div class="receipt-details-header">RECEIPT DETAILS</div>
-                <div class="receipt-detail-row">
-                  <span class="receipt-label">Receipt #:</span>
-                  <span class="receipt-value">{{ receipt?.receiptNo || 'N/A' }}</span>
-                </div>
-                <div class="receipt-detail-row">
-                  <span class="receipt-label">Receipt Date:</span>
-                  <span class="receipt-value">{{ receipt?.receiptDate || 'N/A' }}</span>
-                </div>
-                <div class="receipt-detail-row">
-                  <span class="receipt-label">Payment Method:</span>
-                  <span class="receipt-value">{{ (receipt?.paymentMode || 'N/A') }}{{ receipt?.paymentModeNo ? ' - ' + receipt.paymentModeNo : ' -' }}</span>
+                <div class="receipt-details-body">
+                  <div class="receipt-details-labels">
+                    <div class="receipt-detail-label">Receipt #:</div>
+                    <div class="receipt-detail-label">Receipt Date:</div>
+                    <div class="receipt-detail-label">Payment Method:</div>
+                  </div>
+                  <div class="receipt-details-values">
+                    <div class="receipt-detail-value">{{ receipt?.receiptNo || 'N/A' }}</div>
+                    <div class="receipt-detail-value">{{ receipt?.receiptDate || 'N/A' }}</div>
+                    <div class="receipt-detail-value">{{ (receipt?.paymentMode || 'N/A') }}{{ receipt?.paymentModeNo ? ' - ' + receipt.paymentModeNo : ' -' }}</div>
+                  </div>
                 </div>
               </div>
               <div class="receipt-amount-box">
-                <div class="receipt-amount-label">Payment Amount:</div>
-                <div class="receipt-amount-value">{{ formatNumber(receipt?.amount || 0) }}</div>
+                <span class="receipt-amount-label">Payment Amount:</span>
+                <span class="receipt-amount-value">{{ formatNumber(receipt?.amount || 0) }}</span>
               </div>
             </div>
           </div>
@@ -98,16 +98,17 @@
             </div>
             <div class="receipt-desc-row">
               <span class="receipt-desc-label">Payment For:</span>
-              <span class="receipt-desc-value underlined">{{ (receipt?.paymentFor && receipt.paymentFor !== 'null') ? receipt.paymentFor : '- null' }}</span>
+              <span class="receipt-desc-value">{{ (receipt?.paymentFor && receipt.paymentFor !== 'null') ? receipt.paymentFor : '- null' }}</span>
+            </div>
+            <div class="receipt-desc-row receipt-separator-line">
+              <span class="receipt-desc-label receipt-separator-line-label"></span>
+              <span class="receipt-desc-value receipt-separator-line-value"></span>
             </div>
             <div v-if="receipt?.deleted && receipt?.deleteReason" class="receipt-reversal-note">
               <span class="receipt-label">Reversal Reason:</span>
               <span class="receipt-value">{{ receipt.deleteReason }}</span>
             </div>
           </div>
-
-          <!-- Black separator line above footer (same row as stamp) -->
-          <div class="receipt-footer-separator"></div>
 
           <!-- Footer -->
           <div class="receipt-footer">
@@ -116,7 +117,7 @@
               <div class="receipt-tagline">The Lord is my Shepherd.</div>
             </div>
             <div class="receipt-stamp">
-              <div class="receipt-stamp-inner">
+              <div class="receipt-stamp-inner" :class="{ 'receipt-stamp-has-img': !stampImageLoadFailed }">
                 <img v-if="!stampImageLoadFailed" :src="stampImageUrl" alt="Stamp" class="receipt-stamp-img" @error="onStampImageError" />
                 <template v-else>
                   <div class="receipt-stamp-ring">
@@ -124,8 +125,9 @@
                     <span class="receipt-stamp-sep">✦</span>
                     <span class="receipt-stamp-address">P. O. Box 3380-00500. NAIROBI</span>
                   </div>
-                  <div class="receipt-stamp-date">{{ formatReceiptFooterDate(receipt?.receiptDate) }}</div>
                 </template>
+                <!-- Receipt date on stamp (same format as reference: e.g. 15 Sep-2023, red, centered) -->
+                <div class="receipt-stamp-date-overlay">{{ formatReceiptFooterDate(receipt?.receiptDate) }}</div>
               </div>
             </div>
           </div>
@@ -205,7 +207,7 @@ export default {
     formatReceiptFooterDate(dateStr) {
       const format = (d) => {
         const day = String(d.getDate()).padStart(2, '0');
-        const month = d.toLocaleDateString('en-GB', { month: 'short' }).toUpperCase();
+        const month = d.toLocaleDateString('en-GB', { month: 'short' }); // e.g. "Sep" (capital S, rest lowercase)
         const year = d.getFullYear();
         return `${day} ${month}-${year}`;
       };
@@ -428,14 +430,14 @@ export default {
   width: 180px;
   height: 180px;
   object-fit: contain;
-  opacity: 0.58;
-  filter: brightness(1.05);
+  opacity: 0.22;
+  filter: brightness(1.02);
 }
 
 .receipt-watermark-s {
   font-size: 7rem;
   font-weight: bold;
-  color: rgba(70, 130, 200, 0.55);
+  color: rgba(70, 130, 200, 0.24);
   font-family: 'Times New Roman', Times, serif;
   line-height: 1;
 }
@@ -443,7 +445,7 @@ export default {
 .receipt-watermark-amis {
   font-size: 7rem;
   font-weight: bold;
-  color: rgba(70, 130, 200, 0.55);
+  color: rgba(70, 130, 200, 0.24);
   font-family: 'Times New Roman', Times, serif;
   line-height: 1;
 }
@@ -451,7 +453,7 @@ export default {
 .receipt-watermark-tagline {
   font-size: 1.6rem;
   font-style: italic;
-  color: rgba(70, 130, 200, 0.52);
+  color: rgba(70, 130, 200, 0.22);
   font-family: Georgia, 'Times New Roman', serif;
   margin-top: 10px;
   letter-spacing: 0.5px;
@@ -597,47 +599,86 @@ export default {
 }
 
 .receipt-details-box {
-  flex: 1;
+  flex: 0 1 auto;
+  max-width: 400px;
+  min-width: 300px;
   border: 1px solid #000;
 }
 
 .receipt-details-header {
   background: #4a90d9;
   color: #fff;
-  padding: 4px 10px;
+  padding: 2px 6px;
   font-weight: bold;
   font-size: 12px;
 }
 
-.receipt-detail-row {
+.receipt-details-body {
   display: flex;
-  padding: 4px 10px;
-  border-top: 1px solid #ddd;
   font-size: 12px;
 }
 
-.receipt-detail-row .receipt-label {
-  min-width: 110px;
+.receipt-details-labels {
+  flex: 0 0 auto;
+  min-width: 95px;
+  background-color: #e5e7eb;
+  padding: 2px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.receipt-detail-label {
+  padding: 2px 0;
   font-weight: bold;
+  border-bottom: 1px solid #d1d5db;
+}
+
+.receipt-details-labels .receipt-detail-label:last-child {
+  border-bottom: none;
+}
+
+.receipt-details-values {
+  flex: 1;
+  background-color: #fff;
+  padding: 2px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.receipt-detail-value {
+  padding: 2px 0;
+  border-bottom: 1px solid #ddd;
+}
+
+.receipt-details-values .receipt-detail-value:last-child {
+  border-bottom: none;
 }
 
 .receipt-amount-box {
-  flex: 0 0 260px;
-  min-width: 260px;
+  flex: 0 0 340px;
+  min-width: 340px;
+  margin-left: auto;
+  margin-top: 18px;
+  border: 1px solid #000;
+  padding: 2px 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .receipt-amount-label {
   font-size: 10pt;
   font-weight: bold;
-  margin-bottom: 2px;
+  flex-shrink: 0;
 }
 
 .receipt-amount-value {
-  font-size: 14pt;
+  font-size: 13pt;
   font-weight: bold;
-  border: 1px solid #000;
-  padding: 8px;
-  text-align: center;
+  text-align: left;
+  flex: 1;
 }
 
 .receipt-blue-stripe {
@@ -649,16 +690,17 @@ export default {
 }
 
 .receipt-payment-desc {
-  margin: 10px 0;
+  margin: 10px 0 0 0;
   position: relative;
   z-index: 1;
 }
 
 .receipt-desc-row {
   display: flex;
-  padding: 4px 0;
+  padding: 2px 0;
   gap: 10px;
   font-size: 10pt;
+  align-items: center;
 }
 
 .receipt-desc-label {
@@ -666,10 +708,34 @@ export default {
   font-weight: bold;
 }
 
-.receipt-desc-value.underlined {
-  border-bottom: 1px solid #000;
+.receipt-desc-value {
   flex: 1;
   font-weight: bold;
+}
+
+.receipt-desc-value.underlined {
+  border-bottom: 1px solid #000;
+}
+
+.receipt-separator-line {
+  padding: 0;
+  min-height: 0;
+}
+
+.receipt-separator-line .receipt-desc-label {
+  border: none;
+}
+
+/* Match width of "Payment For:" so line starts after the colon like the other two */
+.receipt-separator-line-label {
+  min-width: 90px;
+  width: 90px;
+}
+
+.receipt-separator-line-value {
+  border-top: 2px solid #000;
+  min-height: 0;
+  padding-top: 2px;
 }
 
 .receipt-reversal-note {
@@ -686,16 +752,6 @@ export default {
   color: #b91c1c;
   min-width: 120px;
   font-weight: bold;
-}
-
-/* Full-width black separator line above footer, same row as stamp */
-.receipt-footer-separator {
-  height: 0;
-  border: none;
-  border-top: 2px solid #000;
-  margin: 16px 0 0 0;
-  position: relative;
-  z-index: 1;
 }
 
 .receipt-footer {
@@ -729,11 +785,11 @@ export default {
 }
 
 .receipt-stamp-inner {
-  width: 130px;
-  height: 130px;
-  border: 2px solid #1a5fb4;
+  position: relative;
+  width: 170px;
+  height: 170px;
   border-radius: 50%;
-  overflow: hidden;
+  overflow: visible;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -743,10 +799,27 @@ export default {
   background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
   box-sizing: border-box;
 }
+.receipt-stamp-inner.receipt-stamp-has-img {
+  overflow: hidden;
+}
+.receipt-stamp-date-overlay {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 12pt;
+  font-weight: bold;
+  font-style: italic;
+  color: #dc2626;
+  text-align: center;
+  line-height: 1.2;
+  z-index: 2;
+  white-space: nowrap;
+  text-transform: capitalize;
+}
 
 .receipt-stamp-inner.receipt-stamp-has-img {
   background: transparent;
-  border-color: #1a5fb4;
 }
 
 .receipt-stamp-ring {
@@ -768,15 +841,6 @@ export default {
   color: #fff;
 }
 
-.receipt-stamp-date {
-  font-size: 12pt;
-  font-weight: bold;
-  color: #dc2626;
-  text-transform: uppercase;
-  text-align: center;
-  line-height: 1.2;
-  margin-top: 4px;
-}
 
 .receipt-stamp-text {
   font-size: 6pt;
