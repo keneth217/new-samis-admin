@@ -72,7 +72,7 @@
                   </div>
                   <div class="receipt-details-values">
                     <div class="receipt-detail-value">{{ receipt?.receiptNo || 'N/A' }}</div>
-                    <div class="receipt-detail-value">{{ receipt?.receiptDate || 'N/A' }}</div>
+                    <div class="receipt-detail-value">{{ receipt?.receiptDate ? formatReceiptFooterDate(receipt.receiptDate) : 'N/A' }}</div>
                     <div class="receipt-detail-value">{{ (receipt?.paymentMode || 'N/A') }}{{ receipt?.paymentModeNo ? ' - ' + receipt.paymentModeNo : ' -' }}</div>
                   </div>
                 </div>

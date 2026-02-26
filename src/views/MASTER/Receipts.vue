@@ -990,7 +990,8 @@ export default {
 .cancel-btn {
   background-color: #ddd;
   color: #333;
-  padding: clamp(0.4rem, 1vw, 0.6rem) clamp(0.8rem, 2vw, 1.2rem);
+  padding: 0.5rem 1.4rem;
+  min-width: 100px;
   font-size: clamp(0.85rem, 1.3vw, 1rem);
   border: none;
   border-radius: 4px;
@@ -1005,13 +1006,15 @@ export default {
 .delete-confirm-btn {
   background-color: #dc3545;
   color: white;
-  padding: clamp(0.4rem, 1vw, 0.6rem) clamp(0.8rem, 2vw, 1.2rem);
+  padding: 0.5rem 1.4rem;
+  min-width: 110px;
   font-size: clamp(0.85rem, 1.3vw, 1rem);
   border: none;
   border-radius: 4px;
   cursor: pointer;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
   transition: background-color 0.3s ease;
 }

@@ -1131,7 +1131,7 @@ export default {
 }
 
 .message-modal {
-  max-width: clamp(300px, 95vw, 900px);
+  max-width: clamp(300px, 92vw, 520px);
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
 }
 
@@ -1287,17 +1287,15 @@ export default {
 
 .modal-actions {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   gap: 0.5rem;
   margin-top: clamp(0.75rem, 2vw, 1rem);
   padding-top: clamp(0.75rem, 2vw, 1rem);
   border-top: 2px solid #e9ecef;
   flex-wrap: wrap;
   background-color: #f8f9fa;
-  margin-left: clamp(-1.5rem, -3vw, -2rem);
-  margin-right: clamp(-1.5rem, -3vw, -2rem);
-  padding-left: clamp(1.5rem, 3vw, 2rem);
-  padding-right: clamp(1.5rem, 3vw, 2rem);
+  padding-left: 0;
+  padding-right: 0;
   padding-bottom: clamp(1rem, 2vw, 1.5rem);
   border-radius: 0 0 8px 8px;
 }
@@ -1313,8 +1311,8 @@ export default {
   align-items: center;
   gap: 0.5rem;
   transition: background-color 0.3s ease;
-  flex: 1;
   justify-content: center;
+  min-width: 0;
 }
 
 .modal-action-btn.resend-btn {
@@ -1553,10 +1551,12 @@ export default {
   margin-top: clamp(0.75rem, 2vw, 1rem);
 }
 
+/* Delete modal buttons – previous colors, wider for better appeal */
 .modal-overlay .cancel-btn {
   background-color: #ddd;
   color: #333;
-  padding: clamp(0.4rem, 1vw, 0.6rem) clamp(0.8rem, 2vw, 1.2rem);
+  padding: 0.5rem 1.4rem;
+  min-width: 100px;
   font-size: clamp(0.85rem, 1.3vw, 1rem);
   border: none;
   border-radius: 4px;
@@ -1571,13 +1571,15 @@ export default {
 .modal-overlay .delete-confirm-btn {
   background-color: #dc3545;
   color: white;
-  padding: clamp(0.4rem, 1vw, 0.6rem) clamp(0.8rem, 2vw, 1.2rem);
+  padding: 0.5rem 1.4rem;
+  min-width: 110px;
   font-size: clamp(0.85rem, 1.3vw, 1rem);
   border: none;
   border-radius: 4px;
   cursor: pointer;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
   transition: background-color 0.3s ease;
 }

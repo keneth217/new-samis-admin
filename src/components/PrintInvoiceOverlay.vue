@@ -83,11 +83,11 @@
               </div>
               <div class="receipt-detail-row">
                 <span class="receipt-label">Invoice Date:</span>
-                <span class="receipt-value">{{ invoice?.invoiceDate || 'N/A' }}</span>
+                <span class="receipt-value">{{ invoice?.invoiceDate ? formatInvoiceFooterDate(invoice.invoiceDate) : 'N/A' }}</span>
               </div>
               <div class="receipt-detail-row">
                 <span class="receipt-label">Due Date:</span>
-                <span class="receipt-value">{{ invoice?.dueDate || 'N/A' }}</span>
+                <span class="receipt-value">{{ invoice?.dueDate ? formatInvoiceFooterDate(invoice.dueDate) : 'N/A' }}</span>
               </div>
             </div>
           </div>
@@ -614,6 +614,23 @@ export default {
   color: rgba(70, 130, 200, 0.42);
   font-family: Georgia, 'Times New Roman', serif;
   margin-top: 8px;
+}
+
+.invoice-print-content .invoice-watermark-vertical {
+  position: absolute;
+  top: 50%;
+  right: 24px;
+  transform: translateY(-50%);
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  font-size: 1rem;
+  font-style: italic;
+  color: rgba(70, 130, 200, 0.35);
+  font-family: Georgia, 'Times New Roman', serif;
+  letter-spacing: 0.15em;
+  pointer-events: none;
+  z-index: 0;
+  white-space: nowrap;
 }
 
 .invoice-print-content .receipt-header-wrapper {

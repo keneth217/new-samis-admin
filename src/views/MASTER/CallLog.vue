@@ -274,7 +274,7 @@
                       :class="{ 'even-row': idx % 2 !== 0 }"
                     >
                       <td>{{ call.contactName || 'Unknown' }}</td>
-                      <td>{{ call.time }}</td>
+                      <td>{{ formatRecentTime(call) }}</td>
                       <td>{{ call.type }}</td>
                       <td>{{ formatCallDuration(call.duration || 0) }}</td>
                       <td>{{ call.dialDestinationNumber || '—' }}</td>
@@ -315,7 +315,7 @@
                   <div class="card-body">
                     <div class="card-row">
                       <span class="card-label">Time:</span>
-                      <span class="card-value">{{ call.time }}</span>
+                      <span class="card-value">{{ formatRecentTime(call) }}</span>
                     </div>
                     <div class="card-row">
                       <span class="card-label">Type:</span>
@@ -1078,6 +1078,16 @@ export default {
       if (isNaN(d.getTime())) return yyyyMmDd;
       return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
     },
+    formatRecentTime(call) {
+      if (!call) return '—';
+      if (call.callStartTime) {
+        const d = new Date(call.callStartTime);
+        if (!isNaN(d.getTime())) {
+          return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+        }
+      }
+      return call.time || '—';
+    },
     mapGatewayCallsToRecents(gwData) {
       return gwData.map((call) => {
         const ts = call.callStartTime;
@@ -1090,7 +1100,7 @@ export default {
         return {
           sessionId: call.sessionId,
           contactName: contact,
-          time: d.toLocaleTimeString(),
+          time: d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }),
           day: d.toLocaleDateString('en-US', { weekday: 'long' }),
           type,
           duration: call.durationInSeconds || 0,
@@ -1098,6 +1108,7 @@ export default {
           receiverPhoneNo: isInbound ? call.destinationNumber : call.callerNumber,
           callerPhoneNo: call.callerNumber,
           dialDestinationNumber: call.dialDestinationNumber || call.dial_destination_number || '',
+          callStartTime: ts || null,
           _sortTs: d.getTime(),
         };
       });
@@ -2790,7 +2801,7 @@ export default {
         this.isInCall = false; // Keep it false until call is actually connected
         const newCall = {
           contactName: this.dialedNumber,
-          time: new Date().toLocaleTimeString(),
+          time: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }),
           type: 'Outgoing',
           day: new Date().toLocaleDateString('en-US', { weekday: 'long' }),
         };

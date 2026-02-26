@@ -25,7 +25,7 @@
             placeholder=" "
             v-model="loginData.phoneNo"
           />
-          <label for="phoneNo">Username</label>
+          <label for="phoneNo">Phone number</label>
         </div>
 
         <div class="form-group">
@@ -102,15 +102,14 @@ export default {
   },
   methods: {      
     async loginNow() {
-      if (!this.loginData.phoneNo || !this.loginData.password) {
+      const phoneNo = (this.loginData.phoneNo || '').trim();
+      const password = (this.loginData.password || '').trim();
+      if (!phoneNo || !password) {
         this.toast.error("ALL FIELDS REQUIRED!!");
         return;
       }
 
-      const data = {
-        phoneNo: this.loginData.phoneNo,
-        password: this.loginData.password,
-      };
+      const data = { phoneNo, password };
 
       try {
         // Show loading spinner

@@ -11,6 +11,20 @@
         placeholder="Search by name or code"
         class="search-input"
       />
+      <select
+        v-model="searchModule"
+        class="search-module-select"
+        aria-label="Filter by module"
+      >
+        <option value="">All modules</option>
+        <option
+          v-for="mod in uniqueModuleNames"
+          :key="mod"
+          :value="mod"
+        >
+          {{ mod }}
+        </option>
+      </select>
       <button class="action-btn" @click="exportToExcel">
         <span class="material-symbols-outlined">download</span>
         Export to Excel
@@ -271,6 +285,7 @@ export default {
       selectedSchool: null,
       show: false,
       searchQuery: '',
+      searchModule: '',
       schools: [],
       Loading: false,
       showActivationModal: false,
@@ -288,9 +303,15 @@ export default {
     };
   },
   computed: {
+    // Unique module names from current schools for the module filter dropdown
+    uniqueModuleNames() {
+      const names = [...new Set(this.schools.map(s => (s.moduleName || '').toString().trim()).filter(Boolean))];
+      return names.sort((a, b) => a.localeCompare(b));
+    },
     // Filter individual activations - each module activation is a separate row
     filteredSchools() {
       const query = this.searchQuery.trim().toLowerCase();
+      const moduleFilter = (this.searchModule || '').toString().trim();
       // Filter schools array directly - no grouping, each activation is a separate row
       const filtered = this.schools.filter(school => {
         // Skip invalid entries
@@ -299,8 +320,9 @@ export default {
           console.log('Skipping invalid school:', school);
           return false;
         }
-        
-        // If no search query, return all valid entries
+        // Filter by module when "search by module" is set
+        if (moduleFilter && (school.moduleName || '').toString().trim() !== moduleFilter) return false;
+        // If no search query, return all valid entries (after module filter)
         if (!query) return true;
         
         const nameMatch = (school.schoolName || '').toString().toLowerCase().includes(query);
@@ -1058,6 +1080,24 @@ export default {
     border-color: #1e6192;
     box-shadow: 0 0 0 2px rgba(43, 122, 183, 0.2);
   }
+
+  .search-module-select {
+    padding: clamp(0.3rem, 1vw, 0.5rem);
+    border-radius: 5px;
+    border: 2px solid #2b7ab7;
+    outline: none;
+    font-size: clamp(0.85rem, 1.5vw, 1rem);
+    min-width: 140px;
+    max-width: 220px;
+    background: #fff;
+    color: #333;
+    cursor: pointer;
+  }
+
+  .search-module-select:focus {
+    border-color: #1e6192;
+    box-shadow: 0 0 0 2px rgba(43, 122, 183, 0.2);
+  }
   
   .table-container {
     background-color: white;
@@ -1468,6 +1508,11 @@ export default {
     .search-input {
       width: 100%;
       margin-left: 0;
+    }
+
+    .search-module-select {
+      width: 100%;
+      max-width: none;
     }
 
     .table-container {

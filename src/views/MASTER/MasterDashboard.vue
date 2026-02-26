@@ -2,17 +2,19 @@
   <main id="dashboard">
     <!-- Main Content Area -->
     <div class="page-wrapper">
-      <!-- Summary Cards Grid -->
+      <!-- Summary Cards Grid (Top-Level Counts) -->
       <div class="cards-container" ref="cardsContainer">
-        <div class="summary-card" v-for="card in cards" :key="card.title">
-          <div class="summary-card-icon" :style="{ backgroundColor: card.iconBg }">
-            <span class="material-symbols-outlined">{{ card.icon }}</span>
+        <div
+          class="summary-card"
+          v-for="card in cards"
+          :key="card.title"
+          :style="{ borderLeftColor: card.accentColor }"
+        >
+          <div class="summary-card-top">
+            <span class="summary-card-icon material-symbols-outlined" :style="{ color: card.accentColor }">{{ card.icon }}</span>
+            <span class="summary-card-amount" :style="{ color: card.accentColor }">{{ card.amount }}</span>
           </div>
-          <div class="summary-card-content">
-            <p class="summary-card-title">{{ card.title }}</p>
-            <p class="summary-card-amount">{{ card.amount }}</p>
-            <p class="summary-card-subtitle" v-if="card.subtitle">{{ card.subtitle }}</p>
-          </div>
+          <p class="summary-card-label">{{ card.title }}</p>
         </div>
       </div>
 
@@ -116,76 +118,11 @@ export default {
         countyRevenueChart: null,
       },
       cards: [
-        { 
-          title: "Total Schools", 
-          amount: 0, 
-          icon: "school", 
-          iconBg: '#e3f2fd',
-          subtitle: 'All registered schools'
-        },
-        { 
-          title: "Activated Schools", 
-          amount: 0, 
-          icon: "check_circle", 
-          iconBg: '#e8f5e9',
-          subtitle: 'Active schools'
-        },
-        { 
-          title: "Expired Activations", 
-          amount: 0, 
-          icon: "cancel", 
-          iconBg: '#ffebee',
-          subtitle: 'Expired activations'
-        },
-        { 
-          title: "Total Modules", 
-          amount: 0, 
-          icon: "widgets", 
-          iconBg: '#f3e5f5',
-          subtitle: 'Available modules'
-        },
-        { 
-          title: "Invoices", 
-          amount: 0, 
-          icon: "receipt_long", 
-          iconBg: '#fff3e0',
-          subtitle: 'Total invoices'
-        },
-        { 
-          title: "Receipts", 
-          amount: 0, 
-          icon: "description", 
-          iconBg: '#e8f5e9',
-          subtitle: 'Total receipts'
-        },
-        { 
-          title: "Invoiced Amount", 
-          amount: 0, 
-          icon: "payments", 
-          iconBg: '#f3e5f5',
-          subtitle: 'All-time invoiced amount'
-        },
-        { 
-          title: "Received Amount", 
-          amount: 0, 
-          icon: "payments", 
-          iconBg: '#e0f2f1',
-          subtitle: 'All-time received amount'
-        },
-        { 
-          title: "Total Expenses", 
-          amount: 0, 
-          icon: "payments", 
-          iconBg: '#ffebee',
-          subtitle: 'All-time expenses'
-        },
-        // { 
-        //   title: "Tasks Due", 
-        //   amount: 0, 
-        //   icon: "task_alt", 
-        //   iconBg: '#fff9c4',
-        //   subtitle: 'Due this period'
-        // },
+        { title: "Schools", amount: 0, icon: "school", accentColor: "#2b7ab7" },
+        { title: "Modules", amount: 0, icon: "widgets", accentColor: "#22c55e" },
+        { title: "Activations", amount: 0, icon: "group_work", accentColor: "#eab308" },
+        { title: "Active Activations", amount: 0, icon: "check_circle", accentColor: "#ec4899" },
+        { title: "Expired Activations", amount: 0, icon: "cancel", accentColor: "#0ea5e9" },
       ],
     };
   },
@@ -373,69 +310,11 @@ export default {
         // (No extra fields now; everything comes directly from `accountStats`)
 
         this.cards = [
-          { 
-            title: "Total Schools", 
-            amount: this.schools, 
-            icon: "school", 
-            iconBg: '#e3f2fd',
-            subtitle: 'All registered schools'
-          },
-          { 
-            title: "Total Modules", 
-            amount: this.modules, 
-            icon: "widgets", 
-            iconBg: '#f3e5f5',
-            subtitle: 'Available modules / activations'
-          },
-          { 
-            title: "Active Activations", 
-            amount: this.activeActivations, 
-            icon: "check_circle", 
-            iconBg: '#e8f5e9',
-            subtitle: 'Currently active activations'
-          },
-          { 
-            title: "Expired Activations", 
-            amount: this.expiredActivations, 
-            icon: "cancel", 
-            iconBg: '#ffebee',
-            subtitle: 'Expired activations'
-          },
-          { 
-            title: "Invoices", 
-            amount: this.accountStats.invoices, 
-            icon: "receipt_long", 
-            iconBg: '#fff3e0',
-            subtitle: 'Total invoices'
-          },
-          { 
-            title: "Receipts", 
-            amount: this.accountStats.receipts, 
-            icon: "description", 
-            iconBg: '#e8f5e9',
-            subtitle: 'Total receipts'
-          },
-          { 
-            title: "Invoiced Amount", 
-            amount: this.accountStats.invoicedAmount, 
-            icon: "payments", 
-            iconBg: '#f3e5f5',
-            subtitle: 'All-time invoiced amount'
-          },
-          { 
-            title: "Received Amount", 
-            amount: this.accountStats.receivedAmount, 
-            icon: "payments", 
-            iconBg: '#e0f2f1',
-            subtitle: 'All-time received amount'
-          },
-          { 
-            title: "Total Expenses", 
-            amount: this.accountStats.totalExpenses, 
-            icon: "payments", 
-            iconBg: '#e0f2f1',
-            subtitle: 'All-time expenses'
-          },
+          { title: "Schools", amount: this.schools, icon: "school", accentColor: "#2b7ab7" },
+          { title: "Modules", amount: this.modules, icon: "widgets", accentColor: "#22c55e" },
+          { title: "Activations", amount: this.activations, icon: "group_work", accentColor: "#eab308" },
+          { title: "Active Activations", amount: this.activeActivations, icon: "check_circle", accentColor: "#ec4899" },
+          { title: "Expired Activations", amount: this.expiredActivations, icon: "cancel", accentColor: "#0ea5e9" },
         ];
         
         this.initializeCharts();
@@ -572,71 +451,55 @@ export default {
   color: #000000;
 }
 
-/* Summary Cards Grid */
+/* Summary Cards Grid – Top-Level Counts (5 in one line) */
 .cards-container {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.75rem;
-}
-
-.cards-container .summary-card {
-  min-height: auto;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 1rem;
+  margin-top: 1.5rem;
+  margin-bottom: 2rem;
 }
 
 .summary-card {
   background-color: #ffffff;
-  border-radius: 12px;
-  padding: 1.25rem;
+  border-radius: 10px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: 1.5rem 1rem 1.5rem 1.25rem;
+  min-height: 5rem;
+  border-left: 5px solid;
   display: flex;
-  align-items: center;
-  gap: 1rem;
+  flex-direction: column;
+  gap: 0.5rem;
   transition: transform 0.2s, box-shadow 0.2s;
 }
 
 .summary-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.summary-card-top {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .summary-card-icon {
-  width: 50px;
-  height: 50px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  font-size: 1.5rem;
   flex-shrink: 0;
 }
 
-.summary-card-icon .material-symbols-outlined {
-  font-size: 2rem;
-  color: #2b7ab7;
-}
-
-.summary-card-content {
-  flex: 1;
-  min-width: 0;
-}
-
-.summary-card-title {
-  font-size: 0.9rem;
-  color: #000000;
-  margin-bottom: 0.25rem;
-  font-weight: 700;
-}
-
 .summary-card-amount {
-  font-size: 1.4rem;
+  font-size: 1.5rem;
   font-weight: 700;
-  color: #000000;
-  margin-bottom: 0.25rem;
+  line-height: 1.2;
 }
 
-.summary-card-subtitle {
-  font-size: 0.8rem;
-  color: #000000;
+.summary-card-label {
+  font-size: 0.9rem;
   font-weight: 600;
+  color: #374151;
+  margin: 0;
   line-height: 1.2;
 }
 
@@ -710,7 +573,7 @@ canvas {
   }
   
   .cards-container {
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 
@@ -720,7 +583,7 @@ canvas {
   }
   
   .cards-container {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
   }
   
   .chart-card {
@@ -732,7 +595,11 @@ canvas {
   }
   
   .summary-card-amount {
-    font-size: 1.1rem;
+    font-size: 1.25rem;
+  }
+  
+  .summary-card-icon {
+    font-size: 1.25rem;
   }
 }
 
@@ -745,25 +612,16 @@ canvas {
     grid-template-columns: 1fr;
   }
   
-  .summary-card-icon {
-    width: 35px;
-    height: 35px;
-  }
-  
-  .summary-card-icon .material-symbols-outlined {
-    font-size: 1.35rem;
-  }
-  
   .summary-card-amount {
-    font-size: 1.05rem;
+    font-size: 1.15rem;
   }
   
-  .summary-card-title {
-    font-size: 0.75rem;
+  .summary-card-icon {
+    font-size: 1.15rem;
   }
   
-  .summary-card-subtitle {
-    font-size: 0.65rem;
+  .summary-card-label {
+    font-size: 0.8rem;
   }
 }
 </style>

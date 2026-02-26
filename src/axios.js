@@ -161,10 +161,13 @@ apiClient.interceptors.response.use(
     }
 
     if (error.response?.status === 401) {
-      localStorage.removeItem("authToken");
-      delete apiClient.defaults.headers.common.Authorization;
-      if (typeof window !== "undefined") {
-        window.location.href = "/";
+      const isSigninRequest = error.config?.url?.includes("/auth/signin");
+      if (!isSigninRequest) {
+        localStorage.removeItem("authToken");
+        delete apiClient.defaults.headers.common.Authorization;
+        if (typeof window !== "undefined") {
+          window.location.href = "/";
+        }
       }
     }
     return Promise.reject(error);

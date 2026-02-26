@@ -99,24 +99,27 @@ export const useAuthStore = defineStore("auth", () => {
   
       const response = await axios.post(
         "/auth/signin",
-        { phoneNo, password },
+        { phoneNo: (phoneNo || '').trim(), password: (password || '').trim() },
         // { headers }
       );
-  
-      const receivedToken = response.data.token;
-      const receivedUserId = response.data.id;
-      const receivedPhoneNo = response.data.phoneNo;
-      const receivedUsername = response.data.username;
-      const receivedFullname = response.data.fullname;
-      const receivedRoles = response.data.roles;
-      
-  
 
+      const data = response.data;
+      const receivedToken = data?.token;
+      if (!receivedToken) {
+        console.error("Signin returned 200 but no token. Response:", data);
+        throw new Error("Invalid response from server (no token). Contact support.");
+      }
+
+      const receivedUserId = data?.id;
+      const receivedPhoneNo = data?.phoneNo;
+      const receivedUsername = data?.username;
+      const receivedFullname = data?.fullname;
+      const receivedRoles = Array.isArray(data?.roles) ? data.roles : [];
 
       // Store the received values (not the ref variables)
       localStorage.setItem('token', receivedToken);
       localStorage.setItem('authToken', receivedToken); // Also store as authToken for axios interceptor
-      localStorage.setItem('username', receivedUsername);
+      localStorage.setItem('username', receivedUsername || '');
       localStorage.setItem('fullname', receivedFullname || '');
       localStorage.setItem('phoneNo', receivedPhoneNo || '');
       localStorage.setItem('userId', receivedUserId?.toString() || '');
@@ -163,7 +166,7 @@ export const useAuthStore = defineStore("auth", () => {
       // }
   
       token.value = receivedToken;
-      username.value = receivedUsername;
+      username.value = receivedUsername || '';
       roles.value = receivedRoles;
       // accountNo is not part of the API response, keeping it as empty or legacy
       accountNo.value = '';
@@ -178,6 +181,17 @@ export const useAuthStore = defineStore("auth", () => {
     } catch (error) {
       console.error("Login failed:", error);
       setSuccessMessage("");
+
+      if (error.response?.status === 401) {
+        const raw =
+          error.response?.data?.message || error.response?.data?.error;
+        const rawStr = typeof raw === "string" ? raw : "";
+        const generic = /^(Unauthorized|Bad credentials|Invalid credentials)$/i.test(rawStr?.trim());
+        const msg = generic
+          ? "Invalid phone number or password. If you were just added, use the password sent to your phone."
+          : rawStr || "Invalid phone number or password. If you were just added, use the password sent to your phone.";
+        throw new Error(msg);
+      }
     
       // Handle network errors
       if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {

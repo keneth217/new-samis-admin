@@ -48,43 +48,12 @@
       </div>
     </div>
 
-    <!-- Action Bar: Create Invoice + Filters (layout like AllSchools) -->
+    <!-- Action Bar: Create Invoice -->
     <div class="header-container">
       <div class="header-object1">
         <button @click="openForm" class="action-btn" aria-label="Create Invoice">
           <span class="material-symbols-outlined">add_circle</span>
         </button>
-      </div>
-      <div class="filters">
-        <div class="filter-group">
-          <label for="schoolFilter" class="filter-label">School Code:</label>
-          <select
-            id="schoolFilter"
-            v-model="selectedSchoolCode"
-            @change="onSchoolFilterChange"
-            class="filter-select"
-          >
-            <option value="">All Schools</option>
-            <option
-              v-for="school in schools"
-              :key="school.schoolCode || school.school_code"
-              :value="school.schoolCode || school.school_code"
-            >
-              {{ school.schoolName || school.school_name }} ({{ school.schoolCode || school.school_code }})
-            </option>
-          </select>
-        </div>
-        <div class="filter-group">
-          <label for="invoiceNumberFilter" class="filter-label">Invoice Number:</label>
-          <input
-            id="invoiceNumberFilter"
-            v-model.trim="invoiceNumberFilter"
-            type="text"
-            placeholder="Filter by invoice number"
-            class="filter-input"
-            aria-label="Filter by invoice number"
-          />
-        </div>
       </div>
     </div>
 
@@ -337,8 +306,8 @@
       @close="closePrintView"
     />
 
-    <!-- Delete Receipt Confirmation Modal -->
-    <div v-if="showDeleteDialog" class="modal-overlay" @click.self="cancelDelete">
+    <!-- Delete Receipt Confirmation Modal (same CSS as Delete Invoice below) -->
+    <div v-if="showDeleteDialog" class="modal-overlay delete-confirm-modal" @click.self="cancelDelete">
       <div class="modal-content">
         <div class="modal-header">
           <h3>Reverse Receipt</h3>
@@ -364,8 +333,8 @@
       </div>
     </div>
 
-    <!-- Delete Invoice Confirmation Modal -->
-    <div v-if="showInvoiceDeleteDialog" class="modal-overlay" @click.self="cancelInvoiceDelete">
+    <!-- Delete Invoice Confirmation Modal (exact same CSS as Receipt delete above) -->
+    <div v-if="showInvoiceDeleteDialog" class="modal-overlay delete-confirm-modal" @click.self="cancelInvoiceDelete">
       <div class="modal-content">
         <div class="modal-header">
           <h3>Delete Invoice</h3>
@@ -432,12 +401,9 @@ export default {
       showReceiptsModal: false,
       receiptsList: [],
       searchQuery: '',
-      invoiceNumberFilter: '',
       invoices: [],
-      schools: [],
       Loading: false,
       isViewMode: false,
-      selectedSchoolCode: '',
       showDeleteDialog: false,
       receiptToDelete: null,
       deleteReason: '',
@@ -451,14 +417,6 @@ export default {
   computed: {
     filteredInvoices() {
       let list = this.invoices;
-      // Filter by invoice number (dedicated filter)
-      if (this.invoiceNumberFilter) {
-        const invQuery = this.invoiceNumberFilter.toLowerCase();
-        list = list.filter(invoice => {
-          const invNo = (invoice.invoiceNumber || invoice.invoiceNo || '').toString().toLowerCase();
-          return invNo.includes(invQuery);
-        });
-      }
       // Filter by school name or code (search box)
       if (this.searchQuery.trim()) {
         const query = this.searchQuery.toLowerCase();
@@ -627,16 +585,6 @@ export default {
       this.showForm = false;
       this.selectedInvoice = null;
     },
-    async fetchSchools() {
-      try {
-        const response = await axios.post('/schools/list');
-        if (response.data && Array.isArray(response.data)) {
-          this.schools = response.data;
-        }
-      } catch (error) {
-        console.error('Error fetching schools:', error);
-      }
-    },
     async fetchInvoices() {
       this.Loading = true;
       const toast = useToast();
@@ -725,61 +673,9 @@ export default {
         this.cancelInvoiceDelete();
       }
     },
-    async fetchInvoicesBySchool(schoolCode) {
-      this.Loading = true;
-      const toast = useToast();
-      try {
-        const response = await axios.post(`/invoices/school/${schoolCode}`);
-
-        if (response.data && Array.isArray(response.data)) {
-          this.invoices = response.data
-            .filter(invoice => !invoice.deleted)
-            .map(invoice => ({
-              invoiceNo: invoice.invoiceNo || invoice.invoice_number || invoice.invoiceID || invoice.id,
-              invoiceID: invoice.invoiceID || invoice.id || invoice.invoiceNo,
-              invoiceNumber: invoice.invoiceNo || invoice.invoiceNumber || invoice.invoice_number || 'N/A',
-              schoolName: invoice.schoolName || invoice.school_name || 'N/A',
-              schoolCode: invoice.schoolCode || invoice.school_code || 'N/A',
-              invoiceDate: invoice.invoiceDate || invoice.invoice_date || 'N/A',
-              dueDate: invoice.dueDate || invoice.due_date || 'N/A',
-              amount: parseFloat(invoice.amount || 0),
-              status: this.formatStatus(invoice.status || 'PENDING'),
-              description: invoice.description || '',
-              items: invoice.invoiceDetails || invoice.items || [],
-              totalPaid: parseFloat(invoice.paid || 0),
-              balance: parseFloat(invoice.balance || 0),
-              invoiceType: invoice.invoiceType || invoice.invoice_type || '',
-              receiptCount: invoice.receiptCount || invoice.receipt_count || 0,
-            }));
-
-          if (this.invoices.length > 0) {
-            toast.success(`${this.invoices.length} invoice(s) for school ${schoolCode} fetched successfully!`);
-          } else {
-            toast.info(`No invoices found for school ${schoolCode}.`);
-          }
-        } else {
-          this.invoices = [];
-          toast.warning('Invalid response format from API.');
-        }
-      } catch (error) {
-        console.error('Error fetching invoices by school:', error);
-        this.invoices = [];
-        toast.error('Failed to fetch invoices for this school. Please try again.');
-      } finally {
-        this.Loading = false;
-      }
-    },
-    onSchoolFilterChange() {
-      if (!this.selectedSchoolCode) {
-        this.fetchInvoices();
-      } else {
-        this.fetchInvoicesBySchool(this.selectedSchoolCode);
-      }
-    },
   },
   mounted() {
     this.fetchInvoices();
-    this.fetchSchools();
   },
 };
 </script>
@@ -958,66 +854,6 @@ export default {
 .action-btn .material-symbols-outlined {
   margin-right: 0.3rem;
   font-size: clamp(1rem, 2vw, 1.2rem);
-}
-
-.filters {
-  display: flex;
-  gap: 1rem;
-  flex-wrap: wrap;
-  align-items: center;
-  margin-left: auto;
-}
-
-.filter-group {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.filter-label {
-  color: #2b7ab7;
-  font-size: clamp(0.9rem, 1.5vw, 1.1rem);
-  white-space: nowrap;
-}
-
-.filter-select {
-  padding: 0.5rem 2rem 0.5rem 1rem;
-  border: 1px solid #2b7ab7;
-  border-radius: 4px;
-  font-size: 0.9rem;
-  background: white url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%236b7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>') no-repeat right 0.75rem center;
-  appearance: none;
-  cursor: pointer;
-  transition: border-color 0.2s;
-  min-width: 80px;
-  max-width: 180px;
-}
-
-.filter-select:focus {
-  outline: none;
-  border-color: #1e6192;
-  box-shadow: 0 0 0 2px rgba(43, 122, 183, 0.2);
-}
-
-.filter-input {
-  padding: 0.5rem 1rem;
-  border: 1px solid #2b7ab7;
-  border-radius: 4px;
-  font-size: 0.9rem;
-  background: white;
-  transition: border-color 0.2s;
-  min-width: 120px;
-  max-width: 200px;
-}
-
-.filter-input::placeholder {
-  color: #9ca3af;
-}
-
-.filter-input:focus {
-  outline: none;
-  border-color: #1e6192;
-  box-shadow: 0 0 0 2px rgba(43, 122, 183, 0.2);
 }
 
 /* ===== Table Container (matches schools) ===== */
@@ -1431,6 +1267,7 @@ export default {
   padding: 1rem;
 }
 
+/* Shared modal content (Receipts list modal) */
 .modal-overlay .modal-content {
   width: 100%;
   max-width: min(90vw, 500px);
@@ -1483,18 +1320,49 @@ export default {
   margin-bottom: clamp(0.75rem, 2vw, 1rem);
 }
 
-.delete-warning-text {
+/* ===== Delete confirm modals (Reverse Receipt + Delete Invoice) – exact same CSS for both ===== */
+.modal-overlay.delete-confirm-modal .modal-content {
+  width: 100%;
+  max-width: min(90vw, 500px);
+  padding: clamp(1rem, 3vw, 2rem);
+  max-height: min(90vh, 700px);
+  overflow-y: auto;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.modal-overlay.delete-confirm-modal .modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: clamp(0.75rem, 2vw, 1rem);
+  padding-bottom: clamp(0.5rem, 1.5vw, 0.75rem);
+  border-bottom: 2px solid #e9ecef;
+}
+
+.modal-overlay.delete-confirm-modal .modal-header h3 {
+  font-size: clamp(1.1rem, 2vw, 1.5rem);
+  margin: 0;
+  color: #333;
+}
+
+.modal-overlay.delete-confirm-modal .modal-body {
+  margin-bottom: clamp(0.75rem, 2vw, 1rem);
+}
+
+.modal-overlay.delete-confirm-modal .delete-warning-text {
   font-size: clamp(1rem, 1.5vw, 1.2rem);
   margin-bottom: 1rem;
   color: #333;
   line-height: 1.5;
 }
 
-.delete-warning-text strong {
+.modal-overlay.delete-confirm-modal .delete-warning-text strong {
   color: #dc3545;
 }
 
-.delete-school-preview {
+.modal-overlay.delete-confirm-modal .delete-school-preview {
   background-color: #f8f9fa;
   border: 1px solid #dee2e6;
   border-radius: 4px;
@@ -1502,22 +1370,22 @@ export default {
   margin: 1rem 0;
 }
 
-.preview-row {
+.modal-overlay.delete-confirm-modal .preview-row {
   padding: 0.5rem 0;
   border-bottom: 1px solid #e9ecef;
   font-size: clamp(0.9rem, 1.3vw, 1rem);
 }
 
-.preview-row:last-child {
+.modal-overlay.delete-confirm-modal .preview-row:last-child {
   border-bottom: none;
 }
 
-.preview-row strong {
+.modal-overlay.delete-confirm-modal .preview-row strong {
   color: #495057;
   margin-right: 0.5rem;
 }
 
-.delete-warning-note {
+.modal-overlay.delete-confirm-modal .delete-warning-note {
   background-color: #fff3cd;
   border: 1px solid #ffc107;
   border-radius: 4px;
@@ -1530,24 +1398,73 @@ export default {
   gap: 0.5rem;
 }
 
-.delete-warning-note i {
+.modal-overlay.delete-confirm-modal .delete-warning-note i {
   color: #ffc107;
   font-size: 1.1rem;
   margin-top: 0.1rem;
   flex-shrink: 0;
 }
 
-.form-actions {
+/* Reason field (same for Receipt reversal and Invoice delete) */
+.modal-overlay.delete-confirm-modal .form-group {
+  margin-top: 1rem;
+  margin-bottom: 0;
+}
+
+.modal-overlay.delete-confirm-modal .form-group label {
+  display: block;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 0.5rem;
+  font-size: clamp(0.9rem, 1.3vw, 1rem);
+}
+
+.modal-overlay.delete-confirm-modal .form-group .required {
+  color: #dc3545;
+  margin-left: 0.15rem;
+}
+
+.modal-overlay.delete-confirm-modal .form-group .form-control {
+  width: 100%;
+  min-height: 80px;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #2b7ab7;
+  border-radius: 4px;
+  font-size: clamp(0.9rem, 1.3vw, 1rem);
+  outline: none;
+  resize: vertical;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.modal-overlay.delete-confirm-modal .form-group .form-control:focus {
+  border-color: #1e6192;
+  box-shadow: 0 0 0 2px rgba(43, 122, 183, 0.2);
+}
+
+.modal-overlay.delete-confirm-modal .form-group .form-control::placeholder {
+  color: #9ca3af;
+}
+
+.modal-overlay.delete-confirm-modal .form-group .help-text {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+.modal-overlay.delete-confirm-modal .form-actions {
   display: flex;
   justify-content: space-between;
   gap: 0.5rem;
   margin-top: clamp(0.75rem, 2vw, 1rem);
 }
 
-.cancel-btn {
+.modal-overlay.delete-confirm-modal .cancel-btn {
   background-color: #ddd;
   color: #333;
-  padding: clamp(0.4rem, 1vw, 0.6rem) clamp(0.8rem, 2vw, 1.2rem);
+  padding: 0.5rem 1.4rem;
+  min-width: 100px;
   font-size: clamp(0.85rem, 1.3vw, 1rem);
   border: none;
   border-radius: 4px;
@@ -1555,34 +1472,36 @@ export default {
   transition: background-color 0.3s ease;
 }
 
-.cancel-btn:hover {
+.modal-overlay.delete-confirm-modal .cancel-btn:hover {
   background-color: #bbb;
 }
 
-.delete-confirm-btn {
+.modal-overlay.delete-confirm-modal .delete-confirm-btn {
   background-color: #dc3545;
   color: white;
-  padding: clamp(0.4rem, 1vw, 0.6rem) clamp(0.8rem, 2vw, 1.2rem);
+  padding: 0.5rem 1.4rem;
+  min-width: 110px;
   font-size: clamp(0.85rem, 1.3vw, 1rem);
   border: none;
   border-radius: 4px;
   cursor: pointer;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
   transition: background-color 0.3s ease;
 }
 
-.delete-confirm-btn:hover:not(:disabled) {
+.modal-overlay.delete-confirm-modal .delete-confirm-btn:hover:not(:disabled) {
   background-color: #c82333;
 }
 
-.delete-confirm-btn:disabled {
+.modal-overlay.delete-confirm-modal .delete-confirm-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-.delete-confirm-btn .material-symbols-outlined {
+.modal-overlay.delete-confirm-modal .delete-confirm-btn .material-symbols-outlined {
   font-size: 1.1rem;
 }
 
@@ -1668,25 +1587,6 @@ export default {
   .action-btn {
     width: 100%;
     justify-content: center;
-  }
-
-  .filters {
-    width: 100%;
-    margin-left: 0;
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-  }
-
-  .filter-group {
-    flex: 1;
-    min-width: 140px;
-  }
-
-  .filter-select,
-  .filter-input {
-    width: 100%;
-    max-width: none;
   }
 
   .stats-grid {
@@ -1845,15 +1745,6 @@ export default {
 
   .stat-label {
     font-size: 0.75rem;
-  }
-
-  .filters {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .filter-group {
-    min-width: 0;
   }
 
   .header-container1 {
