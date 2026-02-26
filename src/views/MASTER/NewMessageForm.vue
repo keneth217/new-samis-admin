@@ -1,32 +1,33 @@
 <template>
-  <div class="form-wrap">
+  <div class="form-wrap" @click.self="$emit('closeForm')">
     <div class="form-content">
-      <div class="cancel" @click="$emit('closeForm')">
+      <button type="button" class="cancel" @click="$emit('closeForm')" aria-label="Close">
         <i class="fas fa-times"></i>
-      </div>
-      <div class="form-title">
-        <h2>SEND MESSAGE TO SCHOOLS</h2>
+      </button>
+      <div class="form-header">
+        <h2 class="form-title">Send Message to Schools</h2>
+        <p class="form-subtitle">Select schools, add subject and message, then send.</p>
         <!-- Balance Display -->
         <div class="balance-info" v-if="smsBalance !== null">
           <span class="balance-label">SMS Balance:</span>
           <span class="balance-value" :class="{ 'balance-low': smsBalance < 5, 'balance-insufficient': smsBalance < selectedSchools.length }">
             {{ formatBalance(smsBalance) }}
           </span>
-          <button @click="checkBalance" class="refresh-balance-btn-small" :disabled="checkingBalance" title="Refresh Balance">
+          <button type="button" @click="checkBalance" class="refresh-balance-btn-small" :disabled="checkingBalance" title="Refresh Balance">
             <span class="material-symbols-outlined">refresh</span>
           </button>
         </div>
         <div class="balance-warning" v-if="smsBalance !== null && smsBalance < selectedSchools.length">
-          ⚠️ Warning: Your balance ({{ formatBalance(smsBalance) }}) is less than selected schools ({{ selectedSchools.length }})
+          <span class="material-symbols-outlined">warning</span>
+          Your balance ({{ formatBalance(smsBalance) }}) is less than selected schools ({{ selectedSchools.length }}).
         </div>
       </div>
-      <hr />
+      <div class="form-divider"></div>
 
       <div class="form-inputs">
         <!-- Recipients Selection -->
         <div class="form-group schools-form-group">
-          <!-- <label class="section-label">Select Schools to Send Message*</label>
-           -->
+          <label class="section-label">Select schools to send message</label>
           <div class="schools-selection-container">
             <!-- Search Bar -->
             <div v-if="!Loading && schools.length > 0" class="search-container">
@@ -55,55 +56,48 @@
               <div style="margin-top: 0.5rem; font-size: 0.9rem;">Total schools: {{ schools.length }}</div>
             </div>
 
-            <!-- Schools List - Simple Scrollable -->
-            <div v-else class="simple-schools-list">
-              <div class="school-count-header">
-                <div class="header-col-select" style="border-right: 1px solid rgba(255,255,255,0.3); padding-right: 1rem; display: flex; align-items: center; justify-content: center;">
-                  <input 
-                    type="checkbox" 
-                    :checked="selectAllChecked"
-                    @change="toggleSelectAll"
-                    class="select-all-checkbox"
-                  />
-                </div>
-                <div class="header-col-name" style="border-right: 1px solid rgba(255,255,255,0.3); padding-right: 1rem;"><strong>School Name</strong></div>
-                <div class="header-col-code"><strong>School Code</strong></div>
-              </div>
-              <div class="school-count-info">
-                <strong>{{ filteredSchools.length }} Schools Available</strong>
-              </div>
-              
-              <div class="schools-list-inner">
-                <template v-if="filteredSchools.length > 0">
-                  <div 
-                    v-for="(school, index) in filteredSchools" 
-                    :key="school.schoolCode || index" 
-                    class="simple-school-item"
-                    :class="{ 'item-selected': selectedSchools.includes(school.schoolCode) }"
-                  >
-                    <label class="simple-school-label">
-                      <div class="cell-checkbox" style="border-right: 1px solid #cccccc !important; padding-right: 1rem; display: flex; align-items: center; justify-content: center; min-width: 70px;">
-                        <input 
-                          type="checkbox" 
+            <!-- Schools List - Table -->
+            <div v-else class="schools-table-wrap">
+              <div class="schools-table-info">{{ filteredSchools.length }} school(s) available</div>
+              <div class="schools-table-scroll">
+                <table class="schools-table">
+                  <thead>
+                    <tr>
+                      <th class="col-select">
+                        <input
+                          type="checkbox"
+                          :checked="selectAllChecked"
+                          @change="toggleSelectAll"
+                          class="select-all-checkbox"
+                          aria-label="Select all"
+                        />
+                      </th>
+                      <th class="col-name">School Name</th>
+                      <th class="col-code">School Code</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr
+                      v-for="(school, index) in filteredSchools"
+                      :key="school.schoolCode || index"
+                      :class="{ 'row-selected': selectedSchools.includes(school.schoolCode) }"
+                      @click="toggleSchoolRow(school.schoolCode)"
+                    >
+                      <td class="col-select">
+                        <input
+                          type="checkbox"
                           :value="school.schoolCode"
                           v-model="selectedSchools"
-                          class="simple-checkbox"
+                          class="row-checkbox"
+                          :aria-label="'Select ' + (school.schoolName || school.schoolCode)"
+                          @click.stop
                         />
-                      </div>
-                      <div class="cell-name" style="border-right: 1px solid #cccccc !important; padding-right: 1rem;">
-                        <span class="simple-school-name">
-                          {{ school.schoolName || 'Unknown School' }}
-                        </span>
-                      </div>
-                      <div class="cell-code" style="min-width: 120px; text-align: center;">
-                        <span class="simple-school-code">{{ school.schoolCode || 'N/A' }}</span>
-                      </div>
-                    </label>
-                  </div>
-                </template>
-                <div v-else class="no-schools-message">
-                  No schools to display
-                </div>
+                      </td>
+                      <td class="col-name">{{ school.schoolName || 'Unknown School' }}</td>
+                      <td class="col-code">{{ school.schoolCode || 'N/A' }}</td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
 
@@ -148,7 +142,7 @@
         <!-- Message Preview -->
         <div class="form-group" v-if="(subject || messageBody) && selectedSchools.length > 0">
           <div class="preview-section">
-            <h3 class="preview-title">📋 Message Preview</h3>
+            <h3 class="preview-title"><span class="material-symbols-outlined">preview</span> Message Preview</h3>
             <div class="preview-content">
               <div class="preview-row">
                 <span class="preview-label">To:</span>
@@ -166,11 +160,14 @@
           </div>
         </div>
       </div>
-      
-      <hr />
+
+      <div class="form-divider"></div>
       <div class="form-actions">
-        <button @click="$emit('closeForm')">Cancel</button>
-        <button @click="sendMessage" :disabled="!canSend">Send Message</button>
+        <button type="button" class="btn-cancel" @click="$emit('closeForm')">Cancel</button>
+        <button type="button" class="btn-send" @click="sendMessage" :disabled="!canSend">
+          <span class="material-symbols-outlined">send</span>
+          Send Message
+        </button>
       </div>
     </div>
     <LoadingSpinner :isLoading="Loading" />
@@ -344,7 +341,6 @@ export default {
 
     toggleSelectAll(event) {
       if (event.target.checked) {
-        // Add all filtered schools that are not already selected
         const filteredCodes = this.filteredSchools.map(school => school.schoolCode);
         filteredCodes.forEach(code => {
           if (!this.selectedSchools.includes(code)) {
@@ -352,9 +348,17 @@ export default {
           }
         });
       } else {
-        // Remove all filtered schools from selection
         const filteredCodes = this.filteredSchools.map(school => school.schoolCode);
         this.selectedSchools = this.selectedSchools.filter(code => !filteredCodes.includes(code));
+      }
+    },
+
+    toggleSchoolRow(schoolCode) {
+      const idx = this.selectedSchools.indexOf(schoolCode);
+      if (idx === -1) {
+        this.selectedSchools.push(schoolCode);
+      } else {
+        this.selectedSchools.splice(idx, 1);
       }
     },
 
@@ -766,66 +770,117 @@ export default {
   top: 0;
   left: 0;
   width: 100%;
-  height:90%;
-  background-color: rgba(0, 0, 0, 0.5);
+  height: 100%;
+  min-height: 100vh;
+  background-color: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
   display: flex;
   justify-content: center;
   align-items: center;
   z-index: 10000;
+  padding: 1rem;
 }
 
 .form-content {
-  background-color: #4368b9;
-  border-radius: 5px;
-  padding: 1rem;
-  width: 90%;
-  max-width: 800px;
-  max-height: 75vh;
-  overflow-y: auto;
-  box-shadow: 0px 0px 5px gold;
+  background: linear-gradient(180deg, #4368b9 0%, #2b4d8a 100%);
+  border-radius: 12px;
+  padding: 0;
+  width: 100%;
+  max-width: 720px;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 215, 0, 0.15);
   position: relative;
+}
+
+.form-content::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, gold, #ffd700, gold);
+  border-radius: 12px 12px 0 0;
 }
 
 .cancel {
   position: absolute;
-  top: 10px;
-  right: 10px;
+  top: 1rem;
+  right: 1rem;
+  width: 40px;
+  height: 40px;
+  border: none;
+  background: rgba(255, 255, 255, 0.12);
+  color: gold;
+  font-size: 1.25rem;
   cursor: pointer;
-  color: gold;
-  font-size: 1.5rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.25s ease;
+  z-index: 5;
 }
 
-.form-title h2 {
-  color: gold;
-  margin-bottom: 0.5rem;
+.cancel:hover {
+  background: rgba(255, 215, 0, 0.25);
+  color: #fff;
+  transform: scale(1.05);
+}
+
+.form-header {
+  padding: 1.5rem 1.5rem 1rem;
+  padding-right: 3rem;
+}
+
+.form-title {
+  color: #fff;
+  margin: 0 0 0.25rem 0;
+  font-size: clamp(1.25rem, 2.5vw, 1.5rem);
+  font-weight: 700;
+  letter-spacing: 0.02em;
   text-align: center;
-  font-size: 1.3rem;
 }
 
-hr {
-  border: 1px solid gold;
-  margin: 0.5rem 0;
+.form-subtitle {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.9rem;
+  text-align: center;
+  margin: 0 0 1rem 0;
+}
+
+.form-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 215, 0, 0.4), transparent);
+  margin: 0 1rem;
 }
 
 .form-inputs {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem 1.5rem;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 1rem;
 }
 
 .form-group {
   position: relative;
   display: flex;
   flex-direction: column;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0;
 }
 
 .section-label {
-  color: gold;
+  color: rgba(255, 255, 255, 0.95);
   font-size: 0.9rem;
-  margin-bottom: 0.3rem;
+  margin-bottom: 0.5rem;
   font-weight: 600;
   display: block;
+  letter-spacing: 0.02em;
 }
 
 /* Schools Selection Styles */
@@ -835,28 +890,28 @@ hr {
 
 .schools-selection-container {
   background-color: #ffffff;
-  border: 2px solid gold;
+  border: 2px solid rgba(255, 215, 0, 0.6);
   border-radius: 8px;
-  padding: 0.75rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: 0.5rem 0.75rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 /* Search Container */
 .search-container {
   position: relative;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.4rem;
   width: 100%;
 }
 
 .search-input {
   width: 100%;
-  padding: 0.5rem 0.75rem 0.5rem 2.25rem;
-  border: 2px solid gold;
-  border-radius: 6px;
-  background: #ffffff;
-  color: #000000;
-  font-size: 0.9rem;
-  transition: all 0.3s ease;
+  padding: 0.4rem 0.5rem 0.4rem 2rem;
+  border: 1px solid rgba(255, 215, 0, 0.7);
+  border-radius: 5px;
+  background: #fff;
+  color: #000;
+  font-size: 0.875rem;
+  transition: border-color 0.2s ease;
 }
 
 .search-input:focus {
@@ -901,14 +956,23 @@ hr {
   border-color: #4368b9;
 }
 
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 /* Status Boxes */
 .status-box {
   padding: 1.5rem;
   text-align: center;
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 1rem;
   font-weight: 500;
   margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
 }
 
 .loading-box {
@@ -923,226 +987,164 @@ hr {
   border: 2px solid #ffc107;
 }
 
-/* Simple Schools List - Clear Visibility */
-.simple-schools-list {
-  margin-bottom: 1rem;
-  background-color: #ffffff;
-  border: 2px solid #4368b9;
-  border-radius: 4px;
+/* Schools list - table */
+.schools-table-wrap {
+  margin-bottom: 0.5rem;
+  background: #fff;
+  border: 1px solid #4368b9;
+  border-radius: 6px;
   overflow: hidden;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  border-collapse: collapse;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
-.school-count-header {
-  color: #ffffff !important;
-  padding: 0.6rem 1rem;
-  font-size: 0.95rem;
-  text-align: left;
-  margin-bottom: 0;
+.schools-table-info {
+  padding: 0.35rem 0.6rem;
+  font-size: 0.8rem;
+  color: #2b4d8a;
+  background: #e8eef7;
+  border-bottom: 1px solid #d0dcee;
   font-weight: 600;
-  background-color: #4368b9;
-  border-bottom: 1px solid rgba(255,255,255,0.2);
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 1rem;
-  align-items: center;
-  border-left: 2px solid #4368b9;
-  border-right: 2px solid #4368b9;
-  border-top: 2px solid #4368b9;
 }
 
-.header-col-select {
-  min-width: 70px;
+.schools-table-scroll {
+  max-height: 200px;
+  overflow-y: auto;
+  overflow-x: auto;
+}
+
+.schools-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  table-layout: fixed;
+}
+
+.schools-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #4368b9;
+  color: #fff;
+}
+
+.schools-table th {
+  padding: 0.4rem 0.5rem;
+  text-align: left;
+  font-weight: 600;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.25);
+  white-space: nowrap;
+}
+
+.schools-table th.col-select {
+  width: 2.5rem;
+  min-width: 2.5rem;
   text-align: center;
+  padding: 0.35rem;
+}
+
+.schools-table th.col-name {
+  width: auto;
+}
+
+.schools-table th.col-code {
+  width: 7rem;
+  min-width: 7rem;
+  text-align: center;
+}
+
+.schools-table tbody tr {
+  border-bottom: 1px solid #e0e4ea;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.schools-table tbody tr:hover {
+  background: #f0f4fb;
+}
+
+.schools-table tbody tr.row-selected {
+  background: #e3f2fd;
+  border-left: 3px solid #4368b9;
+}
+
+.schools-table td {
+  padding: 0.35rem 0.5rem;
+  vertical-align: middle;
+  border-bottom: 1px solid #eee;
+}
+
+.schools-table td.col-select {
+  text-align: center;
+  padding: 0.3rem 0.4rem;
+}
+
+.schools-table td.col-name {
+  font-weight: 500;
+  color: #333;
+  word-break: break-word;
+}
+
+.schools-table td.col-code {
+  text-align: center;
+  font-weight: 600;
+  color: #4368b9;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.select-all-checkbox,
+.row-checkbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: #4368b9;
+  margin: 0;
+  vertical-align: middle;
 }
 
 .select-all-checkbox {
-  width: 20px;
-  height: 20px;
-  cursor: pointer;
-  accent-color: #ffffff;
-  border: 2px solid #ffffff;
-}
-
-.header-col-name {
-  flex: 1;
-}
-
-.header-col-code {
-  min-width: 120px;
-  text-align: center;
-}
-
-.school-count-info {
-  color: #ffffff !important;
-  padding: 0.4rem 1rem;
-  font-size: 0.85rem;
-  text-align: center;
-  background-color: #2b4d8a;
-  border-bottom: 2px solid #2b4d8a;
-  border-left: 2px solid #4368b9;
-  border-right: 2px solid #4368b9;
-}
-
-.schools-list-inner {
-  max-height: 200px !important;
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
-  background-color: #ffffff !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  display: block !important;
-  visibility: visible !important;
-  border-left: 2px solid #4368b9 !important;
-  border-right: 2px solid #4368b9 !important;
-  border-bottom: 2px solid #4368b9 !important;
-  border-top: none;
-}
-
-/* Simple School Item - Clear Visibility with Table Borders */
-.simple-school-item {
-  padding: 0.5rem 0.75rem !important;
-  margin-bottom: 0 !important;
-  margin-top: 0 !important;
-  background-color: #ffffff !important;
-  border-top: 1px solid #cccccc !important;
-  border-bottom: 1px solid #cccccc !important;
-  border-left: 1px solid #cccccc !important;
-  border-right: 1px solid #cccccc !important;
-  border-radius: 0;
-  transition: all 0.2s ease;
-  display: grid !important;
-  grid-template-columns: auto 1fr auto;
-  gap: 0.75rem;
-  width: 100% !important;
-  min-height: 40px !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-  position: relative !important;
-}
-
-.simple-school-item + .simple-school-item {
-  border-top: 1px solid #cccccc !important;
-}
-
-.simple-school-item:hover {
-  background-color: #f0f7ff;
-  border-top: 1px solid #4368b9 !important;
-  border-bottom: 1px solid #4368b9 !important;
-  border-left: 2px solid #4368b9 !important;
-  border-right: 2px solid #4368b9 !important;
-}
-
-/* Selected state */
-.simple-school-item.item-selected {
-  background-color: #e3f2fd;
-  border-top: 1px solid #4368b9 !important;
-  border-bottom: 1px solid #4368b9 !important;
-  border-left: 2px solid #4368b9 !important;
-  border-right: 2px solid #4368b9 !important;
-}
-
-.simple-school-label {
-  display: grid !important;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 1rem;
-  cursor: pointer;
-  width: 100%;
-  color: #000000 !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-}
-
-.simple-checkbox {
-  width: 22px !important;
-  height: 22px !important;
-  cursor: pointer !important;
-  accent-color: #4368b9;
-  flex-shrink: 0;
-  border: 2px solid #4368b9 !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  pointer-events: auto !important;
-  z-index: 10 !important;
-  position: relative !important;
-}
-
-.simple-school-name {
-  color: #000000 !important;
-  font-size: 1.1rem !important;
-  font-weight: 700 !important;
-  line-height: 1.6 !important;
-  display: block !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-  background-color: transparent !important;
-}
-
-.simple-school-code {
-  color: #ffffff !important;
-  font-size: 0.9rem !important;
-  font-weight: 700 !important;
-  background-color: #4368b9 !important;
-  padding: 0.4rem 0.8rem;
-  border-radius: 5px;
-  white-space: nowrap;
-  display: inline-block !important;
-}
-
-.simple-school-label:hover .simple-school-name {
-  color: #4368b9;
-}
-
-.simple-school-item.item-selected .simple-school-name {
-  color: #4368b9;
-  font-weight: 700;
-}
-
-.simple-school-item.item-selected .simple-school-code {
-  background-color: #2b4d8a;
+  accent-color: #fff;
 }
 
 .no-schools-message {
-  padding: 2rem;
+  padding: 1.25rem 0.5rem;
   text-align: center;
-  color: #666666;
-  font-size: 1rem;
+  color: #666;
+  font-size: 0.9rem;
 }
 
-/* Custom Scrollbar */
-.schools-list-inner::-webkit-scrollbar {
-  width: 10px;
+.schools-table-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
 }
 
-.schools-list-inner::-webkit-scrollbar-track {
+.schools-table-scroll::-webkit-scrollbar-track {
   background: #f0f0f0;
   border-radius: 4px;
 }
 
-.schools-list-inner::-webkit-scrollbar-thumb {
+.schools-table-scroll::-webkit-scrollbar-thumb {
   background: #4368b9;
   border-radius: 4px;
-  border: 2px solid #f0f0f0;
 }
 
-.schools-list-inner::-webkit-scrollbar-thumb:hover {
+.schools-table-scroll::-webkit-scrollbar-thumb:hover {
   background: #2b4d8a;
 }
 
 /* Selection Counter */
 .selection-counter {
-  padding: 0.5rem 1rem;
-  background-color: #fff3cd;
-  border: 2px solid gold;
+  padding: 0.4rem 0.75rem;
+  background: linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%);
+  border: 1px solid rgba(255, 193, 7, 0.6);
   border-radius: 6px;
   text-align: center;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  font-size: 0.95rem;
+  gap: 0.4rem;
+  font-size: 0.875rem;
+  margin-top: 0.4rem;
 }
 
 .counter-label {
@@ -1244,43 +1246,36 @@ textarea.form-control {
   font-family: inherit;
 }
 
-label {
-  position: absolute;
-  left: 0.6rem;
-  top: 0.6rem;
-  color: #666;
-  font-size: 0.9rem;
-  pointer-events: none;
-  transition: all 0.3s ease;
-  background-color: #fff;
-  padding: 0 0.3rem;
-}
-
-label.filled {
-  top: -0.6rem;
-  left: 0.3rem;
-  font-size: 0.75rem;
-  color: gold;
-  background-color: #4368b9;
+/* Section labels only (not floating labels) */
+.form-group > .section-label {
+  position: static;
+  background: transparent;
+  padding: 0;
 }
 
 /* Preview Section */
 .preview-section {
-  background-color: rgba(255, 255, 255, 0.95);
-  border: 2px solid gold;
-  border-radius: 8px;
+  background-color: rgba(255, 255, 255, 0.98);
+  border: 2px solid rgba(255, 215, 0, 0.5);
+  border-radius: 10px;
   padding: 1.25rem;
-  margin-top: 0.5rem;
+  margin-top: 0.25rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 .preview-title {
-  color: gold;
+  color: #2b4d8a;
   margin-bottom: 1rem;
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   font-weight: 700;
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+.preview-title .material-symbols-outlined {
+  font-size: 1.25rem;
+  color: #4368b9;
 }
 
 .preview-content {
@@ -1333,61 +1328,108 @@ label.filled {
 
 .form-actions {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   gap: 1rem;
-  margin-top: 0.5rem;
+  padding: 1.25rem 1.5rem;
+  background: rgba(0, 0, 0, 0.1);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
 }
 
-.form-actions button {
-  flex: 1;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid gold;
-  border-radius: 4px;
-  background-color: gold;
-  color: #000;
-  font-size: 0.9rem;
-  cursor: pointer;
-  transition: all 0.3s ease;
+.form-actions .btn-cancel,
+.form-actions .btn-send {
+  min-width: 120px;
+  padding: 0.6rem 1.5rem;
+  border-radius: 8px;
+  font-size: 0.95rem;
   font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: 2px solid transparent;
 }
 
-.form-actions button:hover:not(:disabled) {
-  background-color: #4368b9;
-  color: gold;
+.form-actions .btn-cancel {
+  background-color: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.form-actions .btn-cancel:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: translateY(-1px);
+}
+
+.form-actions .btn-send {
+  background: linear-gradient(135deg, gold 0%, #ffc107 100%);
+  color: #1a237e;
   border-color: gold;
+  box-shadow: 0 2px 8px rgba(255, 215, 0, 0.35);
 }
 
-.form-actions button:disabled {
+.form-actions .btn-send:hover:not(:disabled) {
+  background: linear-gradient(135deg, #ffd700 0%, #ffb300 100%);
+  color: #0d1442;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(255, 215, 0, 0.45);
+}
+
+.form-actions .btn-send:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  transform: none;
 }
 
-.form-actions button:first-child {
-  background-color: rgba(245, 56, 56, 1);
-  border-color: rgba(245, 56, 56, 1);
-  color: white;
-}
-
-.form-actions button:first-child:hover {
-  background-color: #4368b9;
-  color: gold;
-  border-color: gold;
+.form-actions .btn-send .material-symbols-outlined {
+  font-size: 1.2rem;
 }
 
 /* Responsive Design */
 @media only screen and (max-width: 767px) {
-  .form-content {
-    width: 95%;
-    padding: 1.5rem;
-    max-height: 95vh;
+  .form-wrap {
+    padding: 0.5rem;
+    align-items: flex-start;
   }
 
-  .form-title h2 {
+  .form-content {
+    width: 100%;
+    max-width: 100%;
+    max-height: 95vh;
+    border-radius: 10px;
+  }
+
+  .form-header {
+    padding: 1.25rem 1rem 0.75rem;
+    padding-right: 2.75rem;
+  }
+
+  .form-title {
     font-size: 1.2rem;
   }
 
-  .schools-selection {
-    max-height: 200px;
+  .form-subtitle {
+    font-size: 0.85rem;
+  }
+
+  .form-inputs {
+    padding: 0.75rem 1rem;
+    gap: 0.75rem;
+  }
+
+  .form-actions {
+    padding: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .form-actions .btn-cancel,
+  .form-actions .btn-send {
+    min-width: 100px;
+    padding: 0.55rem 1.2rem;
+    font-size: 0.9rem;
   }
 }
 
@@ -1395,23 +1437,26 @@ label.filled {
 .balance-info {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
-  padding: 0.5rem;
-  background-color: rgba(255, 255, 255, 0.1);
-  border-radius: 6px;
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+  padding: 0.6rem 1rem;
+  background-color: rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
   font-size: 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  justify-content: center;
+  flex-wrap: wrap;
 }
 
 .balance-label {
-  color: gold;
+  color: rgba(255, 215, 0, 0.95);
   font-weight: 600;
 }
 
 .balance-value {
-  color: white;
+  color: #fff;
   font-weight: 700;
-  font-size: 1rem;
+  font-size: 1.05rem;
 }
 
 .balance-value.balance-low {
@@ -1419,36 +1464,33 @@ label.filled {
 }
 
 .balance-value.balance-insufficient {
-  color: #ff5252;
+  color: #ff8a80;
   animation: pulse 2s infinite;
 }
 
 @keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.7;
-  }
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.75; }
 }
 
 .refresh-balance-btn-small {
-  background: transparent;
+  background: rgba(255, 215, 0, 0.15);
   border: 1px solid gold;
   color: gold;
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
+  padding: 0.3rem 0.6rem;
+  border-radius: 6px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.3s ease;
-  font-size: 0.8rem;
+  transition: all 0.25s ease;
+  font-size: 0.85rem;
 }
 
 .refresh-balance-btn-small:hover:not(:disabled) {
-  background-color: gold;
-  color: #4368b9;
+  background: gold;
+  color: #2b4d8a;
+  transform: scale(1.05);
 }
 
 .refresh-balance-btn-small:disabled {
@@ -1461,15 +1503,24 @@ label.filled {
 }
 
 .balance-warning {
-  margin-top: 0.5rem;
-  padding: 0.5rem;
-  background-color: rgba(255, 193, 7, 0.2);
-  border: 1px solid #ffc107;
-  border-radius: 4px;
-  color: #ffc107;
+  margin-top: 0.75rem;
+  padding: 0.6rem 1rem;
+  background-color: rgba(255, 193, 7, 0.18);
+  border: 1px solid rgba(255, 193, 7, 0.6);
+  border-radius: 8px;
+  color: #ffeb3b;
   font-size: 0.85rem;
   font-weight: 600;
   text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.balance-warning .material-symbols-outlined {
+  font-size: 1.2rem;
+  flex-shrink: 0;
 }
 </style>
 
