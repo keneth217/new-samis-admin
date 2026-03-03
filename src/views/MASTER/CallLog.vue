@@ -1106,7 +1106,7 @@ export default {
       }
       return null;
     },
-    /** Parse API callStartTime for display. CallController returns "2026-03-03T10:31:52.000+00:00" – the time is Kenya (local) but marked +00:00. Strip Z or +00:00 so we parse as local: 10:31 → 10:31 AM, 12:26 → 12:26 PM. */
+    /** Parse API callStartTime for display. Backend sends UTC (Z or +00:00) – parse as UTC, then format with Africa/Nairobi. */
     parseCallTime(value) {
       if (value == null || value === '') return null;
       if (typeof value === 'number' && Number.isFinite(value)) {
@@ -1115,17 +1115,8 @@ export default {
       }
       const str = String(value).trim();
       if (!str) return null;
-      let normalized = str;
-      if (str.endsWith('Z') || str.endsWith('z')) {
-        normalized = str.slice(0, -1);
-      } else if (/[+-]00:?00$/.test(str)) {
-        normalized = str.replace(/[+-]00:?00$/, '');
-      } else if (/[+-]\d{2}:?\d{2}$/.test(str)) {
-        const d = new Date(str);
-        return isNaN(d.getTime()) ? null : d;
-      }
-      normalized = normalized.replace(/^(\d{4}-\d{2}-\d{2})\s+/, '$1T');
-      const d = new Date(normalized);
+      const norm = str.replace(/^(\d{4}-\d{2}-\d{2})\s+/, '$1T');
+      const d = new Date(norm);
       return isNaN(d.getTime()) ? null : d;
     },
     formatRecentTime(call) {
@@ -1134,13 +1125,20 @@ export default {
       if (ts) {
         const d = this.parseCallTime(ts);
         if (d) {
-          return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+          return d.toLocaleTimeString('en-US', {
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true,
+            timeZone: 'Africa/Nairobi'
+          });
         }
       }
       return call.time || '—';
     },
     /** Recompute time and day from timestamp for all recents that have it – fixes cached wrong AM/PM from localStorage. */
     normalizeRecentsTimes(recents) {
+      const opts = { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Africa/Nairobi' };
+      const dateOpts = { weekday: 'long', timeZone: 'Africa/Nairobi' };
       return recents.map((c) => {
         const ts = this.getCallTimestamp(c);
         if (!ts) return c;
@@ -1148,12 +1146,14 @@ export default {
         if (!d) return c;
         return {
           ...c,
-          time: d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }),
-          day: d.toLocaleDateString('en-US', { weekday: 'long' }),
+          time: d.toLocaleTimeString('en-US', opts),
+          day: d.toLocaleDateString('en-US', dateOpts),
         };
       });
     },
     mapGatewayCallsToRecents(gwData) {
+      const opts = { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Africa/Nairobi' };
+      const dateOpts = { weekday: 'long', timeZone: 'Africa/Nairobi' };
       return gwData.map((call) => {
         const ts = this.getCallTimestamp(call);
         const d = ts ? (this.parseCallTime(ts) || new Date()) : new Date();
@@ -1165,8 +1165,8 @@ export default {
         return {
           sessionId: call.sessionId,
           contactName: contact,
-          time: d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }),
-          day: d.toLocaleDateString('en-US', { weekday: 'long' }),
+          time: d.toLocaleTimeString('en-US', opts),
+          day: d.toLocaleDateString('en-US', dateOpts),
           type,
           duration: call.durationInSeconds || 0,
           recordingUrl: call.recordingUrl || null,
@@ -2865,12 +2865,14 @@ export default {
         // isInCall will be set to true when callestablished event fires or when polling detects connection
         this.isInCall = false; // Keep it false until call is actually connected
         const now = new Date();
+        const kenyaOpts = { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Africa/Nairobi' };
+        const kenyaDateOpts = { weekday: 'long', timeZone: 'Africa/Nairobi' };
         const newCall = {
           contactName: this.dialedNumber,
-          time: now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }),
+          time: now.toLocaleTimeString('en-US', kenyaOpts),
           type: 'Outgoing',
-          day: now.toLocaleDateString('en-US', { weekday: 'long' }),
-          callStartTime: now.toISOString(), // so normalizeRecentsTimes can fix if needed
+          day: now.toLocaleDateString('en-US', kenyaDateOpts),
+          callStartTime: now.toISOString(),
         };
         this.recents = [newCall, ...this.recents];
         this.saveRecents();
