@@ -6,6 +6,9 @@
         <button class="primary-btn" @click="refreshData" :disabled="loading">
           Refresh
         </button>
+        <button class="primary-btn outline" @click="clearRecentsCache" :disabled="loading" title="Clear cached recents and reload from API">
+          Clear cache
+        </button>
       </div>
     </div>
 
@@ -238,6 +241,11 @@
                 <input v-model="recentsEndDate" type="date" class="date-filter-input" aria-label="End date" />
                 <button type="button" class="primary-btn small" @click="loadRecentsDateRange" :disabled="loading">
                   Load range
+                </button>
+              </div>
+              <div class="recents-load-group">
+                <button type="button" class="primary-btn small" @click="refreshData" :disabled="loading">
+                  Refresh
                 </button>
               </div>
             </div>
@@ -947,6 +955,11 @@ export default {
       await this.fetchContacts();
       await this.loadRecents();
     },
+    clearRecentsCache() {
+      localStorage.removeItem('recentCalls');
+      this.toast.success('Recents cache cleared. Reloading from API…');
+      this.loadRecents();
+    },
     handleSearchChange() {
       // computed handles filtering
     },
@@ -964,11 +977,12 @@ export default {
     },
     async loadRecents() {
       this.lastLoadedDateLabel = ''; // clear date filter label when loading "all" recents
-      // Load from localStorage first (for immediate display)
+      // Load from localStorage first (for immediate display); normalize times if callStartTime exists
       const stored = localStorage.getItem('recentCalls');
       if (stored) {
         try {
-          this.recents = JSON.parse(stored);
+          const parsed = JSON.parse(stored);
+          this.recents = this.normalizeRecentsTimes(Array.isArray(parsed) ? parsed : []);
         } catch (_) {
           this.recents = [];
         }
@@ -994,10 +1008,12 @@ export default {
       };
       gatewayRecents.forEach(add);
       this.recents.forEach((c) => add({ ...c, _sortTs: c._sortTs ?? (c.day && c.time ? new Date(`${c.day} ${c.time}`).getTime() : 0) }));
-      this.recents = Array.from(byKey.values())
+      let merged = Array.from(byKey.values())
         .sort((a, b) => (b._sortTs || 0) - (a._sortTs || 0))
         .slice(0, 50)
         .map(({ _sortTs, ...r }) => r); // drop _sortTs before save
+      merged = this.normalizeRecentsTimes(merged); // fix cached wrong AM/PM from callStartTime
+      this.recents = merged;
       this.saveRecents();
     },
     saveRecents() {
@@ -1059,10 +1075,12 @@ export default {
         if (!byKey.has(key)) byKey.set(key, { ...c, _sortTs: c._sortTs ?? 0 });
       };
       gatewayRecents.forEach(add);
-      this.recents = Array.from(byKey.values())
+      let merged = Array.from(byKey.values())
         .sort((a, b) => (b._sortTs || 0) - (a._sortTs || 0))
         .slice(0, 100)
         .map(({ _sortTs, ...r }) => r);
+      merged = this.normalizeRecentsTimes(merged); // fix cached wrong AM/PM from callStartTime
+      this.recents = merged;
       this.saveRecents();
     },
     normalizeGatewayResponse(gwRes) {
@@ -1078,20 +1096,67 @@ export default {
       if (isNaN(d.getTime())) return yyyyMmDd;
       return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
     },
+    /** Extract timestamp from call – API may use callStartTime, call_start_time, startTime, createdAt, timestamp, etc. */
+    getCallTimestamp(call) {
+      if (!call) return null;
+      const keys = ['callStartTime', 'call_start_time', 'startTime', 'start_time', 'createdAt', 'created_at', 'timestamp', 'callDate', 'call_date', 'date'];
+      for (const k of keys) {
+        const v = call[k];
+        if (v != null && v !== '') return v;
+      }
+      return null;
+    },
+    /** Parse API callStartTime for display. CallController returns "2026-03-03T10:31:52.000+00:00" – the time is Kenya (local) but marked +00:00. Strip Z or +00:00 so we parse as local: 10:31 → 10:31 AM, 12:26 → 12:26 PM. */
+    parseCallTime(value) {
+      if (value == null || value === '') return null;
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        const d = new Date(value);
+        return isNaN(d.getTime()) ? null : d;
+      }
+      const str = String(value).trim();
+      if (!str) return null;
+      let normalized = str;
+      if (str.endsWith('Z') || str.endsWith('z')) {
+        normalized = str.slice(0, -1);
+      } else if (/[+-]00:?00$/.test(str)) {
+        normalized = str.replace(/[+-]00:?00$/, '');
+      } else if (/[+-]\d{2}:?\d{2}$/.test(str)) {
+        const d = new Date(str);
+        return isNaN(d.getTime()) ? null : d;
+      }
+      normalized = normalized.replace(/^(\d{4}-\d{2}-\d{2})\s+/, '$1T');
+      const d = new Date(normalized);
+      return isNaN(d.getTime()) ? null : d;
+    },
     formatRecentTime(call) {
       if (!call) return '—';
-      if (call.callStartTime) {
-        const d = new Date(call.callStartTime);
-        if (!isNaN(d.getTime())) {
+      const ts = this.getCallTimestamp(call);
+      if (ts) {
+        const d = this.parseCallTime(ts);
+        if (d) {
           return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
         }
       }
       return call.time || '—';
     },
+    /** Recompute time and day from timestamp for all recents that have it – fixes cached wrong AM/PM from localStorage. */
+    normalizeRecentsTimes(recents) {
+      return recents.map((c) => {
+        const ts = this.getCallTimestamp(c);
+        if (!ts) return c;
+        const d = this.parseCallTime(ts);
+        if (!d) return c;
+        return {
+          ...c,
+          time: d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }),
+          day: d.toLocaleDateString('en-US', { weekday: 'long' }),
+        };
+      });
+    },
     mapGatewayCallsToRecents(gwData) {
       return gwData.map((call) => {
-        const ts = call.callStartTime;
-        const d = ts ? new Date(ts) : new Date();
+        const ts = this.getCallTimestamp(call);
+        const d = ts ? (this.parseCallTime(ts) || new Date()) : new Date();
         const rawDir = String(call.direction || '').trim().toLowerCase();
         const isInbound = rawDir === 'inbound';
         const isOutbound = rawDir === 'outbound' || rawDir === 'outgoing';
@@ -1108,7 +1173,7 @@ export default {
           receiverPhoneNo: isInbound ? call.destinationNumber : call.callerNumber,
           callerPhoneNo: call.callerNumber,
           dialDestinationNumber: call.dialDestinationNumber || call.dial_destination_number || '',
-          callStartTime: ts || null,
+          callStartTime: ts || null, // store for normalizeRecentsTimes + formatRecentTime
           _sortTs: d.getTime(),
         };
       });
@@ -2799,11 +2864,13 @@ export default {
         // DON'T set isInCall = true here - it should only be true when call is actually connected
         // isInCall will be set to true when callestablished event fires or when polling detects connection
         this.isInCall = false; // Keep it false until call is actually connected
+        const now = new Date();
         const newCall = {
           contactName: this.dialedNumber,
-          time: new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }),
+          time: now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }),
           type: 'Outgoing',
-          day: new Date().toLocaleDateString('en-US', { weekday: 'long' }),
+          day: now.toLocaleDateString('en-US', { weekday: 'long' }),
+          callStartTime: now.toISOString(), // so normalizeRecentsTimes can fix if needed
         };
         this.recents = [newCall, ...this.recents];
         this.saveRecents();
@@ -3683,6 +3750,14 @@ export default {
 .primary-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+.primary-btn.outline {
+  background: transparent;
+  color: #1a73e8;
+  border: 2px solid #1a73e8;
+}
+.primary-btn.outline:hover:not(:disabled) {
+  background: rgba(26, 115, 232, 0.08);
 }
 .tab-bar {
   display: flex;

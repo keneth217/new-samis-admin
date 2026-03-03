@@ -452,8 +452,8 @@ export default {
   width: 180px;
   height: 180px;
   object-fit: contain;
-  opacity: 0.22;
-  filter: brightness(1.02);
+  opacity: 0.6;
+  filter: brightness(1.12) contrast(1.12);
 }
 
 .receipt-watermark-s {
@@ -475,7 +475,7 @@ export default {
 .receipt-watermark-tagline {
   font-size: 1.6rem;
   font-style: italic;
-  color: rgba(70, 130, 200, 0.22);
+  color: rgba(70, 130, 200, 0.55);
   font-family: Georgia, 'Times New Roman', serif;
   margin-top: 10px;
   letter-spacing: 0.5px;
