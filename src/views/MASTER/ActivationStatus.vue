@@ -60,6 +60,7 @@
           if (response.data) {
             activationStatus.value = response.data; // Update activation status
             console.log("✅ Activation Status Fetched:", response.data);
+            toast.success("Activation status has been fetched successfully!");
           } else {
             toast.error("Failed to fetch activation status.");
           }

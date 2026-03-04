@@ -318,6 +318,8 @@ export default {
         ];
         
         this.initializeCharts();
+
+        toast.success('Dashboard data has been fetched successfully!');
         
       } catch (error) {
         console.error('Error fetching data:', error);

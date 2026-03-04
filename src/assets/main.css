@@ -21,6 +21,131 @@
   z-index: 20000 !important;
 }
 
+/* ===== Toast theme: match project (MessagesToSchools / modals) ===== */
+.Vue-Toastification__toast {
+  border-radius: 8px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.08) !important;
+  border: 1px solid #e1e4ea !important;
+  padding: 1rem 1.25rem !important;
+  min-width: 320px;
+  max-width: min(92vw, 480px);
+}
+
+.Vue-Toastification__toast-body {
+  font-size: clamp(0.9rem, 1.2vw, 1rem) !important;
+  line-height: 1.5 !important;
+  color: inherit !important;
+}
+
+.Vue-Toastification__close-button {
+  color: #495057 !important;
+  opacity: 0.7 !important;
+  font-size: 1.25rem !important;
+}
+
+.Vue-Toastification__close-button:hover,
+.Vue-Toastification__close-button:focus {
+  opacity: 1 !important;
+  color: #333 !important;
+}
+
+/* Error toast: red background (original style) */
+.Vue-Toastification__toast--error {
+  background-color: #ff5252 !important;
+  color: #fff !important;
+  border-left-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+.Vue-Toastification__toast--error .Vue-Toastification__icon {
+  color: #fff !important;
+}
+
+.Vue-Toastification__toast--error .Vue-Toastification__icon svg {
+  fill: #fff !important;
+}
+
+.Vue-Toastification__toast--error .Vue-Toastification__progress-bar {
+  background: rgba(255, 255, 255, 0.5) !important;
+  opacity: 1;
+}
+
+.Vue-Toastification__toast--error .Vue-Toastification__close-button {
+  color: #fff !important;
+  opacity: 0.8 !important;
+}
+
+.Vue-Toastification__toast--error .Vue-Toastification__close-button:hover {
+  opacity: 1 !important;
+}
+
+/* Success toast: green (original style) */
+.Vue-Toastification__toast--success {
+  background-color: #4caf50 !important;
+  color: #fff !important;
+  border-left-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+.Vue-Toastification__toast--success .Vue-Toastification__icon {
+  color: #fff !important;
+}
+
+.Vue-Toastification__toast--success .Vue-Toastification__icon svg {
+  fill: #fff !important;
+}
+
+.Vue-Toastification__toast--success .Vue-Toastification__progress-bar {
+  background: rgba(255, 255, 255, 0.5) !important;
+  opacity: 1;
+}
+
+.Vue-Toastification__toast--success .Vue-Toastification__close-button {
+  color: #fff !important;
+  opacity: 0.8 !important;
+}
+
+.Vue-Toastification__toast--success .Vue-Toastification__close-button:hover {
+  opacity: 1 !important;
+}
+
+/* Warning toast: soft amber accent */
+.Vue-Toastification__toast--warning {
+  background: linear-gradient(to bottom, #fffcf5 0%, #fff 100%) !important;
+  color: #333 !important;
+  border-left: 4px solid #e0a800 !important;
+  border-color: #e9ecef !important;
+  border-left-color: #e0a800 !important;
+}
+
+.Vue-Toastification__toast--warning .Vue-Toastification__icon {
+  color: #856404 !important;
+}
+
+.Vue-Toastification__toast--warning .Vue-Toastification__progress-bar {
+  background: linear-gradient(90deg, #ffc107 0%, #e0a800 100%) !important;
+  opacity: 0.85;
+}
+
+/* Default / info toast: project primary blue */
+.Vue-Toastification__toast--default,
+.Vue-Toastification__toast--info {
+  background: linear-gradient(135deg, #e3f2fd 0%, #f8f9fa 100%) !important;
+  color: #333 !important;
+  border-left: 4px solid #4368b9 !important;
+  border-color: #e9ecef !important;
+  border-left-color: #4368b9 !important;
+}
+
+.Vue-Toastification__toast--default .Vue-Toastification__icon,
+.Vue-Toastification__toast--info .Vue-Toastification__icon {
+  color: #4368b9 !important;
+}
+
+.Vue-Toastification__toast--default .Vue-Toastification__progress-bar,
+.Vue-Toastification__toast--info .Vue-Toastification__progress-bar {
+  background: linear-gradient(90deg, #4368b9 0%, #2b4d8a 100%) !important;
+  opacity: 0.85;
+}
+
 
 @media (hover: hover) {
   a:hover {

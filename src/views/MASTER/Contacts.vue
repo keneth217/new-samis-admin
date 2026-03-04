@@ -238,6 +238,9 @@ export default {
             phoneNo: c.phoneNo,
             schoolCode: c.schoolCode,
           }));
+        toast.success(this.contacts.length > 0
+          ? `Contacts have been fetched successfully! (${this.contacts.length} contact${this.contacts.length === 1 ? '' : 's'})`
+          : 'Contacts have been fetched successfully! No contacts found.');
       } catch (error) {
         console.error('Error fetching contacts:', error);
         toast.error('Failed to fetch contacts. Please try again.');

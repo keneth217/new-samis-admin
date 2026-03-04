@@ -274,30 +274,40 @@ export default {
       this.Loading = true;
       const toast = useToast();
       try {
-        const response = await axios.post('/receipts/list');
-        if (response.data && Array.isArray(response.data)) {
-          this.receipts = response.data.map((r) => ({
-            receiptNo: r.receiptNo || r.receipt_number || r.id,
-            receiptID: r.receiptID || r.id,
-            schoolCode: r.schoolCode || '',
-            schoolName: r.schoolName || r.school_name || r.fullname || '',
-            receiptDate: r.receiptDate || r.receipt_date || '',
-            amount: parseFloat(r.amount || 0),
-            paymentMode: r.paymentMode || r.paymentMethod || '',
-            paymentModeNo: r.paymentModeNo || r.paymentModeNO || r.paymentRef || '',
-            paymentFor: r.paymentFor || r.payment_for || r.purpose || '',
-            status: r.status || 'Paid',
-            deleted: !!r.deleted,
-            deleteReason: r.deleteReason || r.reason || '',
-          }));
-        } else {
-          this.receipts = [];
-          toast.warning('Invalid response format from receipts API.');
-        }
+        const response = await axios.post('/receipts/list', {});
+        // Support raw array or wrapped (e.g. { content: [] } or { data: [] })
+        const raw = response.data;
+        const list = Array.isArray(raw)
+          ? raw
+          : Array.isArray(raw?.content)
+            ? raw.content
+            : Array.isArray(raw?.data)
+              ? raw.data
+              : Array.isArray(raw?.receipts)
+                ? raw.receipts
+                : [];
+        this.receipts = list.map((r) => ({
+          receiptNo: r.receiptNo || r.receipt_number || r.id,
+          receiptID: r.receiptID || r.id,
+          schoolCode: r.schoolCode || '',
+          schoolName: r.schoolName || r.school_name || r.fullname || '',
+          receiptDate: r.receiptDate || r.receipt_date || '',
+          amount: parseFloat(r.amount || 0),
+          paymentMode: r.paymentMode || r.paymentMethod || '',
+          paymentModeNo: r.paymentModeNo || r.paymentModeNO || r.paymentRef || '',
+          paymentFor: r.paymentFor || r.payment_for || r.purpose || '',
+          status: r.status || 'Paid',
+          deleted: !!r.deleted,
+          deleteReason: r.deleteReason || r.reason || '',
+        }));
+        toast.success(this.receipts.length > 0
+          ? `Receipts have been fetched successfully! (${this.receipts.length} receipt${this.receipts.length === 1 ? '' : 's'})`
+          : 'Receipts have been fetched successfully! No receipts found.');
       } catch (error) {
         console.error('Error fetching receipts:', error);
         this.receipts = [];
-        toast.error('Failed to fetch receipts. Please try again.');
+        const msg = error.response?.data?.message || error.response?.data?.error || error.message;
+        toast.error(msg || 'Failed to fetch receipts. Please try again.');
       } finally {
         this.Loading = false;
       }

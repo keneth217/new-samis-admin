@@ -1013,7 +1013,7 @@ export default {
       this.recents.forEach((c) => add({ ...c, _sortTs: c._sortTs ?? (c.day && c.time ? new Date(`${c.day} ${c.time}`).getTime() : 0) }));
       let merged = Array.from(byKey.values())
         .sort((a, b) => (b._sortTs || 0) - (a._sortTs || 0))
-        .slice(0, 50)
+        // .slice(0, 50)
         .map(({ _sortTs, ...r }) => r); // drop _sortTs before save
       merged = this.normalizeRecentsTimes(merged); // fix cached wrong AM/PM from callStartTime
       this.recents = merged;
@@ -1080,7 +1080,7 @@ export default {
       gatewayRecents.forEach(add);
       let merged = Array.from(byKey.values())
         .sort((a, b) => (b._sortTs || 0) - (a._sortTs || 0))
-        .slice(0, 100)
+        // .slice(0, 100)
         .map(({ _sortTs, ...r }) => r);
       merged = this.normalizeRecentsTimes(merged); // fix cached wrong AM/PM from callStartTime
       this.recents = merged;

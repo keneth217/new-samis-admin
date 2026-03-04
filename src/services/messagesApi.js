@@ -30,35 +30,24 @@ export const sendSingleMessage = async (messageData) => {
     throw new Error(`Phone number must contain at least 9 digits (found ${digitsOnly.length})`);
   }
 
+  // API doc example uses "0712345678" (Kenyan local). Normalize to that for /send.
+  const nineDigits = digitsOnly.slice(-9);
+  const phoneNoForApi = `0${nineDigits}`;
+
   const payload = {
     message: String(messageData.message).trim(),
-    phoneNo: phoneNo, // Send as-is (E.164 format with + if present)
+    phoneNo: phoneNoForApi,
   };
   
   // Only include optional fields if they have values
   if (messageData.messageID) {
     payload.messageID = String(messageData.messageID).trim();
   }
-  if (messageData.fullname && messageData.fullname.trim().length > 0) {
+  if (messageData.fullname != null && String(messageData.fullname).trim().length > 0) {
     payload.fullname = String(messageData.fullname).trim();
   }
 
-  console.log('📤 Sending single message to /messages/send');
-  console.log('📦 Payload:', JSON.stringify(payload, null, 2));
-  console.log('📋 Payload details:', {
-    messageLength: payload.message.length,
-    phoneNo: payload.phoneNo,
-    phoneNoLength: payload.phoneNo.length,
-    phoneNoDigitsOnly: payload.phoneNo.replace(/\D/g, ''),
-    phoneNoStartsWithPlus: payload.phoneNo.startsWith('+'),
-    hasFullname: !!payload.fullname,
-    fullnameValue: payload.fullname,
-    hasMessageID: !!payload.messageID,
-    messageIDValue: payload.messageID,
-  });
-  console.log('📋 Full payload object:', payload);
-  console.log('📋 Payload keys:', Object.keys(payload));
-  console.log('📋 Payload values:', Object.values(payload));
+  console.log('📤 POST /messages/send', { messageLength: payload.message.length, phoneNo: payload.phoneNo, fullname: payload.fullname || '(none)' });
 
   try {
     const response = await axios.post('/messages/send', payload);
@@ -66,77 +55,27 @@ export const sendSingleMessage = async (messageData) => {
     console.log('📥 Response data:', response.data);
     return response;
   } catch (error) {
-    // If we get a 500 error and phone number starts with +, try without +
-    if (error.response?.status === 500 && phoneNo.startsWith('+')) {
-      console.warn('⚠️ First attempt failed with + sign, trying without + sign...');
-      const phoneNoWithoutPlus = phoneNo.substring(1); // Remove leading +
-      const retryPayload = {
-        ...payload,
-        phoneNo: phoneNoWithoutPlus,
-      };
-      
-      console.log('🔄 Retry payload (without +):', JSON.stringify(retryPayload, null, 2));
-      console.log('🔄 Retry phone number:', phoneNoWithoutPlus);
-      
+    // On 500, retry with 254XXXXXXXX (no leading 0) in case backend/external API expects that
+    if (error.response?.status === 500 && phoneNoForApi.startsWith('0')) {
+      const retryPhone = `254${nineDigits}`;
+      console.warn('⚠️ First attempt failed (0XXXXXXXX), retrying with 254XXXXXXXX...');
+      const retryPayload = { ...payload, phoneNo: retryPhone };
       try {
         const retryResponse = await axios.post('/messages/send', retryPayload);
-        console.log('✅ Retry successful (without + sign):', retryResponse.status);
-        console.log('📥 Retry response data:', retryResponse.data);
+        console.log('✅ Retry successful (254XXXXXXXX):', retryResponse.status);
         return retryResponse;
       } catch (retryError) {
-        console.error('❌ Retry also failed with status:', retryError.response?.status);
-        console.error('❌ Retry error data:', retryError.response?.data);
-        // Continue to original error handling below
+        console.error('❌ Retry failed:', retryError.response?.status, retryError.response?.data);
       }
     }
     
-    console.error('❌❌❌ ERROR SENDING SINGLE MESSAGE ❌❌❌');
-    console.error('  - Error type:', error.constructor.name);
-    console.error('  - Error message:', error.message);
-    console.error('  - Full error object:', error);
-    
-    // Log the exact payload that failed
-    console.error('\n📤 EXACT PAYLOAD THAT FAILED:');
-    console.error(JSON.stringify(payload, null, 2));
-    console.error('\n📋 Payload breakdown:');
-    console.error('  - message:', payload.message);
-    console.error('  - message type:', typeof payload.message);
-    console.error('  - message length:', payload.message?.length);
-    console.error('  - phoneNo:', payload.phoneNo);
-    console.error('  - phoneNo type:', typeof payload.phoneNo);
-    console.error('  - phoneNo length:', payload.phoneNo?.length);
-    console.error('  - phoneNo (digits only):', payload.phoneNo?.replace(/\D/g, ''));
-    if (payload.fullname) {
-      console.error('  - fullname:', payload.fullname);
-      console.error('  - fullname type:', typeof payload.fullname);
-      console.error('  - fullname length:', payload.fullname?.length);
-    }
-    if (payload.messageID) {
-      console.error('  - messageID:', payload.messageID);
-      console.error('  - messageID type:', typeof payload.messageID);
-    }
-    
+    console.error('❌ sendSingleMessage failed:', error.message, error.response?.status, error.response?.data);
+
     if (error.response) {
-      console.error('\n📥 SERVER RESPONSE:');
-      console.error('  - Response status:', error.response.status);
-      console.error('  - Response status text:', error.response.statusText);
-      console.error('  - Response headers:', error.response.headers);
-      console.error('  - Response data (raw):', error.response.data);
-      console.error('  - Response data (stringified):', JSON.stringify(error.response.data, null, 2));
-      
-      // Check for common error patterns
       const errorData = error.response.data;
-      if (errorData) {
-        console.error('\n🔍 ERROR ANALYSIS:');
-        if (typeof errorData === 'object') {
-          console.error('  - Error object keys:', Object.keys(errorData));
-          Object.keys(errorData).forEach(key => {
-            console.error(`  - ${key}:`, errorData[key]);
-          });
-        }
-      }
-      
-      // Attach server message for UI display
+      console.error('📥 Server response:', error.response.status, error.response.statusText, errorData);
+
+      // Attach server message for UI display (and friendly message for Spring Boot 500)
       if (error.response.status === 500) {
         let serverMessage = 'Internal Server Error';
         if (errorData) {
@@ -144,24 +83,20 @@ export const sendSingleMessage = async (messageData) => {
             serverMessage = errorData;
           } else if (errorData.message) {
             serverMessage = errorData.message;
-          } else if (errorData.error) {
-            serverMessage = typeof errorData.error === 'string' ? errorData.error : JSON.stringify(errorData.error);
           } else if (errorData.exception) {
             serverMessage = typeof errorData.exception === 'string' ? errorData.exception : JSON.stringify(errorData.exception);
+          } else if (errorData.error) {
+            const err = errorData.error;
+            if (typeof err === 'string' && err === 'Internal Server Error') {
+              serverMessage = 'Server error (500). Check SMS balance and server logs at officeapi.samis.co.ke. Possible causes: insufficient SMS credits, external SMS API down, or backend exception.';
+            } else {
+              serverMessage = typeof err === 'string' ? err : JSON.stringify(err);
+            }
+          } else if (errorData.message && errorData.phoneNo && !errorData.messageID && !errorData.sentOn) {
+            serverMessage = 'Server returned 500 (response echoed request). Check backend logs and external SMS API.';
           }
         }
         error.serverMessage = serverMessage;
-        console.error('  - Server error message:', serverMessage);
-        
-        console.error('\n💡 TROUBLESHOOTING:');
-        console.error('  The server returned a 500 error without detailed information.');
-        console.error('  Possible causes:');
-        console.error('  1. Phone number format issue (backend might expect different format)');
-        console.error('  2. External SMS API (api.samis.co.ke) unavailable or failing');
-        console.error('  3. Insufficient SMS balance');
-        console.error('  4. Database constraint violation');
-        console.error('  5. Backend validation failing silently');
-        console.error('\n  Check server logs at officeapi.samis.co.ke for the actual exception/stack trace.');
       }
     } else if (error.request) {
       console.error('  - Request was made but no response received');
@@ -310,13 +245,14 @@ export const sendBulkMessages = async (bulkData) => {
   const payload = {
     message,
     contacts: bulkData.contacts.map(contact => {
-      // Build contact object with ONLY the fields the API expects (no extra fields)
-      // All fields are required by API, but designation and email can be empty strings
+      const rawPhone = String(contact.phoneNo || '').trim();
+      const digitsOnly = rawPhone.replace(/\D/g, '');
+      const nineDigits = digitsOnly.length >= 9 ? digitsOnly.slice(-9) : digitsOnly;
+      const phoneNoForApi = nineDigits.length >= 9 ? `0${nineDigits}` : rawPhone || '';
       const contactObj = {
         contactName: String(contact.contactName || '').trim(),
-        phoneNo: String(contact.phoneNo || '').trim(),
+        phoneNo: phoneNoForApi,
         schoolCode: String(contact.schoolCode || '').trim(),
-        // designation and email are required fields but can be empty
         designation: contact.designation ? String(contact.designation).trim() : '',
         email: contact.email ? String(contact.email).trim() : '',
       };

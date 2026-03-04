@@ -626,37 +626,8 @@ export default {
           }
         }
       } catch (error) {
-        console.error('\n❌❌❌ ERROR SENDING MESSAGE ❌❌❌');
-        console.error('Full error object:', error);
-        console.error('Error response:', error.response);
-        console.error('Error response status:', error.response?.status);
-        console.error('Error response status text:', error.response?.statusText);
-        console.error('Error response headers:', error.response?.headers);
-        console.error('Error response data (raw):', error.response?.data);
-        console.error('Error response data (stringified):', JSON.stringify(error.response?.data, null, 2));
-        
-        // Log the exact payload that failed
-        if (finalContacts.length === 1) {
-          console.error('\n📤 SINGLE MESSAGE PAYLOAD THAT FAILED:');
-          console.error(JSON.stringify({
-            message: messageText,
-            phoneNo: finalContacts[0].phoneNo,
-            fullname: finalContacts[0].contactName,
-          }, null, 2));
-        } else {
-          console.error('\n📤 BULK MESSAGE PAYLOAD THAT FAILED:');
-          console.error(JSON.stringify({
-            message: messageText,
-            contacts: finalContacts.map(c => ({
-              contactName: c.contactName,
-              phoneNo: c.phoneNo,
-              designation: c.designation,
-              email: c.email,
-              schoolCode: c.schoolCode,
-            })),
-          }, null, 2));
-        }
-        
+        console.error('Send message failed:', error.response?.status, error.response?.data, error.serverMessage || error.message);
+
         // Handle different error types
         if (error.response) {
           const status = error.response.status;
@@ -666,10 +637,9 @@ export default {
           let errorMessage = `Failed to send ${isSingleMessage ? 'message' : 'bulk messages'}. `;
           
           if (status === 500) {
-            errorMessage += `Server error (500) - ${isSingleMessage ? 'Single' : 'Bulk'} Message Failed\n\n`;
-            
-            if (error.serverMessage && error.serverMessage !== 'Internal Server Error') {
-              errorMessage += `Server Message: ${error.serverMessage}\n\n`;
+            errorMessage += `Server error (500) - ${isSingleMessage ? 'Single' : 'Bulk'} message failed.\n\n`;
+            if (error.serverMessage) {
+              errorMessage += `${error.serverMessage}\n\n`;
             }
             
             const errorString = JSON.stringify(errorData || {}).toLowerCase();

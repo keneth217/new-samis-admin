@@ -227,6 +227,9 @@ export default {
           station: user.station || '',
           activated: user.activated !== undefined ? user.activated : true,
         }));
+        toast.success(this.users.length > 0
+          ? `Users have been fetched successfully! (${this.users.length} user${this.users.length === 1 ? '' : 's'})`
+          : 'Users have been fetched successfully! No users found.');
       } catch (error) {
         console.error('Error fetching all users:', error);
         toast.error('Failed to fetch users. Please try again.');

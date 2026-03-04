@@ -476,6 +476,9 @@ export default {
           const expiryDate = new Date(school.expiryDate);
           return expiryDate < new Date(); // Only expired schools
         });
+        this.toast.success(this.schools.length > 0
+          ? `Expired schools have been fetched successfully! (${this.schools.length} school${this.schools.length === 1 ? '' : 's'})`
+          : 'Expired schools have been fetched successfully! No expired schools found.');
       } catch (error) {
         console.error('Error fetching expired schools:', error);
         this.toast.error('Failed to load expired schools.');

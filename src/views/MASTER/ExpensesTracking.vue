@@ -278,6 +278,7 @@ export default {
           
           // Calculate costs
           this.calculateCosts();
+          toast.success('Expense data has been fetched successfully!');
         } else {
           toast.warning('No expense data available');
         }

@@ -596,6 +596,10 @@ export default {
       s.schoolName.toLowerCase().includes('christ') && s.schoolName.toLowerCase().includes('king')
     );
     console.log("Christ the King activations:", christTheKing);
+
+    toast.success(this.schools.length > 0
+      ? `Activated schools have been fetched successfully! (${this.schools.length} school${this.schools.length === 1 ? '' : 's'})`
+      : 'Activated schools have been fetched successfully! No activations found.');
     
   } catch (error) {
     console.error("Error fetching schools:", error);
