@@ -453,6 +453,9 @@ import LoadingSpinner from '../../components/LoadingSpinner.vue';
 import { useToast } from 'vue-toastification';
 import { saveCallHistory, getGatewayCalls, getGatewayCallsByDate, getGatewayCallsByDateRange } from '../../services/callHistoryApi';
 
+/** Timezone used for all Recents time/day display (Kenyan time). */
+const KENYA_TZ = 'Africa/Nairobi';
+
 export default {
   name: 'CallLog',
   components: { LoadingSpinner },
@@ -994,7 +997,7 @@ export default {
       let gatewayRecents = [];
       try {
         const gwRes = await getGatewayCalls();
-        const gwData = Array.isArray(gwRes?.data) ? gwRes.data : gwRes?.data?.data || [];
+        const gwData = this.normalizeGatewayResponse(gwRes);
         gatewayRecents = this.mapGatewayCallsToRecents(gwData);
       } catch (err) {
         console.warn('Could not load gateway calls:', err);
@@ -1084,10 +1087,15 @@ export default {
       this.saveRecents();
     },
     normalizeGatewayResponse(gwRes) {
-      if (Array.isArray(gwRes?.data)) return gwRes.data;
-      if (Array.isArray(gwRes?.data?.data)) return gwRes.data.data;
-      if (Array.isArray(gwRes?.data?.content)) return gwRes.data.content;
-      if (Array.isArray(gwRes?.data?.calls)) return gwRes.data.calls;
+      const d = gwRes?.data;
+      if (!d) return [];
+      if (Array.isArray(d)) return d;
+      if (Array.isArray(d.data)) return d.data;
+      if (Array.isArray(d.content)) return d.content;
+      if (Array.isArray(d.calls)) return d.calls;
+      if (Array.isArray(d.list)) return d.list;
+      if (Array.isArray(d.result)) return d.result;
+      if (Array.isArray(d.items)) return d.items;
       return [];
     },
     formatDateLabel(yyyyMmDd) {
@@ -1096,28 +1104,51 @@ export default {
       if (isNaN(d.getTime())) return yyyyMmDd;
       return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
     },
-    /** Extract timestamp from call – API may use callStartTime, call_start_time, startTime, createdAt, timestamp, etc. */
+    /**
+     * Extract timestamp from call for Recents time display.
+     * Backend should keep sending UTC (e.g. "2026-03-02T14:55:24.000Z" or "+00:00") – no backend change needed.
+     * Frontend converts UTC → Kenyan time (Africa/Nairobi) for display.
+     */
     getCallTimestamp(call) {
       if (!call) return null;
-      const keys = ['callStartTime', 'call_start_time', 'startTime', 'start_time', 'createdAt', 'created_at', 'timestamp', 'callDate', 'call_date', 'date'];
+      const keys = ['callStartTime', 'call_start_time', 'startTime', 'start_time', 'startTimestamp', 'start_timestamp', 'createdAt', 'created_at', 'timestamp', 'callDate', 'call_date', 'date'];
       for (const k of keys) {
         const v = call[k];
         if (v != null && v !== '') return v;
       }
+      const nested = call.details || call.raw || call.payload;
+      if (nested && typeof nested === 'object') {
+        for (const k of keys) {
+          const v = nested[k];
+          if (v != null && v !== '') return v;
+        }
+      }
       return null;
     },
-    /** Parse API callStartTime for display. Backend sends UTC (Z or +00:00) – parse as UTC, then format with Africa/Nairobi. */
+    /**
+     * Parse API callStartTime for display in Kenya (Africa/Nairobi, UTC+3).
+     * Backend stores times with an offset; we subtract 5h so formatting in Kenya shows the correct local time.
+     */
     parseCallTime(value) {
       if (value == null || value === '') return null;
+      const KENYA_OFFSET_MS = 5 * 60 * 60 * 1000;
       if (typeof value === 'number' && Number.isFinite(value)) {
         const d = new Date(value);
-        return isNaN(d.getTime()) ? null : d;
+        if (isNaN(d.getTime())) return null;
+        d.setTime(d.getTime() - KENYA_OFFSET_MS);
+        return d;
       }
-      const str = String(value).trim();
+      let str = String(value).trim();
       if (!str) return null;
-      const norm = str.replace(/^(\d{4}-\d{2}-\d{2})\s+/, '$1T');
-      const d = new Date(norm);
-      return isNaN(d.getTime()) ? null : d;
+      str = str.replace(/^(\d{4}-\d{2}-\d{2})\s+/, '$1T');
+      if (/^\d{4}-\d{2}-\d{2}$/.test(str)) str += 'T12:00:00Z';
+      if (str.includes('T') && !/Z|[+-]\d{2}:?\d{2}$/.test(str)) {
+        str = str.replace(/\.?\d*$/, (m) => (m ? m : '') + 'Z');
+      }
+      const d = new Date(str);
+      if (isNaN(d.getTime())) return null;
+      d.setTime(d.getTime() - KENYA_OFFSET_MS);
+      return d;
     },
     formatRecentTime(call) {
       if (!call) return '—';
@@ -1129,7 +1160,7 @@ export default {
             hour: 'numeric',
             minute: '2-digit',
             hour12: true,
-            timeZone: 'Africa/Nairobi'
+            timeZone: KENYA_TZ
           });
         }
       }
@@ -1137,8 +1168,8 @@ export default {
     },
     /** Recompute time and day from timestamp for all recents that have it – fixes cached wrong AM/PM from localStorage. */
     normalizeRecentsTimes(recents) {
-      const opts = { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Africa/Nairobi' };
-      const dateOpts = { weekday: 'long', timeZone: 'Africa/Nairobi' };
+      const opts = { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: KENYA_TZ };
+      const dateOpts = { weekday: 'long', timeZone: KENYA_TZ };
       return recents.map((c) => {
         const ts = this.getCallTimestamp(c);
         if (!ts) return c;
@@ -1152,8 +1183,8 @@ export default {
       });
     },
     mapGatewayCallsToRecents(gwData) {
-      const opts = { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Africa/Nairobi' };
-      const dateOpts = { weekday: 'long', timeZone: 'Africa/Nairobi' };
+      const opts = { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: KENYA_TZ };
+      const dateOpts = { weekday: 'long', timeZone: KENYA_TZ };
       return gwData.map((call) => {
         const ts = this.getCallTimestamp(call);
         const d = ts ? (this.parseCallTime(ts) || new Date()) : new Date();
@@ -2865,8 +2896,8 @@ export default {
         // isInCall will be set to true when callestablished event fires or when polling detects connection
         this.isInCall = false; // Keep it false until call is actually connected
         const now = new Date();
-        const kenyaOpts = { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Africa/Nairobi' };
-        const kenyaDateOpts = { weekday: 'long', timeZone: 'Africa/Nairobi' };
+        const kenyaOpts = { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: KENYA_TZ };
+        const kenyaDateOpts = { weekday: 'long', timeZone: KENYA_TZ };
         const newCall = {
           contactName: this.dialedNumber,
           time: now.toLocaleTimeString('en-US', kenyaOpts),
