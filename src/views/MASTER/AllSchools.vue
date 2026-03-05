@@ -15,6 +15,11 @@
           <span class="material-symbols-outlined">download</span>
           Export to Excel
         </button>
+        <button class="action-btn pdf-action-btn" @click="exportToPdf" :disabled="pdfLoading">
+          <span v-if="pdfLoading" class="pdf-loading">...</span>
+          <span v-else class="material-symbols-outlined">picture_as_pdf</span>
+          View as PDF
+        </button>
       </div>
     </div>
 
@@ -327,6 +332,7 @@ import axios from '../../axios';
 import { useToast } from 'vue-toastification';
 import LoadingSpinner from '../../components/LoadingSpinner.vue';
 import NewSchool from './NewSchool.vue';
+import jsPDF from 'jspdf';
 
 export default {
   components: {
@@ -364,6 +370,7 @@ export default {
         registeredByID: "", // Optional
         installationDate: "", // Optional
       },
+      pdfLoading: false,
     };
   },
   computed: {
@@ -471,6 +478,125 @@ export default {
       link.download = `all-schools-${timestamp}.csv`;
       link.click();
       URL.revokeObjectURL(url);
+    },
+    exportToPdf() {
+      if (this.filteredSchools.length === 0) {
+        (this.toast || useToast()).info('No schools to export.');
+        return;
+      }
+      this.pdfLoading = true;
+      try {
+        const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+        const pageW = doc.internal.pageSize.getWidth();
+        const pageH = doc.internal.pageSize.getHeight();
+        const margin = 10;
+        const rowHeight = 7;
+        const headerHeight = 10;
+
+        const cols = ['#', 'Sch Name', 'Sch Code', 'Principal Contact', 'Phone No', 'County', 'Registered On', 'Status'];
+        const colWidths = [8, 45, 25, 32, 28, 25, 28, 18];
+        const totalColWidth = colWidths.reduce((a, b) => a + b, 0);
+        const scale = (pageW - margin * 2) / totalColWidth;
+        const scaledWidths = colWidths.map(w => Math.max(w * scale, 5));
+
+        const wrapText = (text, maxWidth) => {
+          if (!text || text === 'N/A') return text || 'N/A';
+          const str = String(text);
+          if (doc.getTextWidth(str) <= maxWidth) return str;
+          let line = '';
+          const words = str.split(/\s+/);
+          for (const word of words) {
+            const test = line ? line + ' ' + word : word;
+            if (doc.getTextWidth(test) <= maxWidth) line = line ? line + ' ' + word : word;
+            else {
+              if (line) return line + '...';
+              return doc.splitTextToSize(str, maxWidth)[0]?.replace(/.$/, '...') || str.slice(0, 5) + '...';
+            }
+          }
+          return line;
+        };
+
+        let y = margin;
+        doc.setFontSize(14);
+        doc.setFont(undefined, 'bold');
+        doc.text('All Schools', margin, y);
+        y += 10;
+        doc.setFontSize(8);
+        doc.setFont(undefined, 'normal');
+
+        const drawTableHeader = () => {
+          doc.setFillColor(241, 241, 241);
+          doc.rect(margin, y, pageW - margin * 2, headerHeight, 'F');
+          doc.setDrawColor(221, 221, 221);
+          let x = margin;
+          cols.forEach((h, i) => {
+            doc.rect(x, y, scaledWidths[i], headerHeight);
+            doc.setFont(undefined, 'bold');
+            doc.text(h, x + 2, y + headerHeight / 2 + 1.5);
+            doc.setFont(undefined, 'normal');
+            x += scaledWidths[i];
+          });
+          y += headerHeight;
+        };
+
+        const drawRow = (row, isAlt) => {
+          if (y + rowHeight > pageH - margin) {
+            doc.addPage('a4', 'l');
+            y = margin;
+            drawTableHeader();
+          }
+          if (isAlt) doc.setFillColor(247, 249, 252);
+          else doc.setFillColor(255, 255, 255);
+          let x = margin;
+          row.forEach((cell, i) => {
+            doc.rect(x, y, scaledWidths[i], rowHeight);
+            const text = wrapText(cell, scaledWidths[i] - 3);
+            doc.text(text, x + 2, y + rowHeight / 2 + 1.5);
+            x += scaledWidths[i];
+          });
+          doc.setDrawColor(221, 221, 221);
+          let lineX = margin;
+          scaledWidths.forEach(w => {
+            doc.rect(lineX, y, w, rowHeight);
+            lineX += w;
+          });
+          y += rowHeight;
+        };
+
+        drawTableHeader();
+        this.filteredSchools.forEach((school, index) => {
+          const registeredOn = this.formatDateForExcel(school.registeredOn) || 'N/A';
+          const status = school.deleted ? 'DELETED' : 'ACTIVE';
+          drawRow(
+            [
+              String(index + 1),
+              school.schoolName || '',
+              school.schoolCode || '',
+              school.principalPhoneNo || '',
+              school.phoneNo || 'N/A',
+              school.county || '',
+              registeredOn,
+              status,
+            ],
+            index % 2 !== 0
+          );
+        });
+
+        const blob = doc.output('blob');
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank', 'noopener');
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `all-schools-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.pdf`;
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 500);
+        (this.toast || useToast()).success('PDF generated. Opened in new tab and downloaded.');
+      } catch (err) {
+        console.error('PDF export error:', err);
+        (this.toast || useToast()).error('Failed to generate PDF. Please try again.');
+      } finally {
+        this.pdfLoading = false;
+      }
     },
     openForm() {
       this.show = true;
@@ -1604,6 +1730,15 @@ export default {
   .action-btn .material-symbols-outlined {
     margin-right: 0.3rem;
     font-size: clamp(1rem, 2vw, 1.2rem);
+  }
+
+  .pdf-action-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
+
+  .pdf-action-btn .pdf-loading {
+    margin-right: 0.3rem;
   }
 
   .search-area {
