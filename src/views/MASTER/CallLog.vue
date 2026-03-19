@@ -1131,7 +1131,7 @@ export default {
      */
     parseCallTime(value) {
       if (value == null || value === '') return null;
-      const KENYA_OFFSET_MS = 5 * 60 * 60 * 1000;
+      const KENYA_OFFSET_MS = 4 * 60 * 60 * 1000;
       if (typeof value === 'number' && Number.isFinite(value)) {
         const d = new Date(value);
         if (isNaN(d.getTime())) return null;
