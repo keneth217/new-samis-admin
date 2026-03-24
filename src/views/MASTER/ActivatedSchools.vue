@@ -670,7 +670,7 @@ export default {
 
     const payload = Array.isArray(response.data) ? response.data : [response.data];
 
-    this.schools = payload.map(school => {
+    const mappedList = payload.map(school => {
       const mapped = {
         activationID: school.activationID || 'N/A',
         schoolName: school.schoolName || 'N/A',
@@ -697,7 +697,17 @@ export default {
       return mapped;
     });
 
-    console.log("Schools Data (all activations):", this.schools);
+    // Exclude expired activations - they belong in Expired Schools, not Activated Schools
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    this.schools = mappedList.filter(activation => {
+      const expiryVal = activation.expiryDate;
+      if (!expiryVal || expiryVal === 'N/A') return true;
+      const expiry = new Date(expiryVal);
+      return !isNaN(expiry.getTime()) && expiry >= today;
+    });
+
+    console.log("Schools Data (active activations only, expired excluded):", this.schools);
     console.log("Total activations fetched:", this.schools.length);
     
     // Debug: Check for schools with same code but different modules
