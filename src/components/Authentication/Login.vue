@@ -47,7 +47,7 @@
             <label class="y" for="rememberMe">Remember me</label>
           </div>
           <div class="forgot-password">
-            <a href="#" class="forgot-password-link">Forgot your password?</a>
+            <a href="#" class="forgot-password-link" @click.prevent="showForgotModal = true">Forgot your password?</a>
           </div>
         </div>
       </div>
@@ -57,6 +57,29 @@
       </div>
 
       <LoadingSpinner :isLoading="Loading" />
+
+      <!-- Forgot password modal -->
+      <div v-if="showForgotModal" class="modal-overlay" @click.self="showForgotModal = false">
+        <div class="modal-content">
+          <h3>Forgot password</h3>
+          <p class="modal-hint">Enter your phone number and we’ll send instructions to reset your password.</p>
+          <div class="form-group">
+            <input
+              type="text"
+              class="x"
+              v-model="forgotPhoneNo"
+              placeholder=" "
+            />
+            <label>Phone number</label>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn-cancel" @click="showForgotModal = false">Cancel</button>
+            <button type="button" class="btn-submit" @click="submitForgotPassword" :disabled="forgotLoading">
+              {{ forgotLoading ? 'Sending…' : 'Send instructions' }}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -76,14 +99,17 @@ export default {
       show: false,
       popMessage: "",
       popBorderColor: "gold",
-      loginData: { 
+      loginData: {
         phoneNo: '',
         password: '',
         tenantId: ''
       },
       passwordFieldType: 'password',
-      rememberMe: false,
+      rememberMe: localStorage.getItem('rememberMePreference') !== 'false',
       Loading: false,
+      showForgotModal: false,
+      forgotPhoneNo: '',
+      forgotLoading: false,
     };
   },
   setup() {
@@ -109,12 +135,12 @@ export default {
         return;
       }
 
-      const data = { phoneNo, password };
+      const data = { phoneNo, password, rememberMe: this.rememberMe };
 
       try {
-        // Show loading spinner
         this.Loading = true;
         await this.authStore.login(data);
+        localStorage.setItem('rememberMePreference', this.rememberMe ? 'true' : 'false');
 
         // If login is successful, retrieve and display the success message
         const successMsg = this.authStore.successMessage;
@@ -125,7 +151,7 @@ export default {
         // if (isMasterAdmin) {
         //   this.router.push('/allSchools'); // Redirect to Master Admin dashboard
         // } else {
-          this.router.push('/FinanceModule'); // Redirect to normal dashboard
+          this.router.push('/'); // Redirect to dashboard
         // }
       } catch (err) {
         // Extract error message properly
@@ -167,9 +193,33 @@ export default {
       localStorage.clear();
       this.router.push('/login');
     },
-    togglePasswordVisibility() { 
+    togglePasswordVisibility() {
       this.passwordFieldType = this.passwordFieldType === 'password' ? 'text' : 'password';
-    }
+    },
+    async submitForgotPassword() {
+      const phoneNo = (this.forgotPhoneNo || '').trim();
+      if (!phoneNo) {
+        this.toast.error('Please enter your phone number.');
+        return;
+      }
+      this.forgotLoading = true;
+      try {
+        await axios.post('/auth/forgot-password', { phoneNo });
+        this.toast.success('If an account exists for this number, you will receive instructions by SMS.');
+        this.showForgotModal = false;
+        this.forgotPhoneNo = '';
+      } catch (err) {
+        const status = err.response?.status;
+        const msg = err.response?.data?.message || err.response?.data?.error;
+        if (status === 404 || status === 501 || err.code === 'ERR_NETWORK') {
+          this.toast.warning('Password reset may not be available. Please contact your administrator.');
+        } else {
+          this.toast.error(msg || 'Something went wrong. Please try again or contact support.');
+        }
+      } finally {
+        this.forgotLoading = false;
+      }
+    },
   }
 }
 </script>
@@ -374,5 +424,67 @@ export default {
       margin-top: -1rem;
       margin-left: 1.1rem;
     }
+  }
+
+  /* Forgot password modal */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1010;
+  }
+  .modal-content {
+    background: #4368b9;
+    border-radius: 10px;
+    padding: 24px;
+    max-width: 380px;
+    width: 90%;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    border: 1px solid gold;
+  }
+  .modal-content h3 {
+    color: #fff;
+    margin-bottom: 8px;
+  }
+  .modal-hint {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 14px;
+    margin-bottom: 16px;
+  }
+  .modal-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 20px;
+    justify-content: flex-end;
+  }
+  .btn-cancel {
+    background: transparent;
+    color: #fff;
+    border: 1px solid gold;
+    padding: 8px 16px;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  .btn-cancel:hover {
+    background: rgba(255, 255, 255, 0.1);
+  }
+  .btn-submit {
+    background: gold;
+    color: #4368b9;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  .btn-submit:hover:not(:disabled) {
+    background: #e6c200;
+  }
+  .btn-submit:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
   }
   </style>

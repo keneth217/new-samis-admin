@@ -62,8 +62,8 @@
             <td>{{ school.phoneNo || 'N/A' }}</td>
             <td>{{ school.county }}</td>
             <td>{{ school.registeredOn || 'N/A' }}</td>
-            <td :class="{ 'text-success': !school.deleted, 'text-danger': school.deleted }">
-              {{ school.deleted ? 'DELETED' : 'ACTIVE' }}
+            <td :class="{ 'text-success': getSchoolStatus(school) === 'ACTIVE', 'text-danger': getSchoolStatus(school) === 'DELETED', 'text-expired': getSchoolStatus(school) === 'EXPIRED' }">
+              {{ getSchoolStatus(school) }}
             </td>
             <td class="actions">
               <button @click="viewSchool(school)" class="manage-btn" aria-label="View Profile">
@@ -117,8 +117,8 @@
             
             <div class="card-row">
               <span class="card-label">Status:</span>
-              <span class="card-value" :class="{ 'text-success': !school.deleted, 'text-danger': school.deleted }">
-                {{ school.deleted ? 'DELETED' : 'ACTIVE' }}
+              <span class="card-value" :class="{ 'text-success': getSchoolStatus(school) === 'ACTIVE', 'text-danger': getSchoolStatus(school) === 'DELETED', 'text-expired': getSchoolStatus(school) === 'EXPIRED' }">
+                {{ getSchoolStatus(school) }}
               </span>
             </div>
           </div>
@@ -371,6 +371,7 @@ export default {
         installationDate: "", // Optional
       },
       pdfLoading: false,
+      expiredSchoolCodes: new Set(), // School codes that are in the expired list
     };
   },
   computed: {
@@ -385,6 +386,11 @@ export default {
     },
   },
   methods: {
+    getSchoolStatus(school) {
+      if (school.deleted) return 'DELETED';
+      if (this.expiredSchoolCodes.has(school.schoolCode)) return 'EXPIRED';
+      return 'ACTIVE';
+    },
     viewSchool(school) {
       this.selectedSchool = school;
       this.show = true;
@@ -455,7 +461,7 @@ export default {
         school.marketerName || 'N/A',
         school.schoolMotto || '',
         school.students || '',
-        school.deleted ? 'DELETED' : 'ACTIVE',
+        this.getSchoolStatus(school),
       ]);
 
       const csvContent = [headers, ...rows]
@@ -566,7 +572,7 @@ export default {
         drawTableHeader();
         this.filteredSchools.forEach((school, index) => {
           const registeredOn = this.formatDateForExcel(school.registeredOn) || 'N/A';
-          const status = school.deleted ? 'DELETED' : 'ACTIVE';
+          const status = this.getSchoolStatus(school);
           drawRow(
             [
               String(index + 1),
@@ -636,12 +642,24 @@ export default {
         // Don't show error toast - users fetch is optional for mapping
       }
     },
+    async fetchExpiredSchoolCodes() {
+      try {
+        const response = await axios.post('/activations/expired');
+        const codes = new Set();
+        (response.data || []).forEach(item => {
+          if (item.schoolCode) codes.add(item.schoolCode);
+        });
+        this.expiredSchoolCodes = codes;
+      } catch (error) {
+        console.error('Error fetching expired schools:', error);
+      }
+    },
     async fetchSchools() {
   this.Loading = true;
   const toast = useToast();
   try {
-    // Fetch users first to get the mapping
-    await this.fetchUsers();
+    // Fetch users and expired school codes in parallel
+    await Promise.all([this.fetchUsers(), this.fetchExpiredSchoolCodes()]);
     
     // Create a map of user ID to fullname (try both string and number keys)
     const userMap = new Map();
@@ -1966,6 +1984,12 @@ export default {
 
   .text-danger {
     color: red !important;
+    font-weight: bold;
+    font-style: italic;
+  }
+
+  .text-expired {
+    color: #d97706 !important;
     font-weight: bold;
     font-style: italic;
   }

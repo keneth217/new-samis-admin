@@ -4,22 +4,30 @@ import axios from "../axios";
 
 
 
+// Read auth data from either storage (session = this tab only, local = persistent)
+function getStoredToken() {
+  return localStorage.getItem("token") || sessionStorage.getItem("token") || "";
+}
+function getStoredJson(key, fallback) {
+  const raw = localStorage.getItem(key) || sessionStorage.getItem(key);
+  if (raw == null) return fallback;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return fallback;
+  }
+}
+function getStoredString(key) {
+  return localStorage.getItem(key) || sessionStorage.getItem(key) || "";
+}
+
 export const useAuthStore = defineStore("auth", () => {
-  
-  // localStorage.setItem('token', token);
-  // localStorage.setItem('username', username);
-  // localStorage.setItem('phoneNo', phoneNo);
-  // localStorage.setItem('accountNo', accountNo);
-  // localStorage.setItem('roles', JSON.stringify(roles));
-
-
-  const isAuthenticated = ref(!!localStorage.getItem("token"));
   const successMessage = ref("");
-  const token = ref(localStorage.getItem("token") || "");
-  // const phoneNo = ref(localStorage.getItem("phoneNo1") || "");
-  const accountNo = ref(localStorage.getItem("accountNo") || "");
-  const username = ref(localStorage.getItem("username") || "");
-  const roles = ref(JSON.parse(localStorage.getItem("roles") || "[]"));
+  const token = ref(getStoredToken());
+  const isAuthenticated = ref(!!token.value);
+  const accountNo = ref(getStoredString("accountNo"));
+  const username = ref(getStoredString("username"));
+  const roles = ref(getStoredJson("roles", []));
 
 
   // const schoolID = ref(localStorage.getItem("schoolID") || "");
@@ -36,10 +44,6 @@ export const useAuthStore = defineStore("auth", () => {
     successMessage.value = message;
     console.log("Set success message:", successMessage.value);
   }
-  function setschoolID(id) {
-    schoolID.value = id;
-    localStorage.setItem("schoolID", id);
-  }
 
   function setSchoolDetails(details) {
     shoolDetails.value = details;
@@ -51,39 +55,28 @@ export const useAuthStore = defineStore("auth", () => {
     localStorage.removeItem("shoolDetails");
   }
 
+  function clearAuthStorage() {
+    const keys = ["token", "authToken", "accountNo", "username", "roles", "phoneNo", "fullname", "userId", "user", "schoolCode"];
+    keys.forEach((key) => {
+      localStorage.removeItem(key);
+      sessionStorage.removeItem(key);
+    });
+  }
+
   function logout() {
     return new Promise((resolve) => {
       setTimeout(() => {
-        localStorage.removeItem("token");
-        localStorage.removeItem("authToken"); // Also remove authToken
-        // localStorage.removeItem("phoneNo1");
-        localStorage.removeItem("accountNo");
-        localStorage.removeItem("username");
-        localStorage.removeItem("roles");
-        localStorage.removeItem("phoneNo");
-        localStorage.removeItem("fullname");
-        localStorage.removeItem("userId");
-        localStorage.removeItem("user");
-        localStorage.removeItem("schoolCode");
-        // localStorage.removeItem("schoolID");
-        // localStorage.removeItem("isMasterAdmin"); 
-        // clearSchoolDetails();
+        clearAuthStorage();
 
         token.value = "";
-        // phoneNo1.value = "";
         accountNo.value = "";
         username.value = "";
         roles.value = [];
-        // schoolID.value = "";
-        
 
-
-        // Clear axios default headers to prevent old token from being sent on next login
-        // Clear both the imported axios instance and any default headers
         if (axios && axios.defaults && axios.defaults.headers) {
           delete axios.defaults.headers.common.Authorization;
         }
-        
+
         setAuthenticated(false);
         console.log("Logout completed - all tokens and axios headers cleared");
         resolve();
@@ -91,16 +84,11 @@ export const useAuthStore = defineStore("auth", () => {
     });
   }
 
-  async function login({ phoneNo, password}) {
+  async function login({ phoneNo, password, rememberMe = true }) {
     try {
-      // const headers = {
-      //   "X-Tenant": schoolID,
-      // };
-  
       const response = await axios.post(
         "/auth/signin",
         { phoneNo: (phoneNo || '').trim(), password: (password || '').trim() },
-        // { headers }
       );
 
       const data = response.data;
@@ -116,55 +104,18 @@ export const useAuthStore = defineStore("auth", () => {
       const receivedFullname = data?.fullname;
       const receivedRoles = Array.isArray(data?.roles) ? data.roles : [];
 
-      // Store the received values (not the ref variables)
-      localStorage.setItem('token', receivedToken);
-      localStorage.setItem('authToken', receivedToken); // Also store as authToken for axios interceptor
-      localStorage.setItem('username', receivedUsername || '');
-      localStorage.setItem('fullname', receivedFullname || '');
-      localStorage.setItem('phoneNo', receivedPhoneNo || '');
-      localStorage.setItem('userId', receivedUserId?.toString() || '');
-      localStorage.setItem('roles', JSON.stringify(receivedRoles));
+      // Use localStorage for "remember me" (persist across tabs/close), sessionStorage otherwise (this tab only)
+      const storage = rememberMe ? localStorage : sessionStorage;
+      storage.setItem('token', receivedToken);
+      storage.setItem('authToken', receivedToken);
+      storage.setItem('username', receivedUsername || '');
+      storage.setItem('fullname', receivedFullname || '');
+      storage.setItem('phoneNo', receivedPhoneNo || '');
+      storage.setItem('userId', receivedUserId?.toString() || '');
+      storage.setItem('roles', JSON.stringify(receivedRoles));
+      // Keep accountNo in same storage for consistency (legacy)
+      storage.setItem('accountNo', '');
 
-      // localStorage.setItem("token", receivedToken);
-      // localStorage.setItem("userId", receivedUserId);
-      // localStorage.setItem("teacherId", receivedTeacherId);
-      // localStorage.setItem("username", receivedUsername);
-      // localStorage.setItem("roles", JSON.stringify(receivedRoles));
-      // localStorage.setItem("isMasterAdmin", isMaster); // Store Master Admin state
-
-      // if (isMaster) {
-      //   // If Master Admin, clear school-specific data
-      //   const schoolID = 'MASTER';
-      //   setschoolID(schoolID);
-       
-      //   localStorage.removeItem("shoolDetails");
-       
-      //   shoolDetails.value = {};
-      // } else {
-        // setschoolID(schoolID);
-        // setSchoolDetails({
-        //   schoolName: receivedSchool.schoolName,
-        //   schoolAddress: receivedSchool.schoolAddress,
-        //   schoolPhoneNo: receivedSchool.schoolPhoneNo,
-        //   schoolEmail: receivedSchool.schoolEmail,
-        //   schoolType: receivedSchool.schoolType,
-        //   schoolGender: receivedSchool.schoolGender,
-        //   schoolEnrollment: receivedSchool.schoolEnrollment,
-        //   county: receivedSchool.county,
-        //   subCounty: receivedSchool.subCounty,
-        //   ward: receivedSchool.ward,
-        //   schoolMotto: receivedSchool.schoolMotto,
-        //   mission: receivedSchool.mission,
-        //   vision: receivedSchool.vision,
-        //   owner: receivedSchool.owner,
-        //   phoneNo: receivedSchool.phoneNo,
-        //   email: receivedSchool.email,
-        //   location: receivedSchool.location,
-        //   description: receivedSchool.description,
-        //   slogan: receivedSchool.slogan,
-        // });
-      // }
-  
       token.value = receivedToken;
       username.value = receivedUsername || '';
       roles.value = receivedRoles;

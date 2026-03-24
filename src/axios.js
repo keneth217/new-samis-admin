@@ -15,7 +15,7 @@ const apiClient = axios.create({
 const NO_HEADERS_ENDPOINTS = ["/schools/register"];
 
 // Auth-only endpoints (skip auth header and X-School header)
-const AUTH_ONLY_ENDPOINTS = ["/auth/signin", "/auth/signup", "/auth/signout"];
+const AUTH_ONLY_ENDPOINTS = ["/auth/signin", "/auth/signup", "/auth/signout", "/auth/forgot-password"];
 
 // Request interceptor
 apiClient.interceptors.request.use(
@@ -25,8 +25,8 @@ apiClient.interceptors.request.use(
       return config;
     }
 
-    const authToken = localStorage.getItem("authToken");
-    const schoolCode = localStorage.getItem("schoolCode");
+    const authToken = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
+    const schoolCode = localStorage.getItem("schoolCode") || sessionStorage.getItem("schoolCode");
 
     // Don't add X-School header for auth endpoints
     const isAuthEndpoint = AUTH_ONLY_ENDPOINTS.some((endpoint) => config.url?.includes(endpoint));
@@ -88,29 +88,9 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response interceptor
+// Response interceptor (token/user storage is handled by auth store after login)
 apiClient.interceptors.response.use(
-  (response) => {
-    if (response.config.url?.includes("/auth/signin")) {
-      const token = response.data?.token;
-      if (token) {
-        localStorage.setItem("authToken", token);
-        apiClient.defaults.headers.common.Authorization = `Bearer ${token}`;
-        // Store user data from response (API returns fields directly, not nested in 'user')
-        if (response.data) {
-          const userData = {
-            id: response.data.id,
-            username: response.data.username,
-            phoneNo: response.data.phoneNo,
-            fullname: response.data.fullname,
-            roles: response.data.roles,
-          };
-          localStorage.setItem("user", JSON.stringify(userData));
-        }
-      }
-    }
-    return response;
-  },
+  (response) => response,
   (error) => {
     // Log detailed error information for debugging
     if (error.response) {
@@ -162,18 +142,20 @@ apiClient.interceptors.response.use(
 
     if (error.response?.status === 401) {
       const isSigninRequest = error.config?.url?.includes("/auth/signin");
-      if (!isSigninRequest) {
-        localStorage.removeItem("authToken");
+      if (!isSigninRequest && typeof window !== "undefined") {
+        const authKeys = ["authToken", "token", "username", "roles", "accountNo", "phoneNo", "fullname", "userId", "user", "schoolCode"];
+        authKeys.forEach((key) => {
+          localStorage.removeItem(key);
+          sessionStorage.removeItem(key);
+        });
         delete apiClient.defaults.headers.common.Authorization;
-        if (typeof window !== "undefined") {
-          window.location.href = "/";
-        }
+        window.location.href = "/login";
       }
     }
     return Promise.reject(error);
   }
 );
 
-export const getAuthToken = () => localStorage.getItem("authToken");
+export const getAuthToken = () => localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
 
 export default apiClient;
