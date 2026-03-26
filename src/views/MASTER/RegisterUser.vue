@@ -40,13 +40,12 @@
               <th>Email</th>
               <th>Phone No</th>
               <th>User Type</th>
-              <th>Status</th>
-              <th class="actions-header">Actions</th>
+              <th>Role</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="filteredUsers.length === 0">
-              <td colspan="8">No User found</td>
+              <td colspan="7">No User found</td>
             </tr>
             <tr
             v-for="(user, index) in filteredUsers"
@@ -59,17 +58,7 @@
               <td>{{ user.email }}</td>
               <td>{{ user.phoneNo }}</td>
               <td>{{ user.usertype }}</td>
-              <td :class="{ 'text-success': user.activated === true, 'text-danger': user.activated !== true }">
-                {{ user.activated === true ? 'ACTIVE' : 'EXPIRED' }}
-              </td>
-              <td class="actions">
-                <button @click="viewUser(user)" class="manage-btn" aria-label="View Profile">
-                  <span class="material-symbols-outlined">person</span>
-                </button>
-                <button @click="viewUser(user)" class="class-list-btn" aria-label="Edit User">
-                  <span class="material-symbols-outlined">edit</span>
-                </button>
-              </td>
+              <td>{{ formatRoles(user.role) }}</td>
             </tr>
           </tbody>
         </table>
@@ -105,20 +94,9 @@
               </div>
               
               <div class="card-row">
-                <span class="card-label">Status:</span>
-                <span class="card-value" :class="{ 'text-success': user.activated === true, 'text-danger': user.activated !== true }">
-                  {{ user.activated === true ? 'ACTIVE' : 'EXPIRED' }}
-                </span>
+                <span class="card-label">Role:</span>
+                <span class="card-value">{{ formatRoles(user.role) }}</span>
               </div>
-            </div>
-            
-            <div class="card-footer">
-              <button @click="viewUser(user)" class="card-action-btn" aria-label="View Profile">
-                <span class="material-symbols-outlined">person</span>
-              </button>
-              <button @click="viewUser(user)" class="card-action-btn edit-btn" aria-label="Edit User">
-                <span class="material-symbols-outlined">edit</span>
-              </button>
             </div>
           </div>
         </div>
@@ -129,9 +107,9 @@
       </div>
   
       <NewUser
-        :user="selectedUser"
-        @closeForm="closeForm" 
-        @fetchUsers="fetchUsers" 
+        :key="'new-user'"
+        @closeForm="closeForm"
+        @fetchUsers="fetchUsers"
         v-if="show"
       />
   
@@ -163,48 +141,37 @@ export default {
   },
   data() {
     return {
-      selectedUser: null,
       show: false,
       searchQuery: '',
       users: [],
       Loading: false,
-      currentPage: 1,
-      usersPerPage: 15,
-      usersPerPageOptions: [5, 15, 30, 50, 75, 100],
     };
   },
   computed: {
-    totalPages() {
-      return Math.ceil(this.filteredUsers.length / this.usersPerPage);
-    },
-    displayedUsers() {
-      const startIndex = (this.currentPage - 1) * this.usersPerPage;
-      const endIndex = Math.min(startIndex + this.usersPerPage, this.filteredUsers.length);
-      return this.filteredUsers.slice(startIndex, endIndex);
-    },
     filteredUsers() {
       if (!this.searchQuery.trim()) return this.users;
-      return this.users.filter(user => {
-        return (
-          user.fullname.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
-          user.username.toLowerCase().includes(this.searchQuery.toLowerCase())
-        );
+      const q = this.searchQuery.toLowerCase();
+      return this.users.filter((user) => {
+        const name = (user.fullname || '').toLowerCase();
+        const uname = (user.username || '').toLowerCase();
+        return name.includes(q) || uname.includes(q);
       });
     },
   },
   methods: {
-    viewUser(user) {
-      this.selectedUser = user;  // Set the selected user before opening the form
-      this.show = true;
+    formatRoles(roles) {
+      if (!Array.isArray(roles) || roles.length === 0) return '-';
+      return roles
+        .map((r) => String(r).replace(/^ROLE_/i, '').toUpperCase())
+        .join(', ');
     },
 
     openForm() {
-      this.show = !this.show;
+      this.show = true;
     },
 
     closeForm() {
       this.show = false;  // Close the form
-      this.selectedUser = null;  // Reset the selected user when the form closes
     },
 
     async fetchUsers() {
@@ -213,7 +180,7 @@ export default {
 
       this.users = [];
       try {
-        const response = await axios.post('/auth/list_users');
+        const response = await axios.post('/auth/list_users', {});
         // API returns: userID, username, fullname, phoneNo, email, usertype, role
         this.users = response.data.map(user => ({
           userID: user.userID, // API returns userID (not id)
@@ -223,9 +190,6 @@ export default {
           email: user.email,
           usertype: user.usertype,
           role: user.role,
-          // Note: station and activated are not in API spec, but keeping for backward compatibility
-          station: user.station || '',
-          activated: user.activated !== undefined ? user.activated : true,
         }));
         toast.success(this.users.length > 0
           ? `Users have been fetched successfully! (${this.users.length} user${this.users.length === 1 ? '' : 's'})`
@@ -532,61 +496,6 @@ export default {
   background-color: #f7f9fc;
 }
 
-.text-success {
-  color: #2b7ab7 !important;
-  font-weight: bold;
-  font-style: italic;
-}
-
-.text-danger {
-  color: red !important;
-  font-weight: bold;
-  font-style: italic;
-}
-
-.actions-header {
-  text-align: center;
-  padding: clamp(0.5rem, 1vw, 1rem);
-}
-
-.actions {
-  display: flex;
-  justify-content: flex-start;
-  gap: clamp(0.3rem, 1vw, 1rem);
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-.manage-btn,
-.class-list-btn {
-  background-color: #e0e7ff;
-  color: #4f46e5;
-  border: 1px solid #c7d2fe;
-  padding: clamp(0.3rem, 1vw, 0.5rem) clamp(0.6rem, 1.5vw, 0.9rem);
-  border-radius: 5px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-  font-size: clamp(0.75rem, 1.2vw, 0.9rem);
-  transition: all 0.3s ease;
-  white-space: nowrap;
-}
-
-.manage-btn:hover {
-  background-color: #d1d5db;
-  transform: translateY(-1px);
-}
-
-.class-list-btn:hover {
-  background-color: #d4d7ff;
-  transform: translateY(-1px);
-}
-
-.actions .material-symbols-outlined {
-  font-size: clamp(0.9rem, 1.5vw, 1rem);
-}
-
 /* Responsive Breakpoints */
 @media only screen and (max-width: 1400px) {
   .students-table th,
@@ -712,9 +621,6 @@ export default {
     font-size: clamp(0.85rem, 1.2vw, 0.95rem);
   }
 
-  .card-footer {
-    padding: clamp(0.75rem, 2vw, 1rem);
-  }
 }
 
 @media only screen and (max-width: 480px) {
@@ -811,28 +717,9 @@ export default {
     text-align: right;
   }
 
-  .card-footer {
-    padding: 0.75rem;
-  }
-
-  .card-action-btn {
-    padding: 0.65rem 0.85rem;
-    font-size: clamp(0.8rem, 2vw, 0.9rem);
-  }
-
-  .manage-btn,
-  .class-list-btn {
-    padding: clamp(0.3rem, 1vw, 0.4rem) clamp(0.5rem, 1.5vw, 0.7rem);
-    font-size: clamp(0.7rem, 1vw, 0.8rem);
-  }
-
   .action-btn {
     padding: clamp(0.4rem, 1.2vw, 0.5rem) clamp(0.6rem, 1.5vw, 0.8rem);
     font-size: clamp(0.8rem, 1.1vw, 0.9rem);
-  }
-
-  .actions-header {
-    padding: clamp(0.3rem, 1vw, 0.5rem);
   }
 }
 
@@ -869,17 +756,6 @@ export default {
   .card-value {
     font-size: 0.8rem;
     text-align: right;
-  }
-
-  .card-action-btn {
-    font-size: 0.8rem;
-    padding: 0.6rem 0.75rem;
-  }
-
-  .manage-btn,
-  .class-list-btn {
-    font-size: 0.7rem;
-    padding: 0.3rem 0.4rem;
   }
 
   .action-btn {

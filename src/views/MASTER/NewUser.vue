@@ -5,7 +5,7 @@
         <i class="fas fa-times"></i>
       </div>
       <div class="form-title">
-        <h2>{{ editMode ? 'EDIT USER' : 'NEW USER' }}</h2>
+        <h2>NEW USER</h2>
       </div>
 
       <div class="form-inputs">
@@ -25,38 +25,12 @@
           <input type="text" class="form-control" v-model="phoneNo" placeholder="Phone No" required />
           <label for="phoneNo" :class="{ filled: phoneNo !== '' }">Phone Number</label>
         </div>
-        <div class="form-group password-group" v-if="!editMode">
-          <div class="password-input-wrap">
-            <input
-              :type="showPassword ? 'text' : 'password'"
-              class="form-control"
-              v-model="password"
-              placeholder="Password (optional)"
-            />
-            <button type="button" class="password-toggle" @click="showPassword = !showPassword" aria-label="Show password">
-              <span class="material-symbols-outlined">{{ showPassword ? 'visibility_off' : 'visibility' }}</span>
-            </button>
-          </div>
-          <label for="password" :class="{ filled: password !== '' }">Password (optional)</label>
-          <small class="field-hint">Set a password to know it and share with the user. Leave blank to auto-generate and send via SMS to their phone.</small>
-        </div>
-        <div class="form-group">
-          <select class="form-control" v-model="station" required>
-            <option value="" disabled>Select a Station</option>
-            <option value="NAKURU">Nakuru</option>
-          </select>
-        </div>
         <div class="form-group">
           <select class="form-control" v-model="usertype" required>
             <option value="" disabled>Select User Type</option>
             <option value="admin">Admin</option>
+            <option value="mod">Moderator</option>
             <option value="user">User</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <select class="form-control" v-model="role" multiple required>
-            <option value="ROLE_USER">User</option>
-            <option value="ROLE_ADMIN">Admin</option>
           </select>
         </div>
       </div>
@@ -64,7 +38,7 @@
       <hr />
       <div class="form-actions">
         <button @click="$emit('closeForm')">Close</button>
-        <button @click="saveUser">{{ editMode ? 'Update' : 'Register' }}</button>
+        <button @click="saveUser">Register</button>
       </div>
     </div>
     <LoadingSpinner :isLoading="Loading" />
@@ -79,46 +53,15 @@ import LoadingSpinner from '../../components/LoadingSpinner.vue';
 export default {
   name: 'submit',
   components: { LoadingSpinner },
-  props: {
-    user: {
-      type: Object,
-      default: null,
-    },
-  },
   data() {
     return {
       fullname: '',
       username: '',
       email: '',
       phoneNo: '',
-      password: '',
-      station: '',
       usertype: '',
-      role: ['ROLE_USER'],
-      editMode: false,
       Loading: false,
-      showPassword: false,
     };
-  },
-  watch: {
-    user: {
-      immediate: true,
-      handler(newUser) {
-        if (newUser) {
-          this.editMode = true;
-          this.fullname = newUser.fullname || '';
-          this.username = newUser.username || '';
-          this.email = newUser.email || '';
-          this.phoneNo = newUser.phoneNo || '';
-          this.usertype = newUser.usertype || '';
-          this.station = newUser.station || '';
-          this.role = newUser.role || ['ROLE_USER'];
-        } else {
-          this.editMode = false;
-          this.clearForm(); // Reset form if no user passed
-        }
-      },
-    },
   },
   methods: {
     // Method to reset the form
@@ -127,57 +70,42 @@ export default {
       this.username = '';
       this.email = '';
       this.phoneNo = '';
-      this.password = '';
-      this.station = '';
       this.usertype = '';
-      this.role = ['ROLE_USER'];
-      this.showPassword = false;
+    },
+
+    roleFromUsertype(usertype) {
+      const type = String(usertype || '').trim().toLowerCase();
+      if (type === 'admin') return ['admin'];
+      if (type === 'mod') return ['mod'];
+      return ['user'];
     },
 
     // Method to save the user (register or update)
     async saveUser() {
       const toast = useToast();
 
-      if (!this.fullname || !this.phoneNo || !this.email || !this.username || !this.usertype || !this.station) {
+      if (!this.fullname || !this.phoneNo || !this.email || !this.username || !this.usertype) {
         toast.warning('ALL REQUIRED FIELDS MUST BE FILLED!');
         return;
       }
 
       try {
-        // API expects: username, fullname, phoneNo, email, usertype, password (optional), role
-        // Note: 'station' is not in API spec, but keeping it for backward compatibility if backend accepts it
+        // API signup contract: username, fullname, phoneNo, email, usertype, password(optional), role
+        // Password is omitted intentionally so backend auto-generates it and sends SMS.
         const formData = {
-          username: this.username,
-          fullname: this.fullname,
-          phoneNo: this.phoneNo,
-          email: this.email,
-          usertype: this.usertype,
-          role: this.role,
+          username: String(this.username).trim(),
+          fullname: String(this.fullname).trim(),
+          phoneNo: String(this.phoneNo).trim(),
+          email: String(this.email).trim(),
+          usertype: String(this.usertype).trim().toLowerCase(),
+          role: this.roleFromUsertype(this.usertype),
         };
-        // Only include station if backend accepts it (not in API spec)
-        if (this.station) {
-          formData.station = this.station;
-        }
-        // Send password only when provided; backend can auto-generate otherwise
-        if (this.password) {
-          formData.password = this.password;
-        }
-
         this.Loading = true;
 
         let response = await axios.post('/auth/signup', formData);
 
         if (response.status === 200 || response.status === 201) {
-          const data = response.data || {};
-          // If backend returns a generated password, show it so admin can share it
-          const generatedPassword = data.generatedPassword || data.password || data.temporaryPassword;
-          if (generatedPassword) {
-            toast.success(`User registered! Generated password: ${generatedPassword} — share it with the user securely.`, { timeout: 8000 });
-          } else if (this.password) {
-            toast.success('User registered! Share the password you set with the user securely.');
-          } else {
-            toast.success("User registered! A password was sent to the user's phone via SMS.");
-          }
+          toast.success("User registered successfully. Password is auto-generated and sent via SMS by the server.");
           this.$emit('fetchUsers');
           this.$emit('closeForm');
         } else {
@@ -186,10 +114,16 @@ export default {
       } catch (error) {
         if (error.response && error.response.data) {
           const serverResponse = error.response.data;
-          if (serverResponse.message === "Error: Username is already taken!") {
-            toast.error("Username is already taken! Please choose another.");
+          const serverMessage = typeof serverResponse === 'string'
+            ? serverResponse
+            : (serverResponse.message || 'An unexpected error occurred');
+          const normalized = serverMessage.toLowerCase();
+          if (normalized.includes('username') && normalized.includes('taken')) {
+            toast.error('Username is already taken! Please choose another.');
+          } else if (normalized.includes('phone') && (normalized.includes('already') || normalized.includes('use'))) {
+            toast.error('Phone number is already in use! Please use another.');
           } else {
-            toast.error(`ERROR: ${serverResponse.message || 'An unexpected error occurred'}`);
+            toast.error(`ERROR: ${serverMessage}`);
           }
         } else {
           toast.error('ERROR SAVING USER!');
@@ -199,19 +133,6 @@ export default {
         this.Loading = false;
       }
     },
-  },
-  mounted() {
-    // Initialize form data if user prop is passed
-    if (this.user) {
-      this.editMode = true;
-      this.fullname = this.user.fullname || '';
-      this.username = this.user.username || '';
-      this.email = this.user.email || '';
-      this.phoneNo = this.user.phoneNo || '';
-      this.usertype = this.user.usertype || '';
-      this.station = this.user.station || '';
-      this.role = this.user.role || ['ROLE_USER'];
-    }
   },
 };
 </script>
@@ -338,51 +259,6 @@ export default {
   position: relative;
 }
 
-.password-group {
-  grid-column: 1 / -1;
-}
-
-.password-input-wrap {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.password-input-wrap .form-control {
-  padding-right: 2.5rem;
-}
-
-.password-toggle {
-  position: absolute;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-  background: none;
-  border: none;
-  padding: 4px;
-  cursor: pointer;
-  color: gold;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.password-toggle:hover {
-  color: #fff;
-}
-
-.password-toggle .material-symbols-outlined {
-  font-size: 1.25rem;
-}
-
-.field-hint {
-  display: block;
-  margin-top: 0.35rem;
-  font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.85);
-  line-height: 1.3;
-}
-    
 .form-control {
   border: 1px solid gold;
   outline: none;

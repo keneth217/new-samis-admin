@@ -11,6 +11,11 @@
         <!-- <span class="company-name">{{ schoolName || '' }}</span> -->
       </div>
     </div>
+
+    <div class="user-identity" v-if="loggedInName || loggedInRole">
+      <span class="identity-name">{{ loggedInName || 'Logged user' }}</span>
+      <span class="identity-role">{{ loggedInRole || 'USER' }}</span>
+    </div>
   </div>
 </template>
 
@@ -34,6 +39,20 @@ export default {
     },
     isSmallScreen() {
       return window.innerWidth <= 768;
+    },
+    loggedInName() {
+      return localStorage.getItem('fullname') || sessionStorage.getItem('fullname') || '';
+    },
+    loggedInRole() {
+      const raw = localStorage.getItem('roles') || sessionStorage.getItem('roles') || '[]';
+      let roles = [];
+      try {
+        roles = JSON.parse(raw);
+      } catch {
+        roles = [];
+      }
+      const primary = Array.isArray(roles) && roles.length > 0 ? String(roles[0]) : '';
+      return primary.replace(/^ROLE_/i, '').toUpperCase();
     },
     // schoolName() {
     //   return this.authStore.shoolDetails.schoolName;
@@ -115,6 +134,33 @@ export default {
 
 }
 
+.user-identity {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-right: 0.75rem;
+}
+
+.identity-name {
+  color: #1f3f8e;
+  font-weight: 700;
+  font-size: 0.9rem;
+  max-width: 220px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.identity-role {
+  background: #e8eeff;
+  color: #2b4fa6;
+  border: 1px solid #b8c8f2;
+  border-radius: 999px;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
 .company-name {
   color: #4368b9;
   font-size: 1.5rem;
@@ -141,6 +187,14 @@ export default {
   .logo {
     width: 50px;
     height: 50px;
+  }
+  .identity-name {
+    max-width: 120px;
+    font-size: 0.78rem;
+  }
+  .identity-role {
+    font-size: 0.68rem;
+    padding: 0.18rem 0.45rem;
   }
   .menu-toggle {
     margin-left: 10px !important; /* Always near the logo on small screens */
