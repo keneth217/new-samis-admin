@@ -49,12 +49,10 @@ export const ROUTE_ROLES = {
   '/FinanceModule': [...ROLE_ALIASES.ADMIN, ...ROLE_ALIASES.MOD],
   '/InvoicesSchool': [],
   '/Receipts': [],
-  '/Employees': [],
   '/MessagesToSchools': [],
   '/CallLog': [],
   // Contacts: admin/mod only (users blocked)
   '/Contacts': [...ROLE_ALIASES.ADMIN, ...ROLE_ALIASES.MOD],
-  '/ExpensesTracking': [],
   '/ActivationStatus': [],
 
   // You can keep hard admin-only routes here if desired.

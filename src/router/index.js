@@ -31,11 +31,6 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
-      path: '/Employees',
-      component: () => import('../views/MASTER/EmployeesOverview.vue'),
-      meta: { requiresAuth: true },
-    },
-    {
       path: '/MessagesToSchools',
       component: () => import('../views/MASTER/MessagesToSchools.vue'),
       meta: { requiresAuth: true },
@@ -48,11 +43,6 @@ const router = createRouter({
     {
       path: '/Contacts',
       component: () => import('../views/MASTER/Contacts.vue'),
-      meta: { requiresAuth: true },
-    },
-    {
-      path: '/ExpensesTracking',
-      component: () => import('../views/MASTER/ExpensesTracking.vue'),
       meta: { requiresAuth: true },
     },
     {
