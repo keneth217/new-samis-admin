@@ -40,12 +40,13 @@
               <th>Email</th>
               <th>Phone No</th>
               <th>User Type</th>
-              <th>Role</th>
+              <th>Privileges</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="filteredUsers.length === 0">
-              <td colspan="7">No User found</td>
+              <td colspan="8">No User found</td>
             </tr>
             <tr
             v-for="(user, index) in filteredUsers"
@@ -58,7 +59,13 @@
               <td>{{ user.email }}</td>
               <td>{{ user.phoneNo }}</td>
               <td>{{ user.usertype }}</td>
-              <td>{{ formatRoles(user.role) }}</td>
+              <td class="priv-cell" :title="formatPrivilegesTitle(user.priviledges)">
+                {{ formatPrivileges(user.priviledges) }}
+              </td>
+              <td class="actions-cell">
+                <button class="mini-btn" @click="openEdit(user)">Edit</button>
+                <button class="mini-btn danger" @click="resetPassword(user)">Reset Password</button>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -92,10 +99,15 @@
                 <span class="card-label">User Type:</span>
                 <span class="card-value">{{ user.usertype || '-' }}</span>
               </div>
-              
+
               <div class="card-row">
-                <span class="card-label">Role:</span>
-                <span class="card-value">{{ formatRoles(user.role) }}</span>
+                <span class="card-label">Privileges:</span>
+                <span class="card-value">{{ formatPrivileges(user.priviledges) }}</span>
+              </div>
+
+              <div class="card-row card-actions">
+                <button class="mini-btn" @click="openEdit(user)">Edit</button>
+                <button class="mini-btn danger" @click="resetPassword(user)">Reset Password</button>
               </div>
             </div>
           </div>
@@ -113,6 +125,73 @@
         v-if="show"
       />
   
+      <div v-if="showEdit" class="modal-overlay" @click.self="closeEdit">
+        <div class="modal">
+          <div class="modal-header">
+            <h3>Edit User</h3>
+            <button class="modal-x" @click="closeEdit">×</button>
+          </div>
+
+          <div class="modal-body">
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Full Name</label>
+                <input v-model="editForm.fullname" class="form-control" type="text" />
+              </div>
+              <div class="form-group">
+                <label>Username</label>
+                <input v-model="editForm.username" class="form-control" type="text" />
+              </div>
+              <div class="form-group">
+                <label>Email</label>
+                <input v-model="editForm.email" class="form-control" type="email" />
+              </div>
+              <div class="form-group">
+                <label>Phone No</label>
+                <input v-model="editForm.phoneNo" class="form-control" type="text" />
+              </div>
+              <div class="form-group">
+                <label>User Type</label>
+                <select v-model="editForm.usertype" class="form-control">
+                  <option value="admin">Admin</option>
+                  <option value="mod">Moderator</option>
+                  <option value="user">User</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="priv-picker">
+              <div class="priv-picker-head">
+                <div class="priv-title">Privileges</div>
+                <div class="priv-actions">
+                  <button class="mini-btn" @click="applyDefaultsForType">Apply defaults</button>
+                  <button class="mini-btn" @click="selectAllPrivs" v-if="isAdminType">Select all</button>
+                  <button class="mini-btn" @click="clearPrivs">Clear</button>
+                </div>
+              </div>
+
+              <div v-if="privilegeCatalog.length === 0" class="priv-empty">
+                Privilege list not loaded (still okay to save other changes).
+              </div>
+
+              <div v-else class="priv-list">
+                <label v-for="p in privilegeCatalog" :key="p" class="priv-item">
+                  <input type="checkbox" :value="p" v-model="editForm.priviledges" />
+                  <span>{{ p }}</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button class="mini-btn" @click="closeEdit">Cancel</button>
+            <button class="mini-btn primary" :disabled="savingEdit" @click="saveEdit">
+              {{ savingEdit ? 'Saving…' : 'Save changes' }}
+            </button>
+          </div>
+        </div>
+      </div>
+
   
       <LoadingSpinner :isLoading="Loading" />
       <!-- Footer -->
@@ -127,6 +206,7 @@ import axios from '../../axios';
 import { useToast } from 'vue-toastification';
 import LoadingSpinner from '../../components/LoadingSpinner.vue';
 import NewUser from './NewUser.vue';
+import { fetchPrivilegeCatalog, privilegesForUsertype } from '../../utils/userPrivileges';
 
 export default {
   components: {
@@ -145,6 +225,18 @@ export default {
       searchQuery: '',
       users: [],
       Loading: false,
+      showEdit: false,
+      savingEdit: false,
+      privilegeCatalog: [],
+      editForm: {
+        userID: '',
+        fullname: '',
+        username: '',
+        email: '',
+        phoneNo: '',
+        usertype: 'user',
+        priviledges: [],
+      },
     };
   },
   computed: {
@@ -157,6 +249,9 @@ export default {
         return name.includes(q) || uname.includes(q);
       });
     },
+    isAdminType() {
+      return String(this.editForm.usertype || '').trim().toLowerCase() === 'admin';
+    },
   },
   methods: {
     formatRoles(roles) {
@@ -166,12 +261,128 @@ export default {
         .join(', ');
     },
 
+    formatPrivileges(list) {
+      const arr = Array.isArray(list) ? list : [];
+      if (arr.length === 0) return '-';
+      const s = arr.map(String).join(', ');
+      return s.length > 56 ? `${s.slice(0, 53)}…` : s;
+    },
+
+    formatPrivilegesTitle(list) {
+      const arr = Array.isArray(list) ? list : [];
+      return arr.length ? arr.map(String).join(', ') : '';
+    },
+
+    roleFromUsertype(usertype) {
+      const type = String(usertype || '').trim().toLowerCase();
+      if (type === 'admin') return ['admin'];
+      if (type === 'mod') return ['mod'];
+      return ['user'];
+    },
+
     openForm() {
       this.show = true;
     },
 
     closeForm() {
       this.show = false;  // Close the form
+    },
+
+    openEdit(user) {
+      const u = user || {};
+      this.editForm = {
+        userID: u.userID,
+        fullname: u.fullname || '',
+        username: u.username || '',
+        email: u.email || '',
+        phoneNo: u.phoneNo || '',
+        usertype: (u.usertype || 'user').toString().trim().toLowerCase(),
+        priviledges: Array.isArray(u.priviledges) ? [...u.priviledges] : [],
+      };
+      this.showEdit = true;
+    },
+
+    closeEdit() {
+      this.showEdit = false;
+      this.savingEdit = false;
+    },
+
+    applyDefaultsForType() {
+      const type = String(this.editForm.usertype || '').trim().toLowerCase();
+      this.editForm.priviledges = privilegesForUsertype(type, this.privilegeCatalog);
+    },
+
+    selectAllPrivs() {
+      this.editForm.priviledges = [...this.privilegeCatalog];
+    },
+
+    clearPrivs() {
+      this.editForm.priviledges = [];
+    },
+
+    async saveEdit() {
+      const toast = useToast();
+      if (!this.editForm.userID) {
+        toast.error('Missing userID. Please refresh and try again.');
+        return;
+      }
+
+      this.savingEdit = true;
+      try {
+        const usertypeNorm = String(this.editForm.usertype || 'user').trim().toLowerCase();
+        const payload = {
+          userID: this.editForm.userID,
+          fullname: String(this.editForm.fullname || '').trim(),
+          username: String(this.editForm.username || '').trim(),
+          email: String(this.editForm.email || '').trim(),
+          phoneNo: String(this.editForm.phoneNo || '').trim(),
+          usertype: usertypeNorm,
+          role: this.roleFromUsertype(usertypeNorm),
+          priviledges: Array.isArray(this.editForm.priviledges)
+            ? this.editForm.priviledges
+            : [],
+        };
+
+        const res = await axios.post('/auth/update_user', payload);
+        if (res.status === 200) {
+          toast.success(res.data?.message || 'User updated successfully!');
+        } else {
+          toast.success('User updated successfully!');
+        }
+        this.closeEdit();
+        await this.fetchUsers();
+      } catch (error) {
+        const serverResponse = error?.response?.data;
+        const msg =
+          typeof serverResponse === 'string'
+            ? serverResponse
+            : (serverResponse?.message || serverResponse?.error || 'Failed to update user.');
+        toast.error(msg);
+        console.error('Error updating user:', error);
+      } finally {
+        this.savingEdit = false;
+      }
+    },
+
+    async resetPassword(user) {
+      const toast = useToast();
+      const userID = user?.userID;
+      if (!userID) {
+        toast.error('Missing userID.');
+        return;
+      }
+      try {
+        const res = await axios.post('/auth/reset_password', { userID });
+        toast.success(res.data?.message || 'Password reset successfully. New password sent via SMS.');
+      } catch (error) {
+        const serverResponse = error?.response?.data;
+        const msg =
+          typeof serverResponse === 'string'
+            ? serverResponse
+            : (serverResponse?.message || serverResponse?.error || 'Failed to reset password.');
+        toast.error(msg);
+        console.error('Error resetting password:', error);
+      }
     },
 
     async fetchUsers() {
@@ -190,6 +401,11 @@ export default {
           email: user.email,
           usertype: user.usertype,
           role: user.role,
+          priviledges: Array.isArray(user.priviledges)
+            ? user.priviledges
+            : Array.isArray(user.privileges)
+              ? user.privileges
+              : [],
         }));
         toast.success(this.users.length > 0
           ? `Users have been fetched successfully! (${this.users.length} user${this.users.length === 1 ? '' : 's'})`
@@ -202,7 +418,8 @@ export default {
       }
     },
   },
-  mounted() {
+  async mounted() {
+    this.privilegeCatalog = await fetchPrivilegeCatalog(axios);
     this.fetchUsers();
   },
 };
@@ -494,6 +711,189 @@ export default {
 
 .even-row {
   background-color: #f7f9fc;
+}
+
+.priv-cell {
+  max-width: 340px;
+}
+
+.actions-cell {
+  white-space: nowrap;
+}
+
+.mini-btn {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  padding: 0.35rem 0.6rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  margin-right: 0.35rem;
+}
+
+.mini-btn:hover {
+  background: #f8fafc;
+}
+
+.mini-btn.primary {
+  background: #2b7ab7;
+  border-color: #2b7ab7;
+  color: #fff;
+}
+
+.mini-btn.primary:hover {
+  background: #1e6192;
+}
+
+.mini-btn.danger {
+  border-color: #fecaca;
+  background: #fff5f5;
+  color: #b91c1c;
+}
+
+.mini-btn.danger:hover {
+  background: #ffe4e6;
+}
+
+.card-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 20000;
+}
+
+.modal {
+  width: min(820px, 96vw);
+  max-height: 92vh;
+  overflow: auto;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.modal-x {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.modal-body {
+  padding: 1rem;
+}
+
+.modal-footer {
+  padding: 0.9rem 1rem;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.form-group label {
+  display: block;
+  font-size: 0.85rem;
+  color: #374151;
+  margin-bottom: 0.25rem;
+}
+
+.form-control {
+  width: 100%;
+  padding: 0.45rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  outline: none;
+}
+
+.form-control:focus {
+  border-color: #2b7ab7;
+  box-shadow: 0 0 0 2px rgba(43, 122, 183, 0.15);
+}
+
+.priv-picker {
+  margin-top: 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.priv-picker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 0.75rem;
+  background: #f8fafc;
+  border-bottom: 1px solid #e5e7eb;
+  gap: 0.75rem;
+}
+
+.priv-title {
+  font-weight: 700;
+  color: #111827;
+}
+
+.priv-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  justify-content: flex-end;
+}
+
+.priv-empty {
+  padding: 0.75rem;
+  color: #6b7280;
+}
+
+.priv-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.35rem 0.75rem;
+  padding: 0.75rem;
+  max-height: 280px;
+  overflow: auto;
+}
+
+.priv-item {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  font-size: 0.9rem;
+  color: #111827;
+  line-height: 1.2;
+}
+
+@media only screen and (max-width: 640px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+  .priv-list {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Responsive Breakpoints */

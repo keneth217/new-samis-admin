@@ -1,13 +1,33 @@
 /**
- * Frontend user rights – uses roles from auth store (signin API response).
- * Adjust ROUTE_ROLES to match your backend role names and who can access each route.
+ * Frontend access control:
+ * - Roles: comes from `/auth/signin` response.roles
+ * - Priviledges: stored per user (from `/auth/list_users` or derived fallback)
+ *
+ * NOTE: Backend may return roles as `["admin"]` or as `["ROLE_ADMIN"]` depending on implementation.
+ * This file normalizes both styles.
  */
 
-// Role names as returned by API (e.g. from /api/auth/signin response.roles)
-export const ROLES = {
-  ADMIN: 'ROLE_ADMIN',
-  USER: 'ROLE_USER',
-  MOD: 'ROLE_MOD', // if backend uses it
+export const ROLE_ALIASES = {
+  ADMIN: ["ROLE_ADMIN", "ADMIN", "admin"],
+  MOD: ["ROLE_MOD", "MOD", "mod", "ROLE_MODERATOR", "MODERATOR", "moderator"],
+  USER: ["ROLE_USER", "USER", "user"],
+};
+
+export const PRIVS = {
+  SAVE_SCHOOL: "save school",
+  EDIT_SCHOOL: "edit school",
+  MANAGE_ADMINISTRATION: "manage administration",
+  ACTIVATE_SCHOOL: "activate school",
+  EDIT_ACTIVATION: "edit activation",
+  SAVE_INVOICE: "save invoice",
+  SAVE_RECEIPT: "save receipt",
+  VIEW_INVOICES: "view invoices",
+  VIEW_RECEIPTS: "view receipts",
+  SEND_MESSAGE: "send message",
+  MAKE_CALL: "make call",
+  VIEW_ALL_CALL_LOGS: "view all call logs",
+  LISTEN_TO_RECORDINGS: "listen to recordings",
+  MANAGE_USERS: "manage users",
 };
 
 /**
@@ -27,11 +47,26 @@ export const ROUTE_ROLES = {
   '/ExpensesTracking': [],
   '/ActivationStatus': [],
 
-  // Admin-only (user management & schools)
-  '/RegisterUser': [ROLES.ADMIN],
-  '/allSchools': [ROLES.ADMIN],
-  '/activatedSchools': [ROLES.ADMIN],
-  '/expiredSchools': [ROLES.ADMIN],
+  // You can keep hard admin-only routes here if desired.
+  // We'll primarily gate via privileges below so MOD != USER in the UI.
+  '/RegisterUser': [...ROLE_ALIASES.ADMIN], // admin-only
+};
+
+/**
+ * Privilege-based access by route.
+ * - Any listed privilege grants access (OR logic).
+ * - Admin role always bypasses this.
+ */
+export const ROUTE_PRIVILEDGES = {
+  // User management is admin-only via ROUTE_ROLES above
+  '/allSchools': [PRIVS.SAVE_SCHOOL, PRIVS.EDIT_SCHOOL],
+  '/activatedSchools': [PRIVS.ACTIVATE_SCHOOL, PRIVS.EDIT_ACTIVATION],
+  '/expiredSchools': [PRIVS.ACTIVATE_SCHOOL, PRIVS.EDIT_ACTIVATION],
+  '/MessagesToSchools': [PRIVS.SEND_MESSAGE],
+  '/CallLog': [PRIVS.VIEW_ALL_CALL_LOGS, PRIVS.LISTEN_TO_RECORDINGS, PRIVS.MAKE_CALL],
+  // Allow access if user can at least view; saving is enforced by the API anyway
+  '/InvoicesSchool': [PRIVS.VIEW_INVOICES],
+  '/Receipts': [PRIVS.VIEW_RECEIPTS],
 };
 
 /**
@@ -43,17 +78,44 @@ export const ROUTE_ROLES = {
 export function hasAnyRole(userRoles, allowedRoles) {
   if (!Array.isArray(userRoles)) return false;
   if (!allowedRoles || allowedRoles.length === 0) return true;
-  return allowedRoles.some((role) => userRoles.includes(role));
+  const norm = new Set(userRoles.map((r) => String(r).trim()));
+  return allowedRoles.some((role) => norm.has(String(role).trim()));
+}
+
+export function hasRoleAlias(userRoles, aliasKey) {
+  const aliases = ROLE_ALIASES[aliasKey] || [];
+  if (!Array.isArray(userRoles)) return false;
+  const user = userRoles.map((r) => String(r).trim());
+  return aliases.some((a) => user.includes(a));
+}
+
+export function hasAnyPriviledge(userPriviledges, allowedPriviledges) {
+  if (!allowedPriviledges || allowedPriviledges.length === 0) return true;
+  if (!Array.isArray(userPriviledges)) return false;
+  const norm = new Set(userPriviledges.map((p) => String(p).trim().toLowerCase()));
+  return allowedPriviledges.some((p) => norm.has(String(p).trim().toLowerCase()));
 }
 
 /**
  * Check if user can access a route by path.
  * @param {string} path - Route path (e.g. '/RegisterUser')
  * @param {string[]} userRoles - From useAuthStore().roles
+ * @param {string[]} userPriviledges - From useAuthStore().priviledges
  * @returns {boolean}
  */
-export function canAccessRoute(path, userRoles) {
+export function canAccessRoute(path, userRoles, userPriviledges = []) {
+  // Admin bypass (support both `ROLE_ADMIN` and `admin`)
+  if (hasRoleAlias(userRoles, "ADMIN")) return true;
+
   const allowedRoles = ROUTE_ROLES[path];
-  if (allowedRoles === undefined) return true; // unknown route, allow
-  return hasAnyRole(userRoles, allowedRoles);
+  if (allowedRoles !== undefined && !hasAnyRole(userRoles, allowedRoles)) {
+    return false;
+  }
+
+  const allowedPrivs = ROUTE_PRIVILEDGES[path];
+  if (allowedPrivs !== undefined) {
+    return hasAnyPriviledge(userPriviledges, allowedPrivs);
+  }
+
+  return true; // unknown route, allow
 }

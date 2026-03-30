@@ -1,6 +1,8 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
 import axios from "../axios";
+import { fetchPrivilegeCatalog, privilegesForUsertype } from "../utils/userPrivileges";
+import { ROLE_ALIASES } from "../utils/permissions";
 
 
 
@@ -21,6 +23,43 @@ function getStoredString(key) {
   return localStorage.getItem(key) || sessionStorage.getItem(key) || "";
 }
 
+function pickPriviledgesFromPayload(data) {
+  const p = data?.priviledges ?? data?.privileges;
+  return Array.isArray(p) ? p.map(String) : [];
+}
+
+async function hydratePriviledgesFromListUsers(storage) {
+  try {
+    const userId = storage.getItem("userId");
+    const phoneNo = (storage.getItem("phoneNo") || "").trim();
+    const res = await axios.post("/auth/list_users", {});
+    const list = Array.isArray(res.data) ? res.data : [];
+    const match = list.find((u) => {
+      if (userId && String(u.userID ?? u.id ?? "") === String(userId)) return true;
+      if (
+        phoneNo &&
+        String(u.phoneNo || "")
+          .replace(/\s/g, "")
+          .replace(/^\+/, "") === phoneNo.replace(/\s/g, "").replace(/^\+/, "")
+      )
+        return true;
+      return false;
+    });
+    if (!match) return [];
+    const p = match.priviledges ?? match.privileges;
+    return Array.isArray(p) ? p.map(String) : [];
+  } catch {
+    return [];
+  }
+}
+
+function inferUsertypeFromRoles(userRoles) {
+  const roles = Array.isArray(userRoles) ? userRoles.map((r) => String(r).trim()) : [];
+  if (ROLE_ALIASES.ADMIN.some((r) => roles.includes(r))) return "admin";
+  if (ROLE_ALIASES.MOD.some((r) => roles.includes(r))) return "mod";
+  return "user";
+}
+
 export const useAuthStore = defineStore("auth", () => {
   const successMessage = ref("");
   const token = ref(getStoredToken());
@@ -28,6 +67,7 @@ export const useAuthStore = defineStore("auth", () => {
   const accountNo = ref(getStoredString("accountNo"));
   const username = ref(getStoredString("username"));
   const roles = ref(getStoredJson("roles", []));
+  const priviledges = ref(getStoredJson("priviledges", []));
 
 
   // const schoolID = ref(localStorage.getItem("schoolID") || "");
@@ -56,7 +96,7 @@ export const useAuthStore = defineStore("auth", () => {
   }
 
   function clearAuthStorage() {
-    const keys = ["token", "authToken", "accountNo", "username", "roles", "phoneNo", "fullname", "userId", "user", "schoolCode"];
+    const keys = ["token", "authToken", "accountNo", "username", "roles", "priviledges", "phoneNo", "fullname", "userId", "user", "schoolCode"];
     keys.forEach((key) => {
       localStorage.removeItem(key);
       sessionStorage.removeItem(key);
@@ -72,6 +112,7 @@ export const useAuthStore = defineStore("auth", () => {
         accountNo.value = "";
         username.value = "";
         roles.value = [];
+        priviledges.value = [];
 
         if (axios && axios.defaults && axios.defaults.headers) {
           delete axios.defaults.headers.common.Authorization;
@@ -113,12 +154,28 @@ export const useAuthStore = defineStore("auth", () => {
       storage.setItem('phoneNo', receivedPhoneNo || '');
       storage.setItem('userId', receivedUserId?.toString() || '');
       storage.setItem('roles', JSON.stringify(receivedRoles));
+
+      let receivedPriviledges = pickPriviledgesFromPayload(data);
+      if (!receivedPriviledges.length) {
+        receivedPriviledges = await hydratePriviledgesFromListUsers(storage);
+      }
+
+      // If backend doesn't return priviledges on signin and list_users isn't available for this role,
+      // derive a reasonable default based on role/usertype and the canonical privilege catalog.
+      if (!receivedPriviledges.length) {
+        const inferredType = inferUsertypeFromRoles(receivedRoles);
+        const catalog = await fetchPrivilegeCatalog(axios);
+        receivedPriviledges = privilegesForUsertype(inferredType, catalog);
+      }
+      storage.setItem('priviledges', JSON.stringify(receivedPriviledges));
+
       // Keep accountNo in same storage for consistency (legacy)
       storage.setItem('accountNo', '');
 
       token.value = receivedToken;
       username.value = receivedUsername || '';
       roles.value = receivedRoles;
+      priviledges.value = receivedPriviledges;
       // accountNo is not part of the API response, keeping it as empty or legacy
       accountNo.value = '';
       
@@ -269,6 +326,7 @@ export const useAuthStore = defineStore("auth", () => {
     accountNo,
     username,
     roles,
+    priviledges,
     // schoolID,
     // setschoolID,
     // shoolDetails,

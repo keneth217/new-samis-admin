@@ -351,6 +351,16 @@ export default {
     },
   },
   methods: {
+    formatDateForInput(dateValue) {
+      if (!dateValue || dateValue === 'N/A') return '';
+      const date = dateValue instanceof Date ? dateValue : new Date(dateValue);
+      if (isNaN(date.getTime())) return '';
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    },
+
     async fetchUsers() {
       try {
         const response = await axios.post('/auth/list_users', {});
@@ -374,6 +384,23 @@ export default {
     async fetchActivationStatus(school) {
       try {
         this.Loading = true;
+
+        // Preload form from selected row so user sees all selected data immediately.
+        this.activationForm = {
+          schoolCode: school.schoolCode || '',
+          moduleName: school.moduleName || '',
+          expiryDate: this.formatDateForInput(school.expiryDate),
+          maintenanceFee: school.maintenanceFee ?? '',
+          sellingPrice: school.sellingPrice ?? '',
+          marketerID: school.marketerID ?? '',
+          handledByID: school.handledByID ?? '',
+          registeredByID: school.registeredByID ?? '',
+          installationDate: this.formatDateForInput(school.installationDate),
+        };
+
+        this.selectedSchool = school;
+        this.showActivationForm = true;
+
         const response = await axios.post('/activations/status', {
           schoolCode: school.schoolCode,
           // Pass the actual module associated with the school
@@ -384,15 +411,15 @@ export default {
 
         // Populate the activation form with the correct data, including the correct module name
         this.activationForm = {
-          schoolCode: activationData.schoolCode || '',
-          moduleName: activationData.moduleName || '', // Make sure the module name is set correctly
-          expiryDate: activationData.expiryDate || '',
-          maintenanceFee: activationData.maintenanceFee || '',
-          sellingPrice: activationData.sellingPrice || '',
-          marketerID: activationData.marketerID || '',
-          handledByID: activationData.handledByID || '',
-          registeredByID: activationData.registeredByID || '',
-          installationDate: activationData.installationDate || '',
+          schoolCode: activationData.schoolCode || this.activationForm.schoolCode,
+          moduleName: activationData.moduleName || this.activationForm.moduleName,
+          expiryDate: this.formatDateForInput(activationData.expiryDate) || this.activationForm.expiryDate,
+          maintenanceFee: activationData.maintenanceFee ?? this.activationForm.maintenanceFee,
+          sellingPrice: activationData.sellingPrice ?? this.activationForm.sellingPrice,
+          marketerID: activationData.marketerID ?? this.activationForm.marketerID,
+          handledByID: activationData.handledByID ?? this.activationForm.handledByID,
+          registeredByID: activationData.registeredByID ?? this.activationForm.registeredByID,
+          installationDate: this.formatDateForInput(activationData.installationDate) || this.activationForm.installationDate,
         };
 
         // Fetch users if not already fetched
@@ -400,12 +427,9 @@ export default {
           await this.fetchUsers();
         }
 
-        // Assign the selected school and show the activation form
-        this.selectedSchool = school;
-        this.showActivationForm = true;
       } catch (error) {
         console.error('Error fetching activation status:', error);
-        this.toast.error('Failed to retrieve activation status');
+        this.toast.warning('Could not refresh activation details from server. Showing selected row data.');
       } finally {
         this.Loading = false;
       }

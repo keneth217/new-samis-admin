@@ -98,7 +98,8 @@ router.beforeEach((to, from, next) => {
   // User rights: if route requires specific roles, check access
   if (requiresAuth && to.path !== '/no-access') {
     const userRoles = authStore.roles || []
-    if (!canAccessRoute(to.path, userRoles)) {
+    const userPrivs = authStore.priviledges || []
+    if (!canAccessRoute(to.path, userRoles, userPrivs)) {
       return next('/no-access')
     }
   }

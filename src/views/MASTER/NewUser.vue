@@ -49,6 +49,7 @@
 import axios from '../../axios';
 import { useToast } from 'vue-toastification';
 import LoadingSpinner from '../../components/LoadingSpinner.vue';
+import { fetchPrivilegeCatalog, privilegesForUsertype } from '../../utils/userPrivileges';
 
 export default {
   name: 'submit',
@@ -61,7 +62,11 @@ export default {
       phoneNo: '',
       usertype: '',
       Loading: false,
+      privilegeCatalog: [],
     };
+  },
+  async mounted() {
+    this.privilegeCatalog = await fetchPrivilegeCatalog(axios);
   },
   methods: {
     // Method to reset the form
@@ -92,13 +97,15 @@ export default {
       try {
         // API signup contract: username, fullname, phoneNo, email, usertype, password(optional), role
         // Password is omitted intentionally so backend auto-generates it and sends SMS.
+        const usertypeNorm = String(this.usertype).trim().toLowerCase();
         const formData = {
           username: String(this.username).trim(),
           fullname: String(this.fullname).trim(),
           phoneNo: String(this.phoneNo).trim(),
           email: String(this.email).trim(),
-          usertype: String(this.usertype).trim().toLowerCase(),
+          usertype: usertypeNorm,
           role: this.roleFromUsertype(this.usertype),
+          priviledges: privilegesForUsertype(usertypeNorm, this.privilegeCatalog),
         };
         this.Loading = true;
 

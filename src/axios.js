@@ -143,7 +143,7 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 401) {
       const isSigninRequest = error.config?.url?.includes("/auth/signin");
       if (!isSigninRequest && typeof window !== "undefined") {
-        const authKeys = ["authToken", "token", "username", "roles", "accountNo", "phoneNo", "fullname", "userId", "user", "schoolCode"];
+        const authKeys = ["authToken", "token", "username", "roles", "priviledges", "accountNo", "phoneNo", "fullname", "userId", "user", "schoolCode"];
         authKeys.forEach((key) => {
           localStorage.removeItem(key);
           sessionStorage.removeItem(key);

@@ -544,7 +544,8 @@ export default {
   methods: {
     canAccess(path) {
       const roles = this.authStore.roles || [];
-      return canAccessRoute(path, roles);
+      const privs = this.authStore.priviledges || [];
+      return canAccessRoute(path, roles, privs);
     },
     async logout() {
       this.Loading = true; // Show the spinner     
