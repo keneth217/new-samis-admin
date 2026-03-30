@@ -12,9 +12,9 @@
       </div>
     </div>
 
-    <div class="user-identity" v-if="loggedInName || loggedInRole">
-      <span class="identity-name">{{ loggedInName || 'Logged user' }}</span>
-      <span class="identity-role">{{ loggedInRole || 'USER' }}</span>
+    <div class="user-identity" v-if="loggedInUsername || loggedInUsertype">
+      <span class="identity-name">{{ loggedInUsername || 'Logged user' }}</span>
+      <span class="identity-role">{{ loggedInUsertype || 'User' }}</span>
     </div>
   </div>
 </template>
@@ -40,10 +40,10 @@ export default {
     isSmallScreen() {
       return window.innerWidth <= 768;
     },
-    loggedInName() {
-      return localStorage.getItem('fullname') || sessionStorage.getItem('fullname') || '';
+    loggedInUsername() {
+      return localStorage.getItem('username') || sessionStorage.getItem('username') || '';
     },
-    loggedInRole() {
+    loggedInUsertype() {
       const raw = localStorage.getItem('roles') || sessionStorage.getItem('roles') || '[]';
       let roles = [];
       try {
@@ -52,7 +52,17 @@ export default {
         roles = [];
       }
       const primary = Array.isArray(roles) && roles.length > 0 ? String(roles[0]) : '';
-      return primary.replace(/^ROLE_/i, '').toUpperCase();
+      const normalized = primary.replace(/^ROLE_/i, '').trim().toLowerCase();
+      if (!normalized) return '';
+      if (normalized === 'admin') return 'Admin';
+      if (normalized === 'mod' || normalized === 'moderator') return 'Mod';
+      if (normalized === 'user') return 'User';
+      // Fallback: title-case any other role string
+      return normalized
+        .split(/[_\s-]+/g)
+        .filter(Boolean)
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(' ');
     },
     // schoolName() {
     //   return this.authStore.shoolDetails.schoolName;

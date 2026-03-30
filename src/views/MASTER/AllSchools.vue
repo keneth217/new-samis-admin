@@ -284,24 +284,6 @@
           </div>
 
           <div class="activation-form-group">
-            <select 
-              id="activationRegisteredBySelect"
-              v-model="activationData.registeredByID"
-              class="activation-form-control"
-            >
-              <option value="">Select Registered By (Optional)</option>
-              <option 
-                v-for="user in users" 
-                :key="user.id || user.userID" 
-                :value="user.id || user.userID || user.idNumber"
-              >
-                {{ user.fullname || user.username }}
-              </option>
-            </select>
-            <label for="activationRegisteredBySelect" :class="{ filled: activationData.registeredByID !== '' && activationData.registeredByID !== null }">Select Registered By (Optional)</label>
-          </div>
-
-          <div class="activation-form-group">
             <input 
               v-model="activationData.installationDate" 
               type="date" 
@@ -333,6 +315,7 @@ import { useToast } from 'vue-toastification';
 import LoadingSpinner from '../../components/LoadingSpinner.vue';
 import NewSchool from './NewSchool.vue';
 import jsPDF from 'jspdf';
+import { normalizeRegisteredById, normalizeRegisteredByName } from '../../utils/schoolRegisteredBy.js';
 
 export default {
   components: {
@@ -359,6 +342,8 @@ export default {
       showDeleteConfirm: false,
       schoolToDelete: null,
       users: [], // Store users list for mapping registeredByID to names
+      /** School row used when opening activation — `registeredByID` is sent from here, not editable */
+      activationSourceSchool: null,
       activationData: {
         schoolCode: "",
         moduleName: "", // Selected module name
@@ -367,7 +352,6 @@ export default {
         sellingPrice: "",
         marketerID: "",
         handledByID: "",
-        registeredByID: "", // Optional
         installationDate: "", // Optional
       },
       pdfLoading: false,
@@ -692,9 +676,9 @@ export default {
     }
     
     const mapped = (response.data || []).map(school => {
-      // Map registeredByID and registeredByName from API response
-      const registeredByID = school.registeredByID || null;
-      let registeredByName = school.registeredByName || null;
+      // Map registeredByID and registeredByName from API response (camelCase / snake_case)
+      const registeredByID = normalizeRegisteredById(school);
+      let registeredByName = normalizeRegisteredByName(school);
       
       // If we have a registeredByID but no name, try to map it from users list
       if (!registeredByName && registeredByID !== null && registeredByID !== undefined && registeredByID !== '') {
@@ -895,6 +879,7 @@ export default {
 
     async openActivationModal(school) {
       console.log("Modal opened for school:", school.schoolCode);
+      this.activationSourceSchool = school;
       this.activationData.schoolCode = school.schoolCode; // Set the school code
       this.showActivationModal = true;
       // Fetch modules and users when the modal opens
@@ -917,6 +902,7 @@ export default {
 
     closeActivationModal() {
       this.showActivationModal = false;
+      this.activationSourceSchool = null;
       this.activationData = {
         schoolCode: "",
         moduleName: "", // Reset the module selection
@@ -925,9 +911,16 @@ export default {
         sellingPrice: "",
         marketerID: "",
         handledByID: "",
-        registeredByID: "",
         installationDate: "",
       };
+    },
+
+    /** `registeredByID` for activation payload — always from the school row, not user-editable */
+    resolveActivationRegisteredById() {
+      const raw = this.activationSourceSchool?.registeredByID;
+      if (raw == null || raw === '') return null;
+      const n = parseInt(String(raw), 10);
+      return Number.isNaN(n) ? null : n;
     },
     async submitActivation() {
       const toast = useToast();
@@ -1022,8 +1015,9 @@ export default {
           payload.marketerID = parseInt(this.activationData.marketerID);
         }
 
-        if (this.activationData.registeredByID && !isNaN(parseInt(this.activationData.registeredByID))) {
-          payload.registeredByID = parseInt(this.activationData.registeredByID);
+        const registeredByFromSchool = this.resolveActivationRegisteredById();
+        if (registeredByFromSchool != null) {
+          payload.registeredByID = registeredByFromSchool;
         }
 
         // Always include handledByID (either from form or logged-in user)

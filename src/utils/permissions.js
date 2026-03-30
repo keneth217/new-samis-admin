@@ -37,13 +37,15 @@ export const PRIVS = {
  */
 export const ROUTE_ROLES = {
   '/': [], // Dashboard – all authenticated
-  '/FinanceModule': [],
+  // Finance module: admin/mod only (users blocked)
+  '/FinanceModule': [...ROLE_ALIASES.ADMIN, ...ROLE_ALIASES.MOD],
   '/InvoicesSchool': [],
   '/Receipts': [],
   '/Employees': [],
   '/MessagesToSchools': [],
   '/CallLog': [],
-  '/Contacts': [],
+  // Contacts: admin/mod only (users blocked)
+  '/Contacts': [...ROLE_ALIASES.ADMIN, ...ROLE_ALIASES.MOD],
   '/ExpensesTracking': [],
   '/ActivationStatus': [],
 

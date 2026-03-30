@@ -72,80 +72,6 @@
                 />
                 <label for="activationExpiryDate" :class="{ filled: activationForm.expiryDate !== '' }">Expiry Date*</label>
               </div>
-
-              <div class="activation-form-group">
-                <input 
-                  v-model="activationForm.maintenanceFee" 
-                  type="number" 
-                  id="activationMaintenanceFee" 
-                  class="activation-form-control"
-                  placeholder="Maintenance Fee"
-                  required
-                />
-                <label for="activationMaintenanceFee" :class="{ filled: activationForm.maintenanceFee !== '' && activationForm.maintenanceFee !== null }">Maintenance Fee*</label>
-              </div>
-
-              <div class="activation-form-group">
-                <input 
-                  v-model="activationForm.sellingPrice" 
-                  type="number" 
-                  id="activationSellingPrice" 
-                  class="activation-form-control"
-                  placeholder="Selling Price"
-                  required
-                />
-                <label for="activationSellingPrice" :class="{ filled: activationForm.sellingPrice !== '' && activationForm.sellingPrice !== null }">Selling Price*</label>
-              </div>
-
-              <div class="activation-form-group">
-                <input 
-                  v-model="activationForm.marketerID" 
-                  type="number" 
-                  id="activationMarketerID" 
-                  class="activation-form-control"
-                  placeholder="Marketer ID (Optional)"
-                />
-                <label for="activationMarketerID" :class="{ filled: activationForm.marketerID !== '' && activationForm.marketerID !== null }">Marketer ID (Optional)</label>
-              </div>
-
-              <div class="activation-form-group">
-                <input 
-                  v-model="activationForm.handledByID" 
-                  type="number" 
-                  id="activationHandledByID" 
-                  class="activation-form-control"
-                  placeholder="Handled By ID (Optional)"
-                />
-                <label for="activationHandledByID" :class="{ filled: activationForm.handledByID !== '' && activationForm.handledByID !== null }">Handled By ID (Optional)</label>
-              </div>
-
-              <div class="activation-form-group">
-                <select 
-                  id="activationRegisteredBySelect"
-                  v-model="activationForm.registeredByID"
-                  class="activation-form-control"
-                >
-                  <option value="">Select Registered By (Optional)</option>
-                  <option 
-                    v-for="user in users" 
-                    :key="user.id" 
-                    :value="user.id"
-                  >
-                    {{ user.fullname || user.username }}
-                  </option>
-                </select>
-                <label for="activationRegisteredBySelect" :class="{ filled: activationForm.registeredByID !== '' && activationForm.registeredByID !== null }">Select Registered By (Optional)</label>
-              </div>
-
-              <div class="activation-form-group">
-                <input 
-                  v-model="activationForm.installationDate" 
-                  type="date" 
-                  id="activationInstallationDate" 
-                  class="activation-form-control"
-                />
-                <label for="activationInstallationDate" :class="{ filled: activationForm.installationDate !== '' }">Installation Date (Optional)</label>
-              </div>
             </div>
             <hr />
             <div class="activation-form-actions">
@@ -293,6 +219,7 @@ import axios from '../../axios';
 import { useToast } from 'vue-toastification';
 import LoadingSpinner from '../../components/LoadingSpinner.vue';
 import jsPDF from 'jspdf';
+import { normalizeRegisteredById, normalizeRegisteredByName } from '../../utils/schoolRegisteredBy.js';
 
 export default {
   components: {
@@ -313,7 +240,6 @@ export default {
       schoolsPerPage: 15,
       schoolsPerPageOptions: [5, 15, 30, 50, 75, 100],
       showActivationForm: false,
-      users: [], // Store users list for registeredByID dropdown
       activationForm: {
         schoolCode: '',
         moduleName: '',
@@ -322,9 +248,10 @@ export default {
         sellingPrice: '',
         marketerID: '',
         handledByID: '',
-        registeredByID: '', // Optional
         installationDate: '', // Optional
       },
+      /** Preserved from row when opening activation — API merge must not override registrant for payload */
+      activationRegistrant: null, // { id } — school row only, for registeredByID on activate
       selectedSchool: null,
       pdfLoading: false,
     };
@@ -361,29 +288,12 @@ export default {
       return `${y}-${m}-${d}`;
     },
 
-    async fetchUsers() {
-      try {
-        const response = await axios.post('/auth/list_users', {});
-        console.log('Users API Response:', response.data);
-        
-        // Map users for dropdown
-        this.users = response.data.map(user => ({
-          id: user.userID,
-          fullname: user.fullname || '',
-          username: user.username || '',
-        }));
-        
-        console.log('Mapped users:', this.users);
-      } catch (error) {
-        console.error('Error fetching users:', error);
-        this.toast.error('Failed to fetch users.');
-      }
-    },
-
     // Fetch the activation status of the school
     async fetchActivationStatus(school) {
       try {
         this.Loading = true;
+
+        this.activationRegistrant = { id: normalizeRegisteredById(school) };
 
         // Preload form from selected row so user sees all selected data immediately.
         this.activationForm = {
@@ -394,7 +304,6 @@ export default {
           sellingPrice: school.sellingPrice ?? '',
           marketerID: school.marketerID ?? '',
           handledByID: school.handledByID ?? '',
-          registeredByID: school.registeredByID ?? '',
           installationDate: this.formatDateForInput(school.installationDate),
         };
 
@@ -418,14 +327,8 @@ export default {
           sellingPrice: activationData.sellingPrice ?? this.activationForm.sellingPrice,
           marketerID: activationData.marketerID ?? this.activationForm.marketerID,
           handledByID: activationData.handledByID ?? this.activationForm.handledByID,
-          registeredByID: activationData.registeredByID ?? this.activationForm.registeredByID,
           installationDate: this.formatDateForInput(activationData.installationDate) || this.activationForm.installationDate,
         };
-
-        // Fetch users if not already fetched
-        if (this.users.length === 0) {
-          await this.fetchUsers();
-        }
 
       } catch (error) {
         console.error('Error fetching activation status:', error);
@@ -457,7 +360,7 @@ export default {
           sellingPrice: this.activationForm.sellingPrice ? parseFloat(this.activationForm.sellingPrice) : null,
           marketerID: this.activationForm.marketerID && !isNaN(parseInt(this.activationForm.marketerID)) ? parseInt(this.activationForm.marketerID) : null,
           handledByID: this.activationForm.handledByID && !isNaN(parseInt(this.activationForm.handledByID)) ? parseInt(this.activationForm.handledByID) : null,
-          registeredByID: this.activationForm.registeredByID && !isNaN(parseInt(this.activationForm.registeredByID)) ? parseInt(this.activationForm.registeredByID) : null,
+          registeredByID: this.resolveExpiredActivationRegisteredById(),
           installationDate: this.activationForm.installationDate || null,
         };
 
@@ -485,6 +388,7 @@ export default {
     closeActivationForm() {
       this.showActivationForm = false;
       this.selectedSchool = null;
+      this.activationRegistrant = null;
       this.activationForm = {
         schoolCode: '',
         moduleName: '',
@@ -493,9 +397,15 @@ export default {
         sellingPrice: '',
         marketerID: '',
         handledByID: '',
-        registeredByID: '',
         installationDate: '',
       };
+    },
+
+    resolveExpiredActivationRegisteredById() {
+      const raw = this.activationRegistrant?.id;
+      if (raw == null || raw === '') return null;
+      const n = parseInt(String(raw), 10);
+      return Number.isNaN(n) ? null : n;
     },
 
    // Fetch expired schools by checking their expiryDate
@@ -503,10 +413,17 @@ export default {
       this.Loading = true;
       try {
         const response = await axios.post('/activations/expired');
-        this.schools = response.data.filter(school => {
-          const expiryDate = new Date(school.expiryDate);
-          return expiryDate < new Date(); // Only expired schools
-        });
+        this.schools = response.data
+          .filter((school) => {
+            const expiryDate = new Date(school.expiryDate);
+            return expiryDate < new Date();
+          })
+          .map((school) => ({
+            ...school,
+            registeredByID: normalizeRegisteredById(school) ?? school.registeredByID ?? null,
+            registeredByName:
+              normalizeRegisteredByName(school) || school.registeredByName || 'N/A',
+          }));
         this.toast.success(this.schools.length > 0
           ? `Expired schools have been fetched successfully! (${this.schools.length} school${this.schools.length === 1 ? '' : 's'})`
           : 'Expired schools have been fetched successfully! No expired schools found.');

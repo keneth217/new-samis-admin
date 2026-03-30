@@ -94,19 +94,19 @@
           </label>
         </div>
 
-        <!-- Registered By - Auto-populated with logged-in user, read-only -->
+        <!-- Registered By: username (highlighted) + full name, read-only; ID sent as registeredByID -->
         <div class="form-group">
-          <input 
-            type="text" 
-            class="form-control" 
-            v-model="registeredByName" 
-            placeholder="Registered By" 
+          <input
+            type="text"
+            class="form-control registered-by-display"
+            :value="registeredByDisplayText"
             id="registeredByName"
             readonly
+            tabindex="-1"
           />
-          <label 
-            for="registeredByName" 
-            :class="{ filled: registeredByName !== '' }"
+          <label
+            for="registeredByName"
+            :class="{ filled: registeredByDisplayText !== '' }"
           >
             Registered By
           </label>
@@ -160,6 +160,7 @@
 import axios from '../../axios';
 import { useToast } from 'vue-toastification';
 import LoadingSpinner from '../../components/LoadingSpinner.vue';
+import { normalizeRegisteredById, normalizeRegisteredByName } from '../../utils/schoolRegisteredBy.js';
 
 export default {
   name: 'submit',
@@ -189,7 +190,8 @@ export default {
       bursarPhoneNo: '',
       deanPhoneNo: '',
       registeredByID: null, // Store the logged-in user's ID
-      registeredByName: '', // Display name of logged-in user (read-only)
+      registeredByName: '', // Display full name (read-only helper)
+      registeredByUsername: '', // Login username for highlight (read-only)
       marketerID: '', // Empty string for select dropdown
       schoolMotto: '',
       
@@ -260,6 +262,17 @@ export default {
     };
   },
 
+  computed: {
+    registeredByDisplayText() {
+      const u = (this.registeredByUsername || '').trim();
+      const n = (this.registeredByName || '').trim();
+      if (!u && !n) return '';
+      if (u && n && n.toLowerCase() !== u.toLowerCase()) return `@${u}  —  ${n}`;
+      if (u) return `@${u}`;
+      return n;
+    },
+  },
+
   watch: {
     school: {
       immediate: true,
@@ -288,10 +301,11 @@ export default {
           this.email = newSchool.email ? String(newSchool.email).trim() : '';
           this.phoneNo = newSchool.phoneNo ? String(newSchool.phoneNo).trim() : '';
           this.address = newSchool.address ? String(newSchool.address).trim() : '';
-          // Handle registeredByID - store as number
-          this.registeredByID = (newSchool.registeredByID !== null && newSchool.registeredByID !== undefined) ? newSchool.registeredByID : null;
-          // Handle registeredByName - display name from API or lookup
-          this.registeredByName = newSchool.registeredByName || '';
+          // Registrant from school row (API may use camelCase or snake_case)
+          this.registeredByID = normalizeRegisteredById(newSchool);
+          this.registeredByName = normalizeRegisteredByName(newSchool) || '';
+          this.registeredByUsername = '';
+          this.$nextTick(() => this.syncRegisteredByUsernameFromUsers());
           // Handle marketerID - convert to string for select dropdown
           this.marketerID = (newSchool.marketerID !== null && newSchool.marketerID !== undefined) ? String(newSchool.marketerID) : '';
           // Optional field - handle null/undefined
@@ -351,6 +365,21 @@ export default {
       } catch (error) {
         console.error('Error fetching users:', error);
         // Don't show error toast - users fetch is optional
+      }
+    },
+
+    syncRegisteredByUsernameFromUsers() {
+      if (this.registeredByID == null || this.registeredByID === '' || !this.users.length) return;
+      const found = this.users.find(
+        (u) =>
+          String(u.id ?? u.userID) === String(this.registeredByID) ||
+          Number(u.id ?? u.userID) === Number(this.registeredByID)
+      );
+      if (found) {
+        this.registeredByUsername = (found.username || '').trim();
+        if (!this.registeredByName) {
+          this.registeredByName = (found.fullname || found.username || '').trim();
+        }
       }
     },
 
@@ -565,6 +594,7 @@ export default {
       this.address = '';
       this.registeredByID = null;
       this.registeredByName = '';
+      this.registeredByUsername = '';
       this.marketerID = ''; // Empty string for select dropdown
       this.schoolMotto = '';
       this.deleted = false;
@@ -573,38 +603,63 @@ export default {
   },
 
   async mounted() {
-    // Fetch users for dropdowns (for marketer selection)
     await this.fetchUsers();
-    
-    // Auto-populate registeredByID and registeredByName from logged-in user
-    const userData = JSON.parse(localStorage.getItem('user') || '{}');
-    const userId = userData.id || userData.userId || userData.userID || localStorage.getItem('userId') || localStorage.getItem('userID');
-    const userFullname = localStorage.getItem('fullname') || userData.fullname || userData.username || '';
-    
-    if (userId) {
-      // Store the logged-in user's ID
-      this.registeredByID = parseInt(userId) || userId;
-      // Display the logged-in user's name
-      this.registeredByName = userFullname || 'Logged-in User';
-    }
-    
-    // In edit mode, if registeredByName is not set, try to get it from the school object or lookup
-    if (this.editMode && this.school && !this.registeredByName) {
-      this.registeredByName = this.school.registeredByName || '';
-      // If we have registeredByID but no name, try to find it in users list
-      if (this.registeredByID && !this.registeredByName && this.users.length > 0) {
-        const foundUser = this.users.find(u => 
-          (u.id || u.userID) == this.registeredByID || 
-          String(u.id || u.userID) === String(this.registeredByID)
-        );
-        if (foundUser) {
-          this.registeredByName = foundUser.fullname || foundUser.username || '';
+
+    const isEdit =
+      this.school &&
+      typeof this.school === 'object' &&
+      Object.keys(this.school).length > 0;
+
+    if (!isEdit) {
+      const userData = JSON.parse(localStorage.getItem('user') || '{}');
+      const userId =
+        userData.id ||
+        userData.userId ||
+        userData.userID ||
+        localStorage.getItem('userId') ||
+        localStorage.getItem('userID') ||
+        sessionStorage.getItem('userId') ||
+        sessionStorage.getItem('userID');
+      const userFullname = (
+        localStorage.getItem('fullname') ||
+        sessionStorage.getItem('fullname') ||
+        userData.fullname ||
+        ''
+      ).trim();
+      const userUsername = (
+        localStorage.getItem('username') ||
+        sessionStorage.getItem('username') ||
+        userData.username ||
+        ''
+      ).trim();
+
+      if (userId !== null && userId !== undefined && String(userId).trim() !== '') {
+        const parsed = parseInt(String(userId), 10);
+        this.registeredByID = Number.isNaN(parsed) ? userId : parsed;
+        this.registeredByUsername = userUsername;
+        this.registeredByName = userFullname;
+
+        if ((!this.registeredByUsername || !this.registeredByName) && this.users.length) {
+          const found = this.users.find(
+            (u) =>
+              String(u.id ?? u.userID) === String(this.registeredByID) ||
+              Number(u.id ?? u.userID) === Number(this.registeredByID)
+          );
+          if (found) {
+            if (!this.registeredByUsername) this.registeredByUsername = (found.username || '').trim();
+            if (!this.registeredByName) this.registeredByName = (found.fullname || found.username || '').trim();
+          }
+        }
+
+        if (!this.registeredByUsername && !this.registeredByName) {
+          this.registeredByName = `User #${this.registeredByID}`;
         }
       }
+    } else {
+      this.syncRegisteredByUsernameFromUsers();
     }
-    
+
     if (this.school) {
-      this.editMode = true;
       this.updateSubcounties();
     }
   },
@@ -684,6 +739,13 @@ export default {
   background-color: #35548f;
   cursor: not-allowed;
   opacity: 0.7;
+}
+
+.form-control.registered-by-display {
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #fff7c2;
+  cursor: default;
 }
 
 .form-control[readonly] {
