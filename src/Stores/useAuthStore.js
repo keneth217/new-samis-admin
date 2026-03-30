@@ -2,7 +2,7 @@ import { defineStore } from "pinia";
 import { ref } from "vue";
 import axios from "../axios";
 import { fetchPrivilegeCatalog, privilegesForUsertype } from "../utils/userPrivileges";
-import { ROLE_ALIASES } from "../utils/permissions";
+import { roleCanonicalSlug } from "../utils/permissions";
 
 
 
@@ -55,8 +55,8 @@ async function hydratePriviledgesFromListUsers(storage) {
 
 function inferUsertypeFromRoles(userRoles) {
   const roles = Array.isArray(userRoles) ? userRoles.map((r) => String(r).trim()) : [];
-  if (ROLE_ALIASES.ADMIN.some((r) => roles.includes(r))) return "admin";
-  if (ROLE_ALIASES.MOD.some((r) => roles.includes(r))) return "mod";
+  if (roles.some((r) => roleCanonicalSlug(r) === "admin")) return "admin";
+  if (roles.some((r) => roleCanonicalSlug(r) === "mod")) return "mod";
   return "user";
 }
 

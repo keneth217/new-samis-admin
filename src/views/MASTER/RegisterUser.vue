@@ -154,7 +154,7 @@
                 <label>User Type</label>
                 <select v-model="editForm.usertype" class="form-control">
                   <option value="admin">Admin</option>
-                  <option value="mod">Moderator</option>
+                  <option value="mod">Mod</option>
                   <option value="user">User</option>
                 </select>
               </div>

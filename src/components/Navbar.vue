@@ -20,6 +20,7 @@
 </template>
 
 <script>
+import { roleCanonicalSlug } from '../utils/permissions';
 // import { useAuthStore } from '../Stores/useAuthStore';
 
 export default {
@@ -52,10 +53,10 @@ export default {
         roles = [];
       }
       const primary = Array.isArray(roles) && roles.length > 0 ? String(roles[0]) : '';
-      const normalized = primary.replace(/^ROLE_/i, '').trim().toLowerCase();
+      const normalized = roleCanonicalSlug(primary);
       if (!normalized) return '';
       if (normalized === 'admin') return 'Admin';
-      if (normalized === 'mod' || normalized === 'moderator') return 'Mod';
+      if (normalized === 'mod') return 'Mod';
       if (normalized === 'user') return 'User';
       // Fallback: title-case any other role string
       return normalized

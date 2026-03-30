@@ -9,9 +9,17 @@
 
 export const ROLE_ALIASES = {
   ADMIN: ["ROLE_ADMIN", "ADMIN", "admin"],
-  MOD: ["ROLE_MOD", "MOD", "mod", "ROLE_MODERATOR", "MODERATOR", "moderator"],
+  MOD: ["ROLE_MOD", "MOD", "mod"],
   USER: ["ROLE_USER", "USER", "user"],
 };
+
+/** Lowercase slug without `ROLE_` prefix; legacy `moderator` is treated as `mod`. */
+export function roleCanonicalSlug(role) {
+  const b = String(role).trim().replace(/^ROLE_/i, "").toLowerCase();
+  if (!b) return "";
+  if (b === "moderator") return "mod";
+  return b;
+}
 
 export const PRIVS = {
   SAVE_SCHOOL: "save school",
@@ -80,15 +88,17 @@ export const ROUTE_PRIVILEDGES = {
 export function hasAnyRole(userRoles, allowedRoles) {
   if (!Array.isArray(userRoles)) return false;
   if (!allowedRoles || allowedRoles.length === 0) return true;
-  const norm = new Set(userRoles.map((r) => String(r).trim()));
-  return allowedRoles.some((role) => norm.has(String(role).trim()));
+  const userSlugs = new Set(userRoles.map((r) => roleCanonicalSlug(r)).filter(Boolean));
+  return allowedRoles.some((role) => {
+    const a = roleCanonicalSlug(role);
+    return a && userSlugs.has(a);
+  });
 }
 
 export function hasRoleAlias(userRoles, aliasKey) {
-  const aliases = ROLE_ALIASES[aliasKey] || [];
-  if (!Array.isArray(userRoles)) return false;
-  const user = userRoles.map((r) => String(r).trim());
-  return aliases.some((a) => user.includes(a));
+  const target = { ADMIN: "admin", MOD: "mod", USER: "user" }[aliasKey];
+  if (!target || !Array.isArray(userRoles)) return false;
+  return userRoles.some((r) => roleCanonicalSlug(r) === target);
 }
 
 export function hasAnyPriviledge(userPriviledges, allowedPriviledges) {

@@ -29,7 +29,7 @@
           <select class="form-control" v-model="usertype" required>
             <option value="" disabled>Select User Type</option>
             <option value="admin">Admin</option>
-            <option value="mod">Moderator</option>
+            <option value="mod">Mod</option>
             <option value="user">User</option>
           </select>
         </div>
