@@ -112,6 +112,23 @@
           </label>
         </div>
 
+        <div v-if="editMode" class="form-group">
+          <input
+            type="text"
+            class="form-control registered-by-display"
+            :value="lastActionByDisplayText"
+            id="lastActionByName"
+            readonly
+            tabindex="-1"
+          />
+          <label
+            for="lastActionByName"
+            :class="{ filled: lastActionByDisplayText !== '' }"
+          >
+            Last Action By
+          </label>
+        </div>
+
         <div class="form-group">
           <input 
             type="number" 
@@ -192,6 +209,9 @@ export default {
       registeredByID: null, // Store the logged-in user's ID
       registeredByName: '', // Display full name (read-only helper)
       registeredByUsername: '', // Login username for highlight (read-only)
+      handledByID: null,
+      handledByName: '',
+      handledByUsername: '',
       marketerID: '', // Empty string for select dropdown
       schoolMotto: '',
       
@@ -271,6 +291,14 @@ export default {
       if (u) return `@${u}`;
       return n;
     },
+    lastActionByDisplayText() {
+      const u = (this.handledByUsername || '').trim();
+      const n = (this.handledByName || '').trim();
+      if (!u && !n) return 'N/A';
+      if (u && n && n.toLowerCase() !== u.toLowerCase()) return `@${u}  —  ${n}`;
+      if (u) return `@${u}`;
+      return n;
+    },
   },
 
   watch: {
@@ -305,6 +333,9 @@ export default {
           this.registeredByID = normalizeRegisteredById(newSchool);
           this.registeredByName = normalizeRegisteredByName(newSchool) || '';
           this.registeredByUsername = '';
+          this.handledByID = newSchool.handledByID ?? newSchool.handledById ?? newSchool.handled_by_id ?? null;
+          this.handledByName = newSchool.handledByName ?? newSchool.handled_by_name ?? '';
+          this.handledByUsername = '';
           this.$nextTick(() => this.syncRegisteredByUsernameFromUsers());
           // Handle marketerID - convert to string for select dropdown
           this.marketerID = (newSchool.marketerID !== null && newSchool.marketerID !== undefined) ? String(newSchool.marketerID) : '';
@@ -384,16 +415,32 @@ export default {
     },
 
     syncRegisteredByUsernameFromUsers() {
-      if (this.registeredByID == null || this.registeredByID === '' || !this.users.length) return;
-      const found = this.users.find(
-        (u) =>
-          String(u.id ?? u.userID) === String(this.registeredByID) ||
-          Number(u.id ?? u.userID) === Number(this.registeredByID)
-      );
-      if (found) {
-        this.registeredByUsername = (found.username || '').trim();
-        if (!this.registeredByName) {
-          this.registeredByName = (found.fullname || found.username || '').trim();
+      if (!this.users.length) return;
+      if (this.registeredByID != null && this.registeredByID !== '') {
+        const found = this.users.find(
+          (u) =>
+            String(u.id ?? u.userID) === String(this.registeredByID) ||
+            Number(u.id ?? u.userID) === Number(this.registeredByID)
+        );
+        if (found) {
+          this.registeredByUsername = (found.username || '').trim();
+          if (!this.registeredByName) {
+            this.registeredByName = (found.fullname || found.username || '').trim();
+          }
+        }
+      }
+
+      if (this.handledByID != null && this.handledByID !== '') {
+        const actor = this.users.find(
+          (u) =>
+            String(u.id ?? u.userID) === String(this.handledByID) ||
+            Number(u.id ?? u.userID) === Number(this.handledByID)
+        );
+        if (actor) {
+          this.handledByUsername = (actor.username || '').trim();
+          if (!this.handledByName) {
+            this.handledByName = (actor.fullname || actor.username || '').trim();
+          }
         }
       }
     },
@@ -439,8 +486,9 @@ export default {
       formData.deanPhoneNo = (this.deanPhoneNo && this.deanPhoneNo.trim() !== '') ? this.deanPhoneNo.trim() : '';
       formData.schoolMotto = (this.schoolMotto && this.schoolMotto.trim() !== '') ? this.schoolMotto.trim() : '';
       
-      // Include registeredByID - always use the logged-in user's ID
-      formData.registeredByID = this.registeredByID || null;
+      // On create: creator and current actor are the logged-in user.
+      formData.registeredByID = this.registeredByID || this.getCurrentUserId();
+      formData.handledByID = this.getCurrentUserId();
       
       // Include marketerID - send null if empty (numbers can be null)
       formData.marketerID = (this.marketerID && this.marketerID !== '') ? parseInt(this.marketerID) : null;
@@ -612,6 +660,9 @@ export default {
       this.registeredByID = null;
       this.registeredByName = '';
       this.registeredByUsername = '';
+      this.handledByID = null;
+      this.handledByName = '';
+      this.handledByUsername = '';
       this.marketerID = ''; // Empty string for select dropdown
       this.schoolMotto = '';
       this.deleted = false;

@@ -48,6 +48,8 @@
             <th>School Name</th>
             <th>School Code</th>
             <th>Module Name</th>
+            <th>Registered By</th>
+            <th>Last Action By</th>
             <th>Installation Date</th>
             <th>Expiry Date</th>
             <th>Selling Price</th>
@@ -57,7 +59,7 @@
         </thead>
         <tbody>
           <tr v-if="filteredSchools.length === 0">
-            <td colspan="9">No schools found</td>
+            <td colspan="11">No schools found</td>
           </tr>
           <tr v-for="(school, index) in filteredSchools" 
               :key="`${school.schoolCode}-${school.moduleName}-${school.activationID}-${index}`" 
@@ -66,6 +68,8 @@
             <td>{{ school.schoolName }}</td>
             <td>{{ school.schoolCode }}</td>
             <td>{{ school.moduleName }}</td>
+            <td>{{ school.registeredByName }}</td>
+            <td>{{ school.handledByName }}</td>
             <td>{{ school.installationDate }}</td>
             <td>{{ school.expiryDate }}</td>
             <td>{{ school.sellingPrice }}</td>
@@ -97,6 +101,16 @@
             <div class="card-row">
               <span class="card-label">Module Name:</span>
               <span class="card-value">{{ school.moduleName }}</span>
+            </div>
+
+            <div class="card-row">
+              <span class="card-label">Registered By:</span>
+              <span class="card-value">{{ school.registeredByName || 'N/A' }}</span>
+            </div>
+
+            <div class="card-row">
+              <span class="card-label">Last Action By:</span>
+              <span class="card-value">{{ school.handledByName || 'N/A' }}</span>
             </div>
             
             <div class="card-row">
@@ -229,22 +243,15 @@
             </div>
 
             <div class="activation-form-group">
-              <select 
+              <input
                 id="activationHandledBySelect"
                 v-model="activationData.handledByID"
                 class="activation-form-control"
-                required
-              >
-                <option value="" disabled>Select Handled By*</option>
-                <option 
-                  v-for="user in users" 
-                  :key="user.id" 
-                  :value="user.id"
-                >
-                  {{ user.fullname || user.username }}
-                </option>
-              </select>
-              <label for="activationHandledBySelect" :class="{ filled: activationData.handledByID !== '' && activationData.handledByID !== null }">Select Handled By*</label>
+                type="number"
+                readonly
+                disabled
+              />
+              <label for="activationHandledBySelect" :class="{ filled: activationData.handledByID !== '' && activationData.handledByID !== null }">Handled By (Auto)</label>
             </div>
           </div>
           <hr />
@@ -367,6 +374,16 @@ export default {
 
   
   methods: {
+    getCurrentUserId() {
+      const raw =
+        localStorage.getItem('userId') ||
+        localStorage.getItem('userID') ||
+        sessionStorage.getItem('userId') ||
+        sessionStorage.getItem('userID');
+      if (raw == null || String(raw).trim() === '') return null;
+      const n = parseInt(String(raw), 10);
+      return Number.isNaN(n) ? null : n;
+    },
     async viewSchool(school) {
       this.Loading = true;
       const toast = useToast();
@@ -423,7 +440,10 @@ export default {
               moduleName: school.moduleName || '',
               installationDate: school.installationDate || '',
               expiryDate: school.expiryDate || '',
+              registeredByID: school.registeredByID || null,
               registeredByName: school.registeredByName || fullSchoolData.registeredByName || '',
+              handledByID: school.handledByID || null,
+              handledByName: school.handledByName || fullSchoolData.handledByName || '',
               marketerName: school.marketerName || '',
               sellingPrice: school.sellingPrice || 0,
               maintenanceFee: school.maintenanceFee || 0,
@@ -678,7 +698,9 @@ export default {
         moduleName: (school.moduleName || 'N/A').toString().trim(), // Ensure module name is trimmed
         installationDate: school.installationDate || 'N/A',
         expiryDate: school.expiryDate || 'N/A',
+        registeredByID: school.registeredByID || null,
         registeredByName: school.registeredByName || 'N/A',
+        handledByID: school.handledByID || null,
         handledByName: school.handledByName || 'N/A',
         marketerName: school.marketerName || 'N/A',
         sellingPrice: school.sellingPrice || 0,
@@ -780,6 +802,7 @@ export default {
 
     async openActivationModal(school) {
       this.activationData.schoolCode = school.schoolCode; // Set the school code
+      this.activationData.handledByID = this.getCurrentUserId() || "";
       this.showActivationModal = true;
       // Fetch modules and users when modal opens
       await this.fetchModules();
@@ -810,9 +833,9 @@ export default {
         return;
       }
 
-      // Validate mandatory fields: marketerID and handledByID
-      if (!this.activationData.marketerID || !this.activationData.handledByID) {
-        toast.error("Marketer and Handled By are required fields.");
+      // Validate mandatory marketer field
+      if (!this.activationData.marketerID) {
+        toast.error("Marketer is a required field.");
         this.Loading = false;
         return;
       }
@@ -834,7 +857,7 @@ export default {
           maintenanceFee: this.activationData.maintenanceFee || null,
           sellingPrice: this.activationData.sellingPrice || null,
           marketerID: this.activationData.marketerID,
-          handledByID: this.activationData.handledByID,
+          handledByID: this.getCurrentUserId(),
         };
 
         const response = await axios.post('/activations/activate', payload, config);

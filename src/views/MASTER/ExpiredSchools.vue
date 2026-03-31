@@ -278,6 +278,16 @@ export default {
     },
   },
   methods: {
+    getCurrentUserId() {
+      const raw =
+        localStorage.getItem('userId') ||
+        localStorage.getItem('userID') ||
+        sessionStorage.getItem('userId') ||
+        sessionStorage.getItem('userID');
+      if (raw == null || String(raw).trim() === '') return null;
+      const n = parseInt(String(raw), 10);
+      return Number.isNaN(n) ? null : n;
+    },
     formatDateForInput(dateValue) {
       if (!dateValue || dateValue === 'N/A') return '';
       const date = dateValue instanceof Date ? dateValue : new Date(dateValue);
@@ -303,7 +313,7 @@ export default {
           maintenanceFee: school.maintenanceFee ?? '',
           sellingPrice: school.sellingPrice ?? '',
           marketerID: school.marketerID ?? '',
-          handledByID: school.handledByID ?? '',
+          handledByID: this.getCurrentUserId() ?? '',
           installationDate: this.formatDateForInput(school.installationDate),
         };
 
@@ -326,7 +336,7 @@ export default {
           maintenanceFee: activationData.maintenanceFee ?? this.activationForm.maintenanceFee,
           sellingPrice: activationData.sellingPrice ?? this.activationForm.sellingPrice,
           marketerID: activationData.marketerID ?? this.activationForm.marketerID,
-          handledByID: activationData.handledByID ?? this.activationForm.handledByID,
+          handledByID: this.getCurrentUserId() ?? this.activationForm.handledByID,
           installationDate: this.formatDateForInput(activationData.installationDate) || this.activationForm.installationDate,
         };
 
@@ -359,7 +369,7 @@ export default {
           maintenanceFee: this.activationForm.maintenanceFee ? parseFloat(this.activationForm.maintenanceFee) : null,
           sellingPrice: this.activationForm.sellingPrice ? parseFloat(this.activationForm.sellingPrice) : null,
           marketerID: this.activationForm.marketerID && !isNaN(parseInt(this.activationForm.marketerID)) ? parseInt(this.activationForm.marketerID) : null,
-          handledByID: this.activationForm.handledByID && !isNaN(parseInt(this.activationForm.handledByID)) ? parseInt(this.activationForm.handledByID) : null,
+          handledByID: this.getCurrentUserId(),
           registeredByID: this.resolveExpiredActivationRegisteredById(),
           installationDate: this.activationForm.installationDate || null,
         };
