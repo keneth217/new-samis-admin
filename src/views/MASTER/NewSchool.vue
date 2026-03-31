@@ -348,6 +348,21 @@ export default {
   },
 
   methods: {
+    getCurrentUserId() {
+      const userData = JSON.parse(localStorage.getItem('user') || '{}');
+      const raw =
+        userData.id ||
+        userData.userId ||
+        userData.userID ||
+        localStorage.getItem('userId') ||
+        localStorage.getItem('userID') ||
+        sessionStorage.getItem('userId') ||
+        sessionStorage.getItem('userID');
+      if (raw == null || String(raw).trim() === '') return null;
+      const n = parseInt(String(raw), 10);
+      return Number.isNaN(n) ? null : n;
+    },
+
     async fetchUsers() {
       try {
         const response = await axios.post('/auth/list_users', {});
@@ -491,6 +506,8 @@ export default {
         
         // Include registeredByID - always use the logged-in user's ID (or existing value in edit mode)
         formData.registeredByID = this.registeredByID || this.school?.registeredByID || null;
+        // Accountability: track who made the latest update/action on this school record.
+        formData.handledByID = this.getCurrentUserId();
         
         // Include marketerID - send null if empty (numbers can be null)
         if (this.marketerID && this.marketerID !== '') {

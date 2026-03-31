@@ -24,6 +24,7 @@ export function roleCanonicalSlug(role) {
 export const PRIVS = {
   SAVE_SCHOOL: "save school",
   EDIT_SCHOOL: "edit school",
+  VIEW_SCHOOLS: "view schools",
   MANAGE_ADMINISTRATION: "manage administration",
   ACTIVATE_SCHOOL: "activate school",
   EDIT_ACTIVATION: "edit activation",
@@ -67,9 +68,9 @@ export const ROUTE_ROLES = {
  */
 export const ROUTE_PRIVILEDGES = {
   // User management is admin-only via ROUTE_ROLES above
-  '/allSchools': [PRIVS.SAVE_SCHOOL, PRIVS.EDIT_SCHOOL],
-  '/activatedSchools': [PRIVS.ACTIVATE_SCHOOL, PRIVS.EDIT_ACTIVATION],
-  '/expiredSchools': [PRIVS.ACTIVATE_SCHOOL, PRIVS.EDIT_ACTIVATION],
+  '/allSchools': [PRIVS.VIEW_SCHOOLS, PRIVS.SAVE_SCHOOL, PRIVS.EDIT_SCHOOL],
+  '/activatedSchools': [PRIVS.VIEW_SCHOOLS, PRIVS.ACTIVATE_SCHOOL, PRIVS.EDIT_ACTIVATION],
+  '/expiredSchools': [PRIVS.VIEW_SCHOOLS, PRIVS.ACTIVATE_SCHOOL, PRIVS.EDIT_ACTIVATION],
   '/MessagesToSchools': [PRIVS.SEND_MESSAGE],
   // Keypad/dial: "make call". History/recents: "view all call logs" or "listen to recordings".
   // Playback of recording files is gated in CallLog.vue via userCanListenToRecordings().

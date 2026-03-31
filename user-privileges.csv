@@ -1,0 +1,9 @@
+User Type,Default Privileges
+Admin,"All privileges from backend catalog (/auth/list_priviledges)"
+Customer_care,"view invoices; view receipts; send message; make call; view all call logs; activate schools; register school; edit activate"
+Support,"save school; edit school; activate school; edit activation; make call; view all call logs; listen to recordings"
+Marketer,"send message; make call; view all call logs; view invoices; view receipts"
+installer,"make call"
+Account,"save invoice; save receipt; view invoices; view receipts; view schools"
+mod,"save school; edit school; manage administration; activate school; edit activation; save invoice; save receipt; view invoices; view receipts; send message; make call; view all call logs; listen to recordings"
+users,"view invoices; view receipts; view schools"

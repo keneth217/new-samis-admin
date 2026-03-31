@@ -45,6 +45,8 @@
             <th>Principal Contact</th>
             <th>Phone No</th>
             <th>County</th>
+            <th>Registered By</th>
+            <th>Last Action By</th>
             <th>Registered On</th>
             <th>Status</th>
             <th class="actions-header">Actions</th>
@@ -52,7 +54,7 @@
         </thead>
         <tbody>
           <tr v-if="filteredSchools.length === 0">
-            <td colspan="9">No schools found</td>
+            <td colspan="11">No schools found</td>
           </tr>
           <tr v-for="(school, index) in filteredSchools" :key="school.schoolCode" :class="{ 'even-row': index % 2 !== 0 }">
             <td>{{ index + 1 }}</td>
@@ -61,6 +63,8 @@
             <td>{{ school.principalPhoneNo }}</td>
             <td>{{ school.phoneNo || 'N/A' }}</td>
             <td>{{ school.county }}</td>
+            <td>{{ formatActorDisplay(school.registeredByName, school.registeredByUsername, school.registeredByID) }}</td>
+            <td>{{ formatActorDisplay(school.handledByName, school.handledByUsername, school.handledByID) }}</td>
             <td>{{ school.registeredOn || 'N/A' }}</td>
             <td :class="{ 'text-success': getSchoolStatus(school) === 'ACTIVE', 'text-danger': getSchoolStatus(school) === 'DELETED', 'text-expired': getSchoolStatus(school) === 'EXPIRED' }">
               {{ getSchoolStatus(school) }}
@@ -108,6 +112,16 @@
             <div class="card-row">
               <span class="card-label">County:</span>
               <span class="card-value">{{ school.county }}</span>
+            </div>
+
+            <div class="card-row">
+              <span class="card-label">Registered By:</span>
+              <span class="card-value">{{ formatActorDisplay(school.registeredByName, school.registeredByUsername, school.registeredByID) }}</span>
+            </div>
+
+            <div class="card-row">
+              <span class="card-label">Last Action By:</span>
+              <span class="card-value">{{ formatActorDisplay(school.handledByName, school.handledByUsername, school.handledByID) }}</span>
             </div>
             
             <div class="card-row">
@@ -315,7 +329,12 @@ import { useToast } from 'vue-toastification';
 import LoadingSpinner from '../../components/LoadingSpinner.vue';
 import NewSchool from './NewSchool.vue';
 import jsPDF from 'jspdf';
-import { normalizeRegisteredById, normalizeRegisteredByName } from '../../utils/schoolRegisteredBy.js';
+import {
+  normalizeRegisteredById,
+  normalizeRegisteredByName,
+  normalizeHandledById,
+  normalizeHandledByName,
+} from '../../utils/schoolRegisteredBy.js';
 
 export default {
   components: {
@@ -370,6 +389,14 @@ export default {
     },
   },
   methods: {
+    formatActorDisplay(name, username, id) {
+      const n = String(name || '').trim();
+      const u = String(username || '').trim();
+      if (u && n && u.toLowerCase() !== n.toLowerCase()) return `@${u} - ${n}`;
+      if (u) return `@${u}`;
+      if (n) return n;
+      return id != null && id !== '' ? `User #${id}` : 'N/A';
+    },
     getSchoolStatus(school) {
       if (school.deleted) return 'DELETED';
       if (this.expiredSchoolCodes.has(school.schoolCode)) return 'EXPIRED';
@@ -422,6 +449,7 @@ export default {
         'Address',
         'Registered On',
         'Registered By',
+        'Last Action By',
         'Marketer',
         'School Motto',
         'Students',
@@ -441,7 +469,8 @@ export default {
         school.subcounty || '',
         school.address || '',
         this.formatDateForExcel(school.registeredOn),
-        school.registeredByName || 'N/A',
+        this.formatActorDisplay(school.registeredByName, school.registeredByUsername, school.registeredByID),
+        this.formatActorDisplay(school.handledByName, school.handledByUsername, school.handledByID),
         school.marketerName || 'N/A',
         school.schoolMotto || '',
         school.students || '',
@@ -645,14 +674,18 @@ export default {
     // Fetch users and expired school codes in parallel
     await Promise.all([this.fetchUsers(), this.fetchExpiredSchoolCodes()]);
     
-    // Create a map of user ID to fullname (try both string and number keys)
+    // Create a map of user ID to user details (try both string and number keys)
     const userMap = new Map();
     this.users.forEach(user => {
       if (user.id !== null && user.id !== undefined) {
+        const userRecord = {
+          fullname: user.fullname || '',
+          username: user.username || '',
+        };
         // Add both string and number keys to handle type mismatches
-        userMap.set(String(user.id), user.fullname);
-        userMap.set(Number(user.id), user.fullname);
-        userMap.set(user.id, user.fullname);
+        userMap.set(String(user.id), userRecord);
+        userMap.set(Number(user.id), userRecord);
+        userMap.set(user.id, userRecord);
       }
     });
     console.log('🗺️ User ID to Name Map (size:', userMap.size, '):', Array.from(userMap.entries()).slice(0, 5));
@@ -679,13 +712,35 @@ export default {
       // Map registeredByID and registeredByName from API response (camelCase / snake_case)
       const registeredByID = normalizeRegisteredById(school);
       let registeredByName = normalizeRegisteredByName(school);
+      let registeredByUsername = null;
       
       // If we have a registeredByID but no name, try to map it from users list
       if (!registeredByName && registeredByID !== null && registeredByID !== undefined && registeredByID !== '') {
-        registeredByName = userMap.get(registeredByID) || 
-                         userMap.get(String(registeredByID)) || 
+        const regUser = userMap.get(registeredByID) ||
+                         userMap.get(String(registeredByID)) ||
                          userMap.get(Number(registeredByID)) ||
                          null;
+        registeredByName = regUser?.fullname || null;
+        registeredByUsername = regUser?.username || null;
+      } else if (registeredByID !== null && registeredByID !== undefined && registeredByID !== '') {
+        const regUser = userMap.get(registeredByID) ||
+                         userMap.get(String(registeredByID)) ||
+                         userMap.get(Number(registeredByID)) ||
+                         null;
+        registeredByUsername = regUser?.username || null;
+      }
+
+      // Last actor (handled/updated user) for accountability
+      const handledByID = normalizeHandledById(school);
+      let handledByName = normalizeHandledByName(school);
+      let handledByUsername = null;
+      if (handledByID !== null && handledByID !== undefined && handledByID !== '') {
+        const handledUser = userMap.get(handledByID) ||
+                          userMap.get(String(handledByID)) ||
+                          userMap.get(Number(handledByID)) ||
+                          null;
+        if (!handledByName) handledByName = handledUser?.fullname || null;
+        handledByUsername = handledUser?.username || null;
       }
       
       // Map marketerID and marketerName from API response
@@ -726,6 +781,10 @@ export default {
         // Registration information
         registeredByID: registeredByID,
         registeredByName: registeredByName || 'N/A',
+        registeredByUsername: registeredByUsername || null,
+        handledByID: handledByID,
+        handledByName: handledByName || null,
+        handledByUsername: handledByUsername || null,
         registeredOn: school.registeredOn || null,
         
         // Marketer information (from new API)

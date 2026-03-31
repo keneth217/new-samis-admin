@@ -2,6 +2,31 @@
   <main id="dashboard">
     <!-- Main Content Area -->
     <div class="page-wrapper">
+      <!-- Stats Filter Bar -->
+      <div class="stats-filter-bar">
+        <div class="filter-group">
+          <label for="statsScope">Stats Scope</label>
+          <select id="statsScope" v-model="statsScope" class="filter-control">
+            <option value="count">All Time (Count)</option>
+            <option value="overall">Overall</option>
+            <option value="this-year">This Year</option>
+            <option value="by-date">By Date Range</option>
+          </select>
+        </div>
+
+        <div class="filter-group" v-if="statsScope === 'by-date'">
+          <label for="startDate">Start Date</label>
+          <input id="startDate" type="date" v-model="startDate" class="filter-control" />
+        </div>
+
+        <div class="filter-group" v-if="statsScope === 'by-date'">
+          <label for="endDate">End Date</label>
+          <input id="endDate" type="date" v-model="endDate" class="filter-control" />
+        </div>
+
+        <button class="apply-filter-btn" @click="fetchData">Refresh</button>
+      </div>
+
       <!-- Summary Cards Grid (Top-Level Counts) -->
       <div class="cards-container" ref="cardsContainer">
         <div
@@ -16,6 +41,49 @@
           </div>
           <p class="summary-card-label">{{ card.title }}</p>
         </div>
+      </div>
+
+      <!-- Financial Summary Cards -->
+      <div class="cards-container finance-cards-container">
+        <div class="summary-card" :style="{ borderLeftColor: '#4f46e5' }">
+          <div class="summary-card-top">
+            <span class="summary-card-icon material-symbols-outlined" style="color:#4f46e5">receipt_long</span>
+            <span class="summary-card-amount" style="color:#4f46e5">{{ accountStats.invoices || 0 }}</span>
+          </div>
+          <p class="summary-card-label">Invoices</p>
+        </div>
+        <div class="summary-card" :style="{ borderLeftColor: '#22c55e' }">
+          <div class="summary-card-top">
+            <span class="summary-card-icon material-symbols-outlined" style="color:#22c55e">payments</span>
+            <span class="summary-card-amount" style="color:#22c55e">{{ accountStats.receipts || 0 }}</span>
+          </div>
+          <p class="summary-card-label">Receipts</p>
+        </div>
+        <div class="summary-card" :style="{ borderLeftColor: '#0ea5e9' }">
+          <div class="summary-card-top">
+            <span class="summary-card-icon material-symbols-outlined" style="color:#0ea5e9">request_quote</span>
+            <span class="summary-card-amount" style="color:#0ea5e9">{{ formatAmount(accountStats.invoicedAmount) }}</span>
+          </div>
+          <p class="summary-card-label">Invoiced Amount</p>
+        </div>
+        <div class="summary-card" :style="{ borderLeftColor: '#16a34a' }">
+          <div class="summary-card-top">
+            <span class="summary-card-icon material-symbols-outlined" style="color:#16a34a">account_balance_wallet</span>
+            <span class="summary-card-amount" style="color:#16a34a">{{ formatAmount(accountStats.receivedAmount) }}</span>
+          </div>
+          <p class="summary-card-label">Received Amount</p>
+        </div>
+        <div class="summary-card" :style="{ borderLeftColor: '#f97316' }">
+          <div class="summary-card-top">
+            <span class="summary-card-icon material-symbols-outlined" style="color:#f97316">trending_down</span>
+            <span class="summary-card-amount" style="color:#f97316">{{ formatAmount(accountStats.totalExpenses) }}</span>
+          </div>
+          <p class="summary-card-label">Total Expenses</p>
+        </div>
+      </div>
+
+      <div class="current-scope-label">
+        Current scope: <strong>{{ scopeLabel }}</strong>
       </div>
 
       <!-- Charts Section -->
@@ -117,6 +185,9 @@ export default {
         countySchoolsChart: null,
         countyRevenueChart: null,
       },
+      statsScope: 'count',
+      startDate: '',
+      endDate: '',
       cards: [
         { title: "Schools", amount: 0, icon: "school", accentColor: "#2b7ab7" },
         { title: "Modules", amount: 0, icon: "widgets", accentColor: "#22c55e" },
@@ -127,6 +198,23 @@ export default {
     };
   },
   methods: {
+    formatAmount(value) {
+      const n = Number(value || 0);
+      return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+    },
+    endpointForScope() {
+      if (this.statsScope === 'overall') return '/stats/overall';
+      if (this.statsScope === 'this-year') return '/stats/this-year';
+      if (this.statsScope === 'by-date') return '/stats/by-date';
+      return '/stats/count';
+    },
+    buildByDatePayload() {
+      if (this.statsScope !== 'by-date') return {};
+      const payload = {};
+      if (this.startDate) payload.startDate = new Date(`${this.startDate}T00:00:00.000Z`).toISOString();
+      if (this.endDate) payload.endDate = new Date(`${this.endDate}T23:59:59.999Z`).toISOString();
+      return payload;
+    },
     adjustChartsContainerWidth() {
       if (this.$refs.cardsContainer) {
         const cardsContainerWidth = window.getComputedStyle(this.$refs.cardsContainer).width;
@@ -281,9 +369,9 @@ export default {
       const toast = useToast();
       
       try {
-        // Use the new StatsController count endpoint
-        // NOTE: baseURL in axios.js already includes `/api`
-        const response = await axios.post(`/stats/count`);
+        const endpoint = this.endpointForScope();
+        const payload = this.buildByDatePayload();
+        const response = await axios.post(endpoint, payload);
 
         const data = response.data || {};
 
@@ -319,7 +407,7 @@ export default {
         
         this.initializeCharts();
 
-        toast.success('Dashboard data has been fetched successfully!');
+        toast.success('Dashboard statistics loaded successfully.');
         
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -341,6 +429,18 @@ export default {
     //     { title: "Expired Schools", amount: deactivatedSchools, icon: "cancel" },
     //   ];
     // }
+  },
+  computed: {
+    scopeLabel() {
+      if (this.statsScope === 'overall') return 'Overall';
+      if (this.statsScope === 'this-year') return 'This Year';
+      if (this.statsScope === 'by-date') {
+        const from = this.startDate || 'Any';
+        const to = this.endDate || 'Any';
+        return `By Date (${from} to ${to})`;
+      }
+      return 'All Time (Count)';
+    },
   },
   mounted() {
     this.fetchData();
@@ -389,6 +489,57 @@ export default {
 .page-wrapper {
   background-color: #e8f4f8;
   padding: 4rem 2rem 2rem;
+}
+
+.stats-filter-bar {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  background: #ffffff;
+  border-radius: 10px;
+  padding: 0.9rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 180px;
+}
+
+.filter-group label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.filter-control {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 0.45rem 0.6rem;
+  outline: none;
+}
+
+.apply-filter-btn {
+  border: 1px solid #2b7ab7;
+  background: #2b7ab7;
+  color: #fff;
+  border-radius: 8px;
+  padding: 0.5rem 0.9rem;
+  cursor: pointer;
+}
+
+.finance-cards-container {
+  margin-top: 1rem;
+}
+
+.current-scope-label {
+  margin-top: 1.25rem;
+  margin-bottom: -0.75rem;
+  color: #334155;
+  font-size: 0.9rem;
 }
 
 /* Main Cards Container */

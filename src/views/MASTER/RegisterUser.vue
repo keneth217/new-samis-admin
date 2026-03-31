@@ -154,8 +154,13 @@
                 <label>User Type</label>
                 <select v-model="editForm.usertype" class="form-control">
                   <option value="admin">Admin</option>
+                  <option value="customer_care">Customer_care</option>
+                  <option value="support">Support</option>
+                  <option value="marketer">Marketer</option>
+                  <option value="installer">Installer</option>
+                  <option value="account">Account</option>
                   <option value="mod">Mod</option>
-                  <option value="user">User</option>
+                  <option value="users">User</option>
                 </select>
               </div>
             </div>
@@ -234,7 +239,7 @@ export default {
         username: '',
         email: '',
         phoneNo: '',
-        usertype: 'user',
+        usertype: 'users',
         priviledges: [],
       },
     };
@@ -296,7 +301,7 @@ export default {
         username: u.username || '',
         email: u.email || '',
         phoneNo: u.phoneNo || '',
-        usertype: (u.usertype || 'user').toString().trim().toLowerCase(),
+        usertype: (u.usertype || 'users').toString().trim().toLowerCase(),
         priviledges: Array.isArray(u.priviledges) ? [...u.priviledges] : [],
       };
       this.showEdit = true;
@@ -329,7 +334,7 @@ export default {
 
       this.savingEdit = true;
       try {
-        const usertypeNorm = String(this.editForm.usertype || 'user').trim().toLowerCase();
+        const usertypeNorm = String(this.editForm.usertype || 'users').trim().toLowerCase();
         const payload = {
           userID: this.editForm.userID,
           fullname: String(this.editForm.fullname || '').trim(),

@@ -29,8 +29,13 @@
           <select class="form-control" v-model="usertype" required>
             <option value="" disabled>Select User Type</option>
             <option value="admin">Admin</option>
+            <option value="customer_care">Customer_care</option>
+            <option value="support">Support</option>
+            <option value="marketer">Marketer</option>
+            <option value="installer">Installer</option>
+            <option value="account">Account</option>
             <option value="mod">Mod</option>
-            <option value="user">User</option>
+            <option value="users">User</option>
           </select>
         </div>
       </div>
