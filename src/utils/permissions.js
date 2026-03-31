@@ -71,6 +71,8 @@ export const ROUTE_PRIVILEDGES = {
   '/activatedSchools': [PRIVS.ACTIVATE_SCHOOL, PRIVS.EDIT_ACTIVATION],
   '/expiredSchools': [PRIVS.ACTIVATE_SCHOOL, PRIVS.EDIT_ACTIVATION],
   '/MessagesToSchools': [PRIVS.SEND_MESSAGE],
+  // Keypad/dial: "make call". History/recents: "view all call logs" or "listen to recordings".
+  // Playback of recording files is gated in CallLog.vue via userCanListenToRecordings().
   '/CallLog': [PRIVS.VIEW_ALL_CALL_LOGS, PRIVS.LISTEN_TO_RECORDINGS, PRIVS.MAKE_CALL],
   // Allow access if user can at least view; saving is enforced by the API anyway
   '/InvoicesSchool': [PRIVS.VIEW_INVOICES],
@@ -104,6 +106,17 @@ export function hasAnyPriviledge(userPriviledges, allowedPriviledges) {
   if (!Array.isArray(userPriviledges)) return false;
   const norm = new Set(userPriviledges.map((p) => String(p).trim().toLowerCase()));
   return allowedPriviledges.some((p) => norm.has(String(p).trim().toLowerCase()));
+}
+
+/**
+ * Play stored call recordings (UI + toggleRecording). Matches router: admin bypass, else needs
+ * explicit "listen to recordings" privilege. Entering Call Log still allowed with only "make call".
+ * @param {string[]} userRoles
+ * @param {string[]} userPriviledges
+ */
+export function userCanListenToRecordings(userRoles, userPriviledges = []) {
+  if (hasRoleAlias(userRoles, "ADMIN")) return true;
+  return hasAnyPriviledge(userPriviledges, [PRIVS.LISTEN_TO_RECORDINGS]);
 }
 
 /**

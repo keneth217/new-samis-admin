@@ -288,7 +288,7 @@
                       <td>{{ call.dialDestinationNumber || '—' }}</td>
                       <td class="actions">
                         <button
-                          v-if="call.recordingUrl"
+                          v-if="call.recordingUrl && canListenToRecordings"
                           @click="toggleRecording(call)"
                           :class="['play-recording-btn', { active: isPlayingRecording(call) }]"
                           :aria-label="isPlayingRecording(call) ? 'Stop recording' : 'Play recording'"
@@ -297,6 +297,11 @@
                             {{ isPlayingRecording(call) ? 'stop_circle' : 'play_circle' }}
                           </span>
                         </button>
+                        <span
+                          v-else-if="call.recordingUrl && !canListenToRecordings"
+                          class="no-recording-hint"
+                          title="You don’t have permission to play recordings"
+                        >—</span>
                         <span v-else class="no-recording-hint" title="No recording available">—</span>
                         <button @click="callFromRecent(call)" class="manage-btn" aria-label="Call">
                           <span class="material-symbols-outlined">call</span>
@@ -340,7 +345,7 @@
                   </div>
                   <div class="card-footer">
                     <button
-                      v-if="call.recordingUrl"
+                      v-if="call.recordingUrl && canListenToRecordings"
                       @click="toggleRecording(call)"
                       :class="['card-action-btn play-recording-btn', { active: isPlayingRecording(call) }]"
                       :aria-label="isPlayingRecording(call) ? 'Stop' : 'Play'"
@@ -349,6 +354,12 @@
                         {{ isPlayingRecording(call) ? 'stop_circle' : 'play_circle' }}
                       </span>
                     </button>
+                    <span
+                      v-else-if="call.recordingUrl && !canListenToRecordings"
+                      class="card-action-btn no-recording-hint"
+                      title="You don’t have permission to play recordings"
+                      aria-hidden="true"
+                    >—</span>
                     <button @click="callFromRecent(call)" class="card-action-btn manage-btn" aria-label="Call">
                       <span class="material-symbols-outlined">call</span>
                     </button>
@@ -452,6 +463,8 @@ import axios from '../../axios';
 import LoadingSpinner from '../../components/LoadingSpinner.vue';
 import { useToast } from 'vue-toastification';
 import { saveCallHistory, getGatewayCalls, getGatewayCallsByDate, getGatewayCallsByDateRange } from '../../services/callHistoryApi';
+import { useAuthStore } from '../../Stores/useAuthStore';
+import { userCanListenToRecordings } from '../../utils/permissions';
 
 /** Timezone used for all Recents time/day display (Kenyan time). */
 const KENYA_TZ = 'Africa/Nairobi';
@@ -560,6 +573,10 @@ export default {
       } else {
         return this.callStatus ? this.callStatus.toUpperCase() : 'CALLING';
       }
+    },
+    canListenToRecordings() {
+      const auth = useAuthStore();
+      return userCanListenToRecordings(auth.roles || [], auth.priviledges || []);
     },
   },
   watch: {
@@ -3644,6 +3661,10 @@ export default {
       return this.playingRecordingId === this.getRecordingId(call);
     },
     toggleRecording(call) {
+      if (!this.canListenToRecordings) {
+        this.toast.error("You don't have permission to play recordings.");
+        return;
+      }
       if (!call?.recordingUrl) return;
       const id = this.getRecordingId(call);
       if (this.playingRecordingId === id) {
