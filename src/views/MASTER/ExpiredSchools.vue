@@ -327,6 +327,10 @@ export default {
         });
 
         const activationData = response.data;
+        if (!activationData) {
+          this.toast.info('No existing activation found for this school/module. You can create one now.');
+          return;
+        }
 
         // Populate the activation form with the correct data, including the correct module name
         this.activationForm = {
@@ -423,12 +427,8 @@ export default {
       this.Loading = true;
       try {
         const response = await axios.post('/activations/expired');
-        this.schools = response.data
-          .filter((school) => {
-            const expiryDate = new Date(school.expiryDate);
-            return expiryDate < new Date();
-          })
-          .map((school) => ({
+        const payload = Array.isArray(response.data) ? response.data : [];
+        this.schools = payload.map((school) => ({
             ...school,
             registeredByID: normalizeRegisteredById(school) ?? school.registeredByID ?? null,
             registeredByName:

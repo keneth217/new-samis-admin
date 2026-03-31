@@ -209,9 +209,9 @@ export default {
       registeredByID: null, // Store the logged-in user's ID
       registeredByName: '', // Display full name (read-only helper)
       registeredByUsername: '', // Login username for highlight (read-only)
-      handledByID: null,
-      handledByName: '',
-      handledByUsername: '',
+      updatedByID: null,
+      updatedByName: '',
+      updatedByUsername: '',
       marketerID: '', // Empty string for select dropdown
       schoolMotto: '',
       
@@ -292,8 +292,8 @@ export default {
       return n;
     },
     lastActionByDisplayText() {
-      const u = (this.handledByUsername || '').trim();
-      const n = (this.handledByName || '').trim();
+      const u = (this.updatedByUsername || '').trim();
+      const n = (this.updatedByName || '').trim();
       if (!u && !n) return 'N/A';
       if (u && n && n.toLowerCase() !== u.toLowerCase()) return `@${u}  —  ${n}`;
       if (u) return `@${u}`;
@@ -333,9 +333,9 @@ export default {
           this.registeredByID = normalizeRegisteredById(newSchool);
           this.registeredByName = normalizeRegisteredByName(newSchool) || '';
           this.registeredByUsername = '';
-          this.handledByID = newSchool.handledByID ?? newSchool.handledById ?? newSchool.handled_by_id ?? null;
-          this.handledByName = newSchool.handledByName ?? newSchool.handled_by_name ?? '';
-          this.handledByUsername = '';
+          this.updatedByID = newSchool.updatedByID ?? newSchool.updatedById ?? newSchool.updated_by_id ?? null;
+          this.updatedByName = newSchool.updatedByName ?? newSchool.updated_by_name ?? '';
+          this.updatedByUsername = '';
           this.$nextTick(() => this.syncRegisteredByUsernameFromUsers());
           // Handle marketerID - convert to string for select dropdown
           this.marketerID = (newSchool.marketerID !== null && newSchool.marketerID !== undefined) ? String(newSchool.marketerID) : '';
@@ -430,19 +430,38 @@ export default {
         }
       }
 
-      if (this.handledByID != null && this.handledByID !== '') {
+      if (this.updatedByID != null && this.updatedByID !== '') {
         const actor = this.users.find(
           (u) =>
-            String(u.id ?? u.userID) === String(this.handledByID) ||
-            Number(u.id ?? u.userID) === Number(this.handledByID)
+            String(u.id ?? u.userID) === String(this.updatedByID) ||
+            Number(u.id ?? u.userID) === Number(this.updatedByID)
         );
         if (actor) {
-          this.handledByUsername = (actor.username || '').trim();
-          if (!this.handledByName) {
-            this.handledByName = (actor.fullname || actor.username || '').trim();
+          this.updatedByUsername = (actor.username || '').trim();
+          if (!this.updatedByName) {
+            this.updatedByName = (actor.fullname || actor.username || '').trim();
           }
         }
       }
+    },
+
+    validateRequiredSchoolFields() {
+      const required = [
+        ['schoolCode', this.schoolCode],
+        ['schoolName', this.schoolName],
+        ['schoolLevel', this.schoolLevel],
+        ['principalName', this.principalName],
+        ['principalPhoneNo', this.principalPhoneNo],
+        ['county', this.county],
+        ['subcounty', this.subcounty],
+        ['email', this.email],
+        ['phoneNo', this.phoneNo],
+        ['address', this.address],
+      ];
+      const missing = required
+        .filter(([, v]) => !String(v ?? '').trim())
+        .map(([k]) => k);
+      return missing;
     },
 
     updateSubcounties() {
@@ -457,14 +476,13 @@ export default {
     async saveSchool() {
       const toast = useToast();
 
-      // Only School Name and School Code are required - allow registration with partial data
-      const schoolNameTrimmed = (this.schoolName || '').trim();
-      const schoolCodeTrimmed = (this.schoolCode || '').trim();
-
-      if (!schoolNameTrimmed || !schoolCodeTrimmed) {
-        toast.warning('School Name and School Code are required');
+      const missing = this.validateRequiredSchoolFields();
+      if (missing.length > 0) {
+        toast.warning(`Missing required fields: ${missing.join(', ')}`);
         return;
       }
+      const schoolNameTrimmed = (this.schoolName || '').trim();
+      const schoolCodeTrimmed = (this.schoolCode || '').trim();
 
       // Prepare form data - send empty string for fields not filled
       const formData = {
@@ -486,9 +504,8 @@ export default {
       formData.deanPhoneNo = (this.deanPhoneNo && this.deanPhoneNo.trim() !== '') ? this.deanPhoneNo.trim() : '';
       formData.schoolMotto = (this.schoolMotto && this.schoolMotto.trim() !== '') ? this.schoolMotto.trim() : '';
       
-      // On create: creator and current actor are the logged-in user.
+      // On create: registeredByID is optional but we send current user when available.
       formData.registeredByID = this.registeredByID || this.getCurrentUserId();
-      formData.handledByID = this.getCurrentUserId();
       
       // Include marketerID - send null if empty (numbers can be null)
       formData.marketerID = (this.marketerID && this.marketerID !== '') ? parseInt(this.marketerID) : null;
@@ -519,15 +536,14 @@ export default {
     async updateSchool() {
       const toast = useToast();
 
-      // Only School Name and School Code required - allow update with partial data
-      const schoolNameTrimmed = (this.schoolName || '').trim();
-      const schoolCodeTrimmed = (this.schoolCode || '').trim();
-
-      if (!schoolNameTrimmed || !schoolCodeTrimmed) {
-        toast.warning('School Name and School Code are required');
+      const missing = this.validateRequiredSchoolFields();
+      if (missing.length > 0) {
+        toast.warning(`Missing required fields: ${missing.join(', ')}`);
         this.Loading = false;
         return;
       }
+      const schoolNameTrimmed = (this.schoolName || '').trim();
+      const schoolCodeTrimmed = (this.schoolCode || '').trim();
 
       try {
         this.Loading = true;
@@ -535,7 +551,7 @@ export default {
         const formData = {
           schoolCode: schoolCodeTrimmed,
           schoolName: schoolNameTrimmed,
-          schoolLevel: (this.schoolLevel && this.schoolLevel.trim() !== '') ? this.schoolLevel.trim() : null,
+          schoolLevel: (this.schoolLevel && this.schoolLevel.trim() !== '') ? this.schoolLevel.trim() : '',
           principalName: (this.principalName && this.principalName.trim() !== '') ? this.principalName.trim() : '',
           principalPhoneNo: (this.principalPhoneNo && this.principalPhoneNo.trim() !== '') ? this.principalPhoneNo.trim() : '',
           county: (this.county && this.county.trim() !== '') ? this.county.trim() : '',
@@ -552,10 +568,8 @@ export default {
         formData.deanPhoneNo = (this.deanPhoneNo && this.deanPhoneNo.trim() !== '') ? this.deanPhoneNo.trim() : '';
         formData.schoolMotto = (this.schoolMotto && this.schoolMotto.trim() !== '') ? this.schoolMotto.trim() : '';
         
-        // Include registeredByID - always use the logged-in user's ID (or existing value in edit mode)
+        // Include registeredByID from record or current user (optional in API contract)
         formData.registeredByID = this.registeredByID || this.school?.registeredByID || null;
-        // Accountability: track who made the latest update/action on this school record.
-        formData.handledByID = this.getCurrentUserId();
         
         // Include marketerID - send null if empty (numbers can be null)
         if (this.marketerID && this.marketerID !== '') {
@@ -660,9 +674,9 @@ export default {
       this.registeredByID = null;
       this.registeredByName = '';
       this.registeredByUsername = '';
-      this.handledByID = null;
-      this.handledByName = '';
-      this.handledByUsername = '';
+      this.updatedByID = null;
+      this.updatedByName = '';
+      this.updatedByUsername = '';
       this.marketerID = ''; // Empty string for select dropdown
       this.schoolMotto = '';
       this.deleted = false;

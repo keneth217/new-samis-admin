@@ -9,18 +9,14 @@
 // Keep these aligned to the backend list_priviledges strings.
 const KNOWN_PRIVILEDGES = [
   "save school",
-  "register school",
   "edit school",
   "manage administration",
   "activate school",
-  "activate schools",
   "edit activation",
-  "edit activate",
   "save invoice",
   "save receipt",
   "view invoices",
   "view receipts",
-  "view schools",
   "send message",
   "make call",
   "view all call logs",
@@ -31,42 +27,6 @@ const KNOWN_PRIVILEDGES = [
 // For admin we recommend "all catalog privileges", not a hard-coded list.
 const BY_USERTYPE = {
   admin: null,
-  customer_care: [
-    "view invoices",
-    "view receipts",
-    "send message",
-    "make call",
-    "view all call logs",
-    "activate schools",
-    "register school",
-    "edit activate",
-  ],
-  support: [
-    "save school",
-    "edit school",
-    "activate school",
-    "edit activation",
-    "make call",
-    "view all call logs",
-    "listen to recordings",
-  ],
-  marketer: [
-    "send message",
-    "make call",
-    "view all call logs",
-    "view invoices",
-    "view receipts",
-  ],
-  installer: [
-    "make call",
-  ],
-  account: [
-    "save invoice",
-    "save receipt",
-    "view invoices",
-    "view receipts",
-    "view schools",
-  ],
   mod: [
     "save school",
     "edit school",
@@ -82,8 +42,7 @@ const BY_USERTYPE = {
     "view all call logs",
     "listen to recordings",
   ],
-  users: ["view invoices", "view receipts", "view schools"],
-  user: ["view invoices", "view receipts", "view schools"],
+  user: ["view invoices", "view receipts"],
 };
 
 /**
@@ -112,7 +71,7 @@ export function privilegesForUsertype(usertype, serverCatalog) {
   const type = String(usertype || "").trim().toLowerCase();
   const intended = Object.prototype.hasOwnProperty.call(BY_USERTYPE, type)
     ? BY_USERTYPE[type]
-    : BY_USERTYPE.users;
+    : BY_USERTYPE.user;
   const catalog =
     Array.isArray(serverCatalog) && serverCatalog.length > 0
       ? new Set(serverCatalog.map(String))

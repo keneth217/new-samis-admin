@@ -7,7 +7,15 @@
         <div class="header-container1">
           <h2>All Users</h2>
         </div>
-        <input v-model="searchQuery" placeholder="Search by name or code" class="search-input" />
+        <div class="search-controls">
+          <input v-model="searchQuery" placeholder="Search by name or code" class="search-input" />
+          <select v-model="usertypeFilter" class="search-usertype-select" @change="fetchUsers">
+            <option value="">All usertypes</option>
+            <option value="admin">admin</option>
+            <option value="mod">mod</option>
+            <option value="user">user</option>
+          </select>
+        </div>
       </div>
   
       <!-- Action Buttons -->
@@ -154,13 +162,8 @@
                 <label>User Type</label>
                 <select v-model="editForm.usertype" class="form-control">
                   <option value="admin">Admin</option>
-                  <option value="customer_care">Customer_care</option>
-                  <option value="support">Support</option>
-                  <option value="marketer">Marketer</option>
-                  <option value="installer">Installer</option>
-                  <option value="account">Account</option>
                   <option value="mod">Mod</option>
-                  <option value="users">User</option>
+                  <option value="user">User</option>
                 </select>
               </div>
             </div>
@@ -228,6 +231,7 @@ export default {
     return {
       show: false,
       searchQuery: '',
+      usertypeFilter: '',
       users: [],
       Loading: false,
       showEdit: false,
@@ -239,7 +243,7 @@ export default {
         username: '',
         email: '',
         phoneNo: '',
-        usertype: 'users',
+        usertype: 'user',
         priviledges: [],
       },
     };
@@ -301,7 +305,7 @@ export default {
         username: u.username || '',
         email: u.email || '',
         phoneNo: u.phoneNo || '',
-        usertype: (u.usertype || 'users').toString().trim().toLowerCase(),
+        usertype: (u.usertype || 'user').toString().trim().toLowerCase(),
         priviledges: Array.isArray(u.priviledges) ? [...u.priviledges] : [],
       };
       this.showEdit = true;
@@ -334,7 +338,7 @@ export default {
 
       this.savingEdit = true;
       try {
-        const usertypeNorm = String(this.editForm.usertype || 'users').trim().toLowerCase();
+        const usertypeNorm = String(this.editForm.usertype || 'user').trim().toLowerCase();
         const payload = {
           userID: this.editForm.userID,
           fullname: String(this.editForm.fullname || '').trim(),
@@ -396,9 +400,16 @@ export default {
 
       this.users = [];
       try {
-        const response = await axios.post('/auth/list_users', {});
+        const selectedType = String(this.usertypeFilter || '').trim().toLowerCase();
+        let response;
+        if (selectedType) {
+          response = await axios.post('/auth/list_users_by_usertype', { usertype: selectedType });
+        } else {
+          response = await axios.post('/auth/list_users', {});
+        }
+        const list = Array.isArray(response.data) ? response.data : [];
         // API returns: userID, username, fullname, phoneNo, email, usertype, role
-        this.users = response.data.map(user => ({
+        this.users = list.map(user => ({
           userID: user.userID, // API returns userID (not id)
           phoneNo: user.phoneNo,
           username: user.username,
@@ -412,12 +423,42 @@ export default {
               ? user.privileges
               : [],
         }));
+        const suffix = selectedType ? ` for usertype "${selectedType}"` : '';
         toast.success(this.users.length > 0
-          ? `Users have been fetched successfully! (${this.users.length} user${this.users.length === 1 ? '' : 's'})`
-          : 'Users have been fetched successfully! No users found.');
+          ? `Users have been fetched successfully${suffix}! (${this.users.length} user${this.users.length === 1 ? '' : 's'})`
+          : `Users have been fetched successfully${suffix}! No users found.`);
       } catch (error) {
-        console.error('Error fetching all users:', error);
-        toast.error('Failed to fetch users. Please try again.');
+        console.error('Error fetching users:', error);
+        // Fallback for older backend builds that may not have list_users_by_usertype yet.
+        if (this.usertypeFilter) {
+          try {
+            const response = await axios.post('/auth/list_users', {});
+            const list = Array.isArray(response.data) ? response.data : [];
+            const selectedType = String(this.usertypeFilter || '').trim().toLowerCase();
+            this.users = list
+              .filter((u) => String(u?.usertype || '').trim().toLowerCase() === selectedType)
+              .map(user => ({
+                userID: user.userID,
+                phoneNo: user.phoneNo,
+                username: user.username,
+                fullname: user.fullname,
+                email: user.email,
+                usertype: user.usertype,
+                role: user.role,
+                priviledges: Array.isArray(user.priviledges)
+                  ? user.priviledges
+                  : Array.isArray(user.privileges)
+                    ? user.privileges
+                    : [],
+              }));
+            toast.warning('Backend list_users_by_usertype unavailable; applied client-side filter using list_users.');
+          } catch (fallbackErr) {
+            console.error('Fallback list_users failed:', fallbackErr);
+            toast.error('Failed to fetch users. Please try again.');
+          }
+        } else {
+          toast.error('Failed to fetch users. Please try again.');
+        }
       } finally {
         this.Loading = false;
       }
@@ -521,6 +562,13 @@ export default {
   overflow: visible;
 }
 
+.search-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+}
+
 .search-input {
   padding: clamp(0.3rem, 1vw, 0.5rem);
   border-radius: 5px;
@@ -533,7 +581,23 @@ export default {
   margin-left: 1rem;
 }
 
+.search-usertype-select {
+  padding: clamp(0.3rem, 1vw, 0.5rem);
+  border-radius: 5px;
+  border: 2px solid #2b7ab7;
+  outline: none;
+  font-size: clamp(0.85rem, 1.5vw, 1rem);
+  min-width: 145px;
+  background: #fff;
+  color: #333;
+}
+
 .search-input:focus {
+  border-color: #1e6192;
+  box-shadow: 0 0 0 2px rgba(43, 122, 183, 0.2);
+}
+
+.search-usertype-select:focus {
   border-color: #1e6192;
   box-shadow: 0 0 0 2px rgba(43, 122, 183, 0.2);
 }
@@ -980,9 +1044,18 @@ export default {
     align-items: stretch;
   }
 
+  .search-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
   .search-input {
     width: 100%;
     margin-left: 0;
+  }
+
+  .search-usertype-select {
+    width: 100%;
   }
 
   .table-container {

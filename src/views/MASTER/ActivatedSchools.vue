@@ -228,9 +228,8 @@
                 id="activationMarketerSelect"
                 v-model="activationData.marketerID"
                 class="activation-form-control"
-                required
               >
-                <option value="" disabled>Select Marketer*</option>
+                <option value="" disabled>Select Marketer (Optional)</option>
                 <option 
                   v-for="user in users" 
                   :key="user.id" 
@@ -239,7 +238,7 @@
                   {{ user.fullname || user.username }}
                 </option>
               </select>
-              <label for="activationMarketerSelect" :class="{ filled: activationData.marketerID !== '' && activationData.marketerID !== null }">Select Marketer*</label>
+              <label for="activationMarketerSelect" :class="{ filled: activationData.marketerID !== '' && activationData.marketerID !== null }">Select Marketer (Optional)</label>
             </div>
 
             <div class="activation-form-group">
@@ -685,7 +684,7 @@ export default {
   this.Loading = true;
   const toast = useToast();
   try {
-    const response = await axios.post('/activations/list', {});
+    const response = await axios.post('/activations/active', {});
     console.log("API Response:", response.data); // Log the response
 
     const payload = Array.isArray(response.data) ? response.data : [response.data];
@@ -700,8 +699,10 @@ export default {
         expiryDate: school.expiryDate || 'N/A',
         registeredByID: school.registeredByID || null,
         registeredByName: school.registeredByName || 'N/A',
-        handledByID: school.handledByID || null,
-        handledByName: school.handledByName || 'N/A',
+        handledByID: school.handledByID || school.updatedByID || null,
+        handledByName: school.updatedByName || school.handledByName || 'N/A',
+        updatedByID: school.updatedByID || null,
+        updatedByName: school.updatedByName || 'N/A',
         marketerName: school.marketerName || 'N/A',
         sellingPrice: school.sellingPrice || 0,
         maintenanceFee: school.maintenanceFee || 0,
@@ -719,15 +720,7 @@ export default {
       return mapped;
     });
 
-    // Exclude expired activations - they belong in Expired Schools, not Activated Schools
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    this.schools = mappedList.filter(activation => {
-      const expiryVal = activation.expiryDate;
-      if (!expiryVal || expiryVal === 'N/A') return true;
-      const expiry = new Date(expiryVal);
-      return !isNaN(expiry.getTime()) && expiry >= today;
-    });
+    this.schools = mappedList;
 
     console.log("Schools Data (active activations only, expired excluded):", this.schools);
     console.log("Total activations fetched:", this.schools.length);
@@ -832,10 +825,13 @@ export default {
         this.Loading = false;
         return;
       }
-
-      // Validate mandatory marketer field
-      if (!this.activationData.marketerID) {
-        toast.error("Marketer is a required field.");
+      if (!this.activationData.maintenanceFee || isNaN(parseFloat(this.activationData.maintenanceFee))) {
+        toast.error("Please enter a valid maintenance fee.");
+        this.Loading = false;
+        return;
+      }
+      if (!this.activationData.sellingPrice || isNaN(parseFloat(this.activationData.sellingPrice))) {
+        toast.error("Please enter a valid selling price.");
         this.Loading = false;
         return;
       }
@@ -854,11 +850,13 @@ export default {
           schoolCode: this.activationData.schoolCode,
           moduleName: this.activationData.moduleName,
           expiryDate: this.activationData.expiryDate,
-          maintenanceFee: this.activationData.maintenanceFee || null,
-          sellingPrice: this.activationData.sellingPrice || null,
-          marketerID: this.activationData.marketerID,
+          maintenanceFee: this.activationData.maintenanceFee ? parseFloat(this.activationData.maintenanceFee) : null,
+          sellingPrice: this.activationData.sellingPrice ? parseFloat(this.activationData.sellingPrice) : null,
           handledByID: this.getCurrentUserId(),
         };
+        if (this.activationData.marketerID && !isNaN(parseInt(this.activationData.marketerID, 10))) {
+          payload.marketerID = parseInt(this.activationData.marketerID, 10);
+        }
 
         const response = await axios.post('/activations/activate', payload, config);
 
