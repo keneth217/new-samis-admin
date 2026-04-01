@@ -28,6 +28,18 @@ function pickPriviledgesFromPayload(data) {
   return Array.isArray(p) ? p.map(String) : [];
 }
 
+function pickRolesFromPayload(data) {
+  const fromRoles = data?.roles;
+  if (Array.isArray(fromRoles)) return fromRoles.map(String);
+  if (typeof fromRoles === "string" && fromRoles.trim()) return [fromRoles.trim()];
+
+  const fromRole = data?.role;
+  if (Array.isArray(fromRole)) return fromRole.map(String);
+  if (typeof fromRole === "string" && fromRole.trim()) return [fromRole.trim()];
+
+  return [];
+}
+
 async function hydratePriviledgesFromListUsers(storage) {
   try {
     const userId = storage.getItem("userId");
@@ -143,7 +155,7 @@ export const useAuthStore = defineStore("auth", () => {
       const receivedPhoneNo = data?.phoneNo;
       const receivedUsername = data?.username;
       const receivedFullname = data?.fullname;
-      const receivedRoles = Array.isArray(data?.roles) ? data.roles : [];
+      const receivedRoles = pickRolesFromPayload(data);
 
       // Use localStorage for "remember me" (persist across tabs/close), sessionStorage otherwise (this tab only)
       const storage = rememberMe ? localStorage : sessionStorage;

@@ -42,7 +42,7 @@ const BY_USERTYPE = {
     "view all call logs",
     "listen to recordings",
   ],
-  user: ["view invoices", "view receipts"],
+  user: ["view invoices", "view receipts", "send message", "make call"],
 };
 
 /**
